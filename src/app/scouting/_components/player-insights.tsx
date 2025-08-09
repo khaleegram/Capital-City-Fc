@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react"
 import { Loader2, Sparkles } from "lucide-react"
 import { answerPlayerQuestion } from "@/ai/flows/answer-player-questions"
-import { newsArticles, Player } from "@/lib/data"
+import { NewsArticle, Player } from "@/lib/data"
 import { collection, onSnapshot, query } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 
@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast"
 
 export function PlayerInsights() {
   const [players, setPlayers] = useState<Player[]>([])
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("")
   const [question, setQuestion] = useState("")
   const [answer, setAnswer] = useState("")
@@ -37,15 +38,28 @@ export function PlayerInsights() {
   const { toast } = useToast()
 
    useEffect(() => {
-    const q = query(collection(db, "players"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const playersQuery = query(collection(db, "players"));
+    const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
       const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
       setPlayers(playersData);
     }, (error) => {
       console.error("Error fetching players:", error);
       toast({ variant: "destructive", title: "Error", description: "Could not fetch players for scouting."})
     });
-    return () => unsubscribe();
+
+    const newsQuery = query(collection(db, "news"));
+    const newsUnsubscribe = onSnapshot(newsQuery, (snapshot) => {
+        const articlesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
+        setNewsArticles(articlesData);
+    }, (error) => {
+        console.error("Error fetching news:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not fetch news articles for scouting."})
+    });
+
+    return () => {
+        playersUnsubscribe();
+        newsUnsubscribe();
+    };
   }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,13 +75,13 @@ export function PlayerInsights() {
       return
     }
 
-    // In a real app, you would fetch relevant news articles for the player
     const playerProfile = `Name: ${player.name}, Position: ${
       player.position
     }, Bio: ${player.bio}, Stats: ${JSON.stringify(player.stats)}`
+    
     const relevantNews = newsArticles
-      .map((article) => article.content)
-      .join("\n\n")
+      .map((article) => `Headline: ${article.headline}\nContent: ${article.content}`)
+      .join("\n\n---\n\n")
 
     try {
       const result = await answerPlayerQuestion({
