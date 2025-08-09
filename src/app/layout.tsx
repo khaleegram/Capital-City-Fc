@@ -7,6 +7,7 @@ import { Providers } from '@/components/providers';
 export const metadata: Metadata = {
   title: 'Capital City Hub',
   description: 'The central hub for Capital City FC.',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -20,6 +21,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+        <meta name="theme-color" content="#A30A2B" />
       </head>
       <body className="font-body antialiased">
         <Providers>
