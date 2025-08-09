@@ -29,10 +29,20 @@ export type NewsArticle = {
 export type Video = {
   id: string;
   title: string;
+  description: string;
+  videoUrl: string;
   thumbnailUrl: string;
-  duration: string;
-  taggedPlayerIds: string[];
+  uploadDate: Timestamp;
+  taggedPlayers: { id: string; name: string }[]; // For easy display
 };
+
+export type PlayerVideoTag = {
+  id: string;
+  playerId: string;
+  videoId: string;
+  taggedAt: Timestamp;
+};
+
 
 export const newsArticles: NewsArticle[] = [
   {
@@ -52,37 +62,3 @@ export const newsArticles: NewsArticle[] = [
     tags: ["Marco Jensen", "Win", "Assists", "Man of the Match"],
   },
 ];
-
-export const videos: Video[] = [
-  {
-    id: "1",
-    title: "All Goals: Leo Rivera's 2023/24 Season",
-    thumbnailUrl: "https://placehold.co/400x225.png",
-    duration: "12:34",
-    taggedPlayerIds: ["1"],
-  },
-  {
-    id: "2",
-    title: "Defensive Highlights: Sofia Cruz Masterclass",
-    thumbnailUrl: "https://placehold.co/400x225.png",
-    duration: "08:52",
-    taggedPlayerIds: ["3"],
-  },
-  {
-    id: "3",
-    title: "Top 5 Saves: Alex Chen's Best Moments",
-    thumbnailUrl: "https://placehold.co/400x225.png",
-    duration: "05:15",
-    taggedPlayerIds: ["4"],
-  },
-   {
-    id: "4",
-    title: "Derby Day Highlights: Capital City vs. Rivals",
-    thumbnailUrl: "https://placehold.co/400x225.png",
-    duration: "10:02",
-    taggedPlayerIds: ["1", "2", "3", "4"],
-  },
-];
-
-
-export const getVideosByPlayerId = (playerId: string) => videos.filter(v => v.taggedPlayerIds.includes(playerId));

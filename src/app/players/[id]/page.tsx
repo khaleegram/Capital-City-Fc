@@ -5,9 +5,9 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { doc, onSnapshot } from "firebase/firestore"
+import { doc, onSnapshot, collection, query, where, getDocs } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { getVideosByPlayerId, Player } from "@/lib/data"
+import { Player, Video } from "@/lib/data"
 
 import { BarChart2, Clapperboard, Medal, User, Loader2 } from "lucide-react"
 
@@ -18,22 +18,29 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 
 export default function PlayerProfilePage({ params }: { params: { id: string } }) {
   const [player, setPlayer] = useState<Player | null>(null);
+  const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVideosLoading, setIsVideosLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!params.id) return;
-    const docRef = doc(db, "players", params.id);
-    const unsubscribe = onSnapshot(docRef, (doc) => {
+
+    // Fetch Player Data
+    const playerDocRef = doc(db, "players", params.id);
+    const unsubscribePlayer = onSnapshot(playerDocRef, (doc) => {
       if (doc.exists()) {
         setPlayer({ id: doc.id, ...doc.data() } as Player);
       } else {
-        setPlayer(null); // Or handle as not found
+        setPlayer(null);
       }
       setIsLoading(false);
     }, (error) => {
@@ -41,8 +48,34 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
         setIsLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [params.id]);
+    // Fetch Player's Videos
+    const fetchPlayerVideos = async () => {
+      setIsVideosLoading(true);
+      try {
+        const tagsQuery = query(collection(db, "playerVideos"), where("playerId", "==", params.id));
+        const tagsSnapshot = await getDocs(tagsQuery);
+        const videoIds = tagsSnapshot.docs.map(doc => doc.data().videoId);
+
+        if (videoIds.length > 0) {
+          const videosQuery = query(collection(db, "videos"), where("__name__", "in", videoIds));
+          const videosSnapshot = await getDocs(videosQuery);
+          const videosData = videosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
+          setVideos(videosData);
+        } else {
+          setVideos([]);
+        }
+      } catch (error) {
+          console.error("Error fetching player videos:", error);
+          toast({ variant: "destructive", title: "Error", description: "Could not fetch player videos."})
+      } finally {
+        setIsVideosLoading(false);
+      }
+    };
+
+    fetchPlayerVideos();
+
+    return () => unsubscribePlayer();
+  }, [params.id, toast]);
 
 
   if (isLoading) {
@@ -56,8 +89,6 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
   if (!player) {
     notFound()
   }
-
-  const playerVideos = getVideosByPlayerId(params.id)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -87,7 +118,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
               <p>{player.bio}</p>
               <h3 className="font-headline text-lg font-semibold mt-6 mb-2 flex items-center gap-2"><Medal className="text-accent" />Career Highlights</h3>
               <ul className="list-disc pl-5 space-y-1">
-                {player.careerHighlights.map((highlight, index) => (
+                {player.careerHighlights && player.careerHighlights.map((highlight, index) => (
                   <li key={index}>{highlight}</li>
                 ))}
               </ul>
@@ -121,17 +152,21 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
               </div>
             </TabsContent>
             <TabsContent value="videos">
-              {playerVideos.length > 0 ? (
+              {isVideosLoading ? (
+                 <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                 </div>
+              ) : videos.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {playerVideos.map((video) => (
-                     <Link href="/videos" key={video.id}>
+                  {videos.map((video) => (
+                     <Link href={`/videos`} key={video.id}>
                       <Card className="overflow-hidden hover:shadow-lg transition-shadow">
                         <div className="relative aspect-video">
-                           <Image src={video.thumbnailUrl} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
-                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded-sm">{video.duration}</div>
+                           <Image src={video.thumbnailUrl || 'https://placehold.co/400x225.png'} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
                         </div>
                         <CardHeader className="p-3">
                           <CardTitle className="text-base font-semibold truncate">{video.title}</CardTitle>
+                          <CardDescription className="text-xs">{new Date(video.uploadDate.seconds * 1000).toLocaleDateString()}</CardDescription>
                         </CardHeader>
                       </Card>
                     </Link>
