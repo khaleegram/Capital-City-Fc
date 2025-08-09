@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useState } from "react"
-import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags } from "lucide-react"
+import { useState, KeyboardEvent } from "react"
+import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X } from "lucide-react"
 import { generateNewsArticle } from "@/ai/flows/generate-news-article"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
 import { useToast } from "@/hooks/use-toast"
@@ -12,6 +12,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Separator } from "@/components/ui/separator"
 
 interface NewsEditorProps {
   onPublish: (article: { headline: string; content: string; tags: string[] }) => void
@@ -22,6 +24,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
   const [articleContent, setArticleContent] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [suggestedTags, setSuggestedTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState("")
   
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
   const [isSuggestingTags, setIsSuggestingTags] = useState(false)
@@ -54,7 +57,6 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
   const handleSuggestTags = async () => {
     if (!articleContent.trim()) return
     setIsSuggestingTags(true)
-    setSuggestedTags([])
     setIsEditing(false) // Lock editing while suggesting tags
     try {
       const result = await suggestNewsTags({ articleContent })
@@ -73,8 +75,8 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
 
   const handlePublish = () => {
     const lines = articleContent.split('\n');
-    const headline = lines[0] || "Untitled Article";
-    const content = lines.slice(1).join('\n').trim();
+    const headline = lines.find(line => line.trim() !== '') || "Untitled Article"
+    const content = lines.slice(lines.indexOf(headline) + 1).join('\n').trim();
 
     onPublish({ headline, content, tags: suggestedTags });
     
@@ -91,12 +93,32 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setIsEditing(false);
   }
 
+  const handleAddTag = () => {
+    if (tagInput.trim() && !suggestedTags.includes(tagInput.trim())) {
+      setSuggestedTags([...suggestedTags, tagInput.trim()]);
+      setTagInput("");
+    }
+  };
+
+  const handleTagInputKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddTag();
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setSuggestedTags(suggestedTags.filter(tag => tag !== tagToRemove));
+  };
+
   const isLoading = isGeneratingArticle || isSuggestingTags;
+  const showArticleEditor = isGeneratingArticle || articleContent;
+  const showTagSection = isSuggestingTags || suggestedTags.length > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
-        <Label htmlFor="bullet-points" className="font-semibold">
+        <Label htmlFor="bullet-points" className="font-semibold text-base">
           Step 1: Enter Bullet Points
         </Label>
         <Textarea
@@ -107,88 +129,113 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
           className="mt-2 min-h-[120px]"
           disabled={isLoading || !!articleContent}
         />
-      </div>
-      
-      <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={handleGenerate} disabled={isLoading || !bulletPoints.trim() || !!articleContent}>
-          {isGeneratingArticle ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Wand2 className="mr-2 h-4 w-4" />
-          )}
-          Generate Article
-        </Button>
-        
-        {articleContent && !isEditing && !isSuggestingTags && suggestedTags.length === 0 && (
-          <Button onClick={() => setIsEditing(true)}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Article
-          </Button>
-        )}
-        
-        {articleContent && isEditing && (
-          <Button onClick={handleSuggestTags} disabled={isSuggestingTags}>
-            {isSuggestingTags ? (
+         <div className="mt-4">
+          <Button onClick={handleGenerate} disabled={isLoading || !bulletPoints.trim() || !!articleContent}>
+            {isGeneratingArticle ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <Tags className="mr-2 h-4 w-4" />
+              <Wand2 className="mr-2 h-4 w-4" />
             )}
-            Save and Suggest Tags
+            Generate Article
           </Button>
-        )}
-
-        {suggestedTags.length > 0 && !isLoading && (
-          <Button onClick={handlePublish}>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Publish
-          </Button>
-        )}
-      </div>
-
-      {(isGeneratingArticle || articleContent) && (
-        <div>
-          <Label htmlFor="article-content" className="font-semibold mt-6 mb-2 block">
-            Step 2: Edit & Finalize Article
-          </Label>
-           <Card className="mt-2 bg-muted">
-            <CardContent className="p-4">
-               {isGeneratingArticle ? (
-                  <div className="flex items-center space-x-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin"/>
-                      <span>Generating article...</span>
-                  </div>
-              ) : (
-                <Textarea
-                  id="article-content"
-                  value={articleContent}
-                  onChange={(e) => setArticleContent(e.target.value)}
-                  readOnly={!isEditing || isSuggestingTags}
-                  className="min-h-[250px] bg-background"
-                />
-              )}
-            </CardContent>
-          </Card>
         </div>
+      </div>
+      
+      {showArticleEditor && (
+        <>
+          <Separator />
+          <div>
+            <Label htmlFor="article-content" className="font-semibold text-base mt-6 mb-2 block">
+              Step 2: Edit & Finalize Article
+            </Label>
+             <Card className="mt-2 border-none shadow-none bg-muted">
+              <CardContent className="p-4">
+                 {isGeneratingArticle ? (
+                    <div className="flex items-center space-x-2 text-muted-foreground min-h-[250px]">
+                        <Loader2 className="h-4 w-4 animate-spin"/>
+                        <span>Generating article...</span>
+                    </div>
+                ) : (
+                  <Textarea
+                    id="article-content"
+                    value={articleContent}
+                    onChange={(e) => setArticleContent(e.target.value)}
+                    readOnly={!isEditing || isSuggestingTags}
+                    className="min-h-[250px] bg-background"
+                  />
+                )}
+              </CardContent>
+            </Card>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {!isEditing && !isSuggestingTags && suggestedTags.length === 0 && (
+                <Button onClick={() => setIsEditing(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit Article
+                </Button>
+              )}
+              {isEditing && (
+                <Button onClick={handleSuggestTags} disabled={isSuggestingTags}>
+                  {isSuggestingTags ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save and Suggest Tags
+                </Button>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
-      {(isSuggestingTags || suggestedTags.length > 0) && (
-         <div>
-          <h3 className="font-headline text-lg font-semibold mt-6 mb-2">Step 3: Suggested Tags</h3>
-           {isSuggestingTags ? (
-             <div className="flex items-center space-x-2 text-muted-foreground">
-                 <Loader2 className="h-4 w-4 animate-spin"/>
-                 <span>Suggesting tags...</span>
-             </div>
-           ) : (
-            <div className="flex flex-wrap gap-2">
-              {suggestedTags.map((tag, index) => (
-                <Badge key={index} variant="secondary" className="text-sm">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-           )}
-        </div>
+      {showTagSection && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="font-semibold text-base mt-6 mb-2">Step 3: Add or Remove Tags</h3>
+            {isSuggestingTags ? (
+              <div className="flex items-center space-x-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin"/>
+                  <span>Suggesting tags...</span>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2 p-2 rounded-md bg-muted min-h-[40px] items-center">
+                  {suggestedTags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-sm py-1 pl-3 pr-2">
+                      {tag}
+                      <button onClick={() => handleRemoveTag(tag)} className="ml-2 rounded-full hover:bg-muted-foreground/20 p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2 mt-4">
+                   <Input
+                    type="text"
+                    placeholder="Add a custom tag..."
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagInputKeyDown}
+                  />
+                  <Button onClick={handleAddTag} variant="outline">Add Tag</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+      
+      {suggestedTags.length > 0 && !isLoading && (
+        <>
+          <Separator />
+          <div className="flex justify-end">
+            <Button onClick={handlePublish} size="lg">
+              <CheckCircle className="mr-2 h-5 w-5" />
+              Publish Article
+            </Button>
+          </div>
+        </>
       )}
     </div>
   )

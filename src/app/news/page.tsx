@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { NewsEditor } from "./_components/news-editor"
 import { Separator } from "@/components/ui/separator"
-import { newsArticles } from "@/lib/data"
+import { newsArticles as initialArticlesData } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
 
 type PublishedArticle = {
@@ -28,7 +28,7 @@ export default function NewsPage() {
     setPublishedArticles([newArticle, ...publishedArticles]);
   };
 
-  const initialArticles = newsArticles.map(a => ({...a, id: `initial-${a.id}`}))
+  const initialArticles = initialArticlesData.map(a => ({...a, id: `initial-${a.id}`}))
 
   const allArticles = [...publishedArticles, ...initialArticles];
 
@@ -62,9 +62,9 @@ export default function NewsPage() {
                    <CardDescription>{article.date}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-3">{article.content}</p>
+                  <p className="text-sm text-foreground whitespace-pre-line">{article.content}</p>
                    {article.tags && article.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 pt-4 border-t">
                       {article.tags.map((tag, index) => (
                         <Badge key={index} variant="secondary">{tag}</Badge>
                       ))}
