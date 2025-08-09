@@ -10,11 +10,36 @@ import { MonthlyGoalChart } from "./_components/monthly-goal-chart"
 import { useAuth } from "@/hooks/use-auth"
 import { NewsArticle, Player } from "@/lib/data"
 import { useState, useEffect } from "react"
-import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore"
+import { collection, onSnapshot, query, orderBy, limit, getCountFromServer } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 function AdminDashboard() {
+  const [playerCount, setPlayerCount] = useState(0);
+  const [newsCount, setNewsCount] = useState(0);
+  const [recentNews, setRecentNews] = useState<NewsArticle[]>([]);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const playersColl = collection(db, "players");
+      const newsColl = collection(db, "news");
+      const playersSnapshot = await getCountFromServer(playersColl);
+      const newsSnapshot = await getCountFromServer(newsColl);
+      setPlayerCount(playersSnapshot.data().count);
+      setNewsCount(newsSnapshot.data().count);
+    };
+
+    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"), limit(3));
+    const newsUnsubscribe = onSnapshot(newsQuery, (snapshot) => {
+      const newsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
+      setRecentNews(newsData);
+    });
+
+    fetchCounts();
+    return () => newsUnsubscribe();
+  }, []);
+
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -24,8 +49,8 @@ function AdminDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">42</div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
+            <div className="text-2xl font-bold">{playerCount}</div>
+            <p className="text-xs text-muted-foreground">Total players on roster</p>
           </CardContent>
         </Card>
         <Card>
@@ -34,8 +59,8 @@ function AdminDashboard() {
             <Newspaper className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">125</div>
-            <p className="text-xs text-muted-foreground">+15 this week</p>
+            <div className="text-2xl font-bold">{newsCount}</div>
+            <p className="text-xs text-muted-foreground">Total articles published</p>
           </CardContent>
         </Card>
         <Card>
@@ -67,35 +92,23 @@ function AdminDashboard() {
             <CardTitle className="font-headline">Recent News</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-4">
-                <div className="flex-1">
-                  <h3 className="font-semibold">Capital City Triumphs in Derby</h3>
-                  <p className="text-sm text-muted-foreground">A thrilling 2-1 victory against our rivals...</p>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/news">Read</Link>
-                </Button>
-              </li>
-              <li className="flex items-start gap-4">
-                <div className="flex-1">
-                  <h3 className="font-semibold">Star Striker Signs Extension</h3>
-                  <p className="text-sm text-muted-foreground">Leo Rivera commits to three more years...</p>
-                </div>
-                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/news">Read</Link>
-                </Button>
-              </li>
-              <li className="flex items-start gap-4">
-                <div className="flex-1">
-                  <h3 className="font-semibold">Youth Academy Promotions</h3>
-                  <p className="text-sm text-muted-foreground">Three promising talents join the first team...</p>
-                </div>
-                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/news">Read</Link>
-                </Button>
-              </li>
-            </ul>
+            {recentNews.length > 0 ? (
+                <ul className="space-y-4">
+                {recentNews.map(article => (
+                    <li key={article.id} className="flex items-start gap-4">
+                        <div className="flex-1">
+                        <h3 className="font-semibold line-clamp-1">{article.headline}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-2">{article.content}</p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href="/news">Read</Link>
+                        </Button>
+                    </li>
+                ))}
+                </ul>
+            ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No recent news.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -226,5 +239,7 @@ export default function HomePage() {
 
   return user ? <AdminDashboard /> : <PublicLandingPage />;
 }
+
+    
 
     
