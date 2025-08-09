@@ -90,14 +90,14 @@ export function FixtureForm() {
                 preview: editedPreview,
                 tags: generatedContent.tags,
             })
-            toast({ title: "Success", description: "Fixture has been published." })
+            toast({ title: "Success", description: "Fixture has been created." })
             reset()
             setGeneratedContent(null)
             setEditedPreview("")
             setIsOpen(false)
         } catch (error) {
             console.error(error)
-            toast({ variant: "destructive", title: "Error", description: "Failed to publish fixture."})
+            toast({ variant: "destructive", title: "Error", description: "Failed to create fixture."})
         } finally {
             setIsSubmitting(false)
         }
@@ -112,7 +112,7 @@ export function FixtureForm() {
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle className="font-headline">Add New Fixture</DialogTitle>
-                        <DialogDescription>Enter fixture details to generate a match preview.</DialogDescription>
+                        <DialogDescription>Enter fixture details and generate a match preview article.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

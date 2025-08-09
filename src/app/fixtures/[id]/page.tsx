@@ -69,22 +69,22 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="flex items-center justify-between">
-                     <div className="flex items-center gap-4">
-                         <Avatar className="h-16 w-16">
+                <CardContent className="flex items-center justify-center text-center">
+                    <div className="flex-1 flex items-center justify-end gap-4">
+                        <CardTitle className="font-headline text-3xl">Capital City FC</CardTitle>
+                        <Avatar className="h-16 w-16">
                             <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
                             <AvatarFallback>CC</AvatarFallback>
                         </Avatar>
-                        <CardTitle className="font-headline text-3xl">Capital City FC</CardTitle>
                     </div>
-                     <div className="text-center">
-                        <span className="text-4xl font-bold mx-4">vs</span>
+                    <div className="px-8">
+                        <span className="text-4xl font-bold">vs</span>
                     </div>
-                    <div className="flex items-center gap-4">
-                        <CardTitle className="font-headline text-3xl text-right">{fixture.opponent}</CardTitle>
+                    <div className="flex-1 flex items-center justify-start gap-4">
                         <Avatar className="h-16 w-16">
                             <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
+                        <CardTitle className="font-headline text-3xl">{fixture.opponent}</CardTitle>
                     </div>
                 </CardContent>
             </Card>
