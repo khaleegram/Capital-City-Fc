@@ -103,7 +103,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
                 </CardContent>
             </Card>
 
-            <LiveUpdateForm fixture={fixture} />
+            {fixture.status === 'LIVE' && <LiveUpdateForm fixture={fixture} />}
 
             <Separator />
             
