@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, UploadCloud, Video, X } from "lucide-react"
+import { Loader2, UploadCloud, Video, X, FileVideo } from "lucide-react"
 
 import {
   Command,
@@ -38,8 +38,8 @@ import { Badge } from "@/components/ui/badge"
 const videoSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
-  video: z.any().refine(file => file?.length == 1, "Video is required."),
-  thumbnail: z.any().refine(file => file?.length == 1, "Thumbnail is required."),
+  video: z.any().refine((files) => files?.length === 1, "Video is required."),
+  thumbnail: z.any().refine((files) => files?.length === 1, "Thumbnail is required."),
   taggedPlayerIds: z.array(z.string()).optional(),
 })
 
@@ -98,6 +98,9 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     setValue("taggedPlayerIds", selectedPlayers.map(p => p.id));
   }, [selectedPlayers, setValue])
 
+  const videoFile = watch("video");
+  const selectedVideoName = videoFile && videoFile[0] ? videoFile[0].name : null;
+
 
   const onSubmit = async (data: VideoFormData) => {
     setIsSubmitting(true)
@@ -150,9 +153,18 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
                     <div>
                         <Label>Video File</Label>
                         <div className="relative mt-1 block w-full appearance-none rounded-md border border-dashed border-input bg-background px-3 py-10 text-center text-sm transition focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 hover:border-primary/50">
-                            <Video className="mx-auto h-10 w-10 text-muted-foreground" />
-                            <span className="mt-2 block font-medium text-foreground">Click to upload a video</span>
-                            <Input id="video" type="file" accept="video/*" className="absolute inset-0 h-full w-full opacity-0" {...register("video")} />
+                            {selectedVideoName ? (
+                                <>
+                                  <FileVideo className="mx-auto h-10 w-10 text-primary" />
+                                  <span className="mt-2 block font-medium text-foreground truncate">{selectedVideoName}</span>
+                                </>
+                            ) : (
+                                <>
+                                   <Video className="mx-auto h-10 w-10 text-muted-foreground" />
+                                   <span className="mt-2 block font-medium text-foreground">Click to upload a video</span>
+                                </>
+                            )}
+                            <Input id="video" type="file" accept="video/*" className="absolute inset-0 h-full w-full opacity-0 cursor-pointer" {...register("video")} />
                         </div>
                         {errors.video && <p className="text-sm text-destructive mt-1">{(errors.video.message as string)}</p>}
                     </div>
