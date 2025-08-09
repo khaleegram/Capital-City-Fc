@@ -1,16 +1,20 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { ChevronRight, PanelLeft } from "lucide-react"
+import { ChevronRight, LogOut, PanelLeft } from "lucide-react"
 
 import { useSidebar } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import React from "react"
+import { useAuth } from "@/hooks/use-auth"
+import { auth } from "@/lib/firebase"
+import { LoginDialog } from "./login-dialog"
 
 export function DashboardHeader() {
   const { toggleSidebar } = useSidebar()
   const pathname = usePathname()
+  const { user } = useAuth()
 
   const breadcrumbs = React.useMemo(() => {
     const pathParts = pathname.split('/').filter(part => part);
@@ -47,6 +51,16 @@ export function DashboardHeader() {
             </Link>
           </React.Fragment>
         ))}
+      </div>
+      <div className="ml-auto">
+        {user ? (
+          <Button variant="outline" onClick={() => auth.signOut()}>
+            <LogOut className="mr-2" />
+            Logout
+          </Button>
+        ) : (
+          <LoginDialog />
+        )}
       </div>
     </header>
   )
