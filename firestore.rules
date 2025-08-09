@@ -1,12 +1,31 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read-only access to player profiles
-    // Admins can create, update, and delete profiles
+    
+    // Players Collection:
+    // - Public users can read player profiles.
+    // - Only authenticated admins can create, update, or delete.
     match /players/{playerId} {
       allow read: if true;
       allow write: if request.auth != null;
+    }
+
+    // Videos Collection:
+    // - Public users can read video metadata.
+    // - Only authenticated admins can create, update, or delete.
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // PlayerVideos Junction Collection:
+    // - Public users can read the links between players and videos.
+    // - Only authenticated admins can create or delete these links.
+    match /playerVideos/{tagId} {
+        allow read: if true;
+        allow write: if request.auth != null;
     }
   }
 }
