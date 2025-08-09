@@ -51,7 +51,7 @@ function FixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: 
                             <span className="font-bold text-lg font-headline">{teamProfile.name}</span>
                         </div>
                         <div className="text-center px-4">
-                            <span className="font-bold text-2xl">{fixture.status === 'UPCOMING' ? 'vs' : `${fixture.score.home} - ${fixture.score.away}`}</span>
+                            <span className="font-bold text-2xl">{fixture.status === 'UPCOMING' || !fixture.score ? 'vs' : `${fixture.score.home} - ${fixture.score.away}`}</span>
                         </div>
                         <div className="flex items-center gap-3 flex-1 justify-end">
                             <span className="font-bold text-lg font-headline text-right">{fixture.opponent}</span>
