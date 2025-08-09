@@ -13,6 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { Icons } from "@/components/icons"
@@ -27,8 +28,9 @@ const menuItems = [
   { href: "/scouting", label: "Scouting", icon: Search, tooltip: "Scouting" },
 ];
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { setOpenMobile } = useSidebar()
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -37,11 +39,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return pathname.startsWith(href)
   }
 
+  const handleLinkClick = () => {
+    setOpenMobile(false)
+  }
+
   return (
-    <SidebarProvider>
+    <>
       <Sidebar collapsible="icon">
         <SidebarHeader className="p-4">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" onClick={handleLinkClick} className="flex items-center gap-2.5">
             <Icons.logo className="size-7 text-primary" />
             <h1 className="text-xl font-headline font-semibold text-primary group-data-[collapsible=icon]:hidden">
               Capital City Hub
@@ -52,7 +58,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
+                <Link href={item.href} onClick={handleLinkClick}>
                   <SidebarMenuButton 
                     isActive={isActive(item.href)}
                     tooltip={{ children: item.tooltip, side: "right", align: "center" }}
@@ -71,6 +77,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <main>{children}</main>
         <Chatbot />
       </SidebarInset>
+    </>
+  )
+}
+
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <AppLayoutContent>{children}</AppLayoutContent>
     </SidebarProvider>
   )
 }
