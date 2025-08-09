@@ -5,19 +5,25 @@ import { useState, useEffect } from "react"
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useToast } from "@/hooks/use-toast"
-import type { LiveUpdate } from "@/lib/data"
+import type { LiveEvent } from "@/lib/data"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, Radio } from "lucide-react"
 
-export function LiveMatchFeed() {
+interface LiveMatchFeedProps {
+    fixtureId: string;
+}
+
+export function LiveMatchFeed({ fixtureId }: LiveMatchFeedProps) {
     const { toast } = useToast()
-    const [updates, setUpdates] = useState<LiveUpdate[]>([])
+    const [updates, setUpdates] = useState<LiveEvent[]>([])
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        const q = query(collection(db, "live-updates"), orderBy("timestamp", "desc"));
+        if (!fixtureId) return;
+
+        const q = query(collection(db, "fixtures", fixtureId, "liveEvents"), orderBy("timestamp", "desc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveUpdate));
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveEvent));
             setUpdates(data);
             setIsLoading(false);
         }, (error) => {
@@ -27,7 +33,7 @@ export function LiveMatchFeed() {
         });
 
         return () => unsubscribe();
-    }, [toast]);
+    }, [fixtureId, toast]);
 
     return (
         <Card>
@@ -42,7 +48,7 @@ export function LiveMatchFeed() {
                     </div>
                 ) : updates.length > 0 ? (
                     <div className="space-y-6 border-l-2 border-primary/20 pl-6 relative">
-                         {updates.map((update, index) => (
+                         {updates.map((update) => (
                              <div key={update.id} className="relative">
                                 <div className="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-primary" />
                                 <p className="text-sm font-semibold">{update.text}</p>

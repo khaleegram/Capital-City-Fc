@@ -14,7 +14,11 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, Wand2, Send, Mic } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 
-export function LiveUpdateForm() {
+interface LiveUpdateFormProps {
+    fixtureId: string;
+}
+
+export function LiveUpdateForm({ fixtureId }: LiveUpdateFormProps) {
   const { user } = useAuth()
   const [note, setNote] = useState("")
   const [enhancedUpdate, setEnhancedUpdate] = useState("")
@@ -45,10 +49,11 @@ export function LiveUpdateForm() {
     if (!enhancedUpdate.trim()) return;
     setIsPosting(true);
     try {
-        await addDoc(collection(db, "live-updates"), {
+        const liveEventsRef = collection(db, "fixtures", fixtureId, "liveEvents");
+        await addDoc(liveEventsRef, {
             text: enhancedUpdate,
             timestamp: serverTimestamp(),
-            type: "Info", // Default type for now
+            type: "Info", // This could be enhanced to be dynamic
         });
         toast({ title: "Success", description: "Live update posted!" });
         setNote("");
@@ -68,7 +73,7 @@ export function LiveUpdateForm() {
     <Card className="border-primary border-2">
       <CardHeader>
         <CardTitle className="font-headline text-2xl flex items-center gap-2"><Mic className="text-primary"/> Admin: Post Live Update</CardTitle>
-        <CardDescription>Enter a short note, enhance it with AI, and post it to the live feed.</CardDescription>
+        <CardDescription>Enter a short note, enhance it with AI, and post it to the live feed for this match.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>

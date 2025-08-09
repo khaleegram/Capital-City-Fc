@@ -1,26 +1,22 @@
-import { LiveUpdateForm } from "./_components/live-update-form"
-import { LiveMatchFeed } from "./_components/live-match-feed"
-import { Separator } from "@/components/ui/separator"
+
+"use client"
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Info } from "lucide-react"
 
 export default function SummariesPage() {
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-headline font-bold">Live Match Updates</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
-            Follow the action as it happens and post live updates from the admin panel.
-          </p>
-        </div>
-        
-        {/* Admin Component */}
-        <LiveUpdateForm />
-
-        <Separator className="my-12" />
-
-        {/* Public Component */}
-        <LiveMatchFeed />
-      </div>
+    <div className="p-4 sm:p-6 lg:p-8 flex items-center justify-center h-[calc(100vh-10rem)]">
+        <Card className="max-w-md w-full">
+            <CardHeader className="text-center">
+                <Info className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <CardTitle className="font-headline">Live Summaries Moved</CardTitle>
+                <CardDescription>
+                    Live match updates are now available on the individual fixture pages. 
+                    Please navigate to the Fixtures page to select a match.
+                </CardDescription>
+            </CardHeader>
+        </Card>
     </div>
   )
 }

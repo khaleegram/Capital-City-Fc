@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
 import type { Fixture } from "@/lib/data"
+import Link from "next/link"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -17,18 +18,20 @@ function FixtureCard({ fixture }: { fixture: Fixture }) {
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="font-headline text-xl">{fixture.opponent}</CardTitle>
-                <Badge variant="outline">{fixture.competition}</Badge>
-            </CardHeader>
-            <CardContent>
-                <div className="text-sm text-muted-foreground">
-                    <p>{new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}</p>
-                    <p>{fixture.venue}</p>
-                </div>
-            </CardContent>
-        </Card>
+        <Link href={`/fixtures/${fixture.id}`}>
+            <Card className="hover:bg-muted/50 transition-colors">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="font-headline text-xl">{fixture.opponent}</CardTitle>
+                    <Badge variant="outline">{fixture.competition}</Badge>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-sm text-muted-foreground">
+                        <p>{new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}</p>
+                        <p>{fixture.venue}</p>
+                    </div>
+                </CardContent>
+            </Card>
+        </Link>
     )
 }
 

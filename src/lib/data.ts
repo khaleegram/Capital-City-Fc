@@ -53,11 +53,15 @@ export type Fixture = {
   articleId?: string;
 };
 
-export type LiveUpdate = {
+export type LiveEvent = {
     id: string;
     timestamp: Timestamp;
     text: string;
     type: "Goal" | "Card" | "Sub" | "Info";
+    // For more detailed events
+    score?: string;
+    playerName?: string;
+    teamName?: string;
 };
 
 export type Recap = {
