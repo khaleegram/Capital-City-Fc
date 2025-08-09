@@ -18,8 +18,16 @@ import {
 import { DashboardHeader } from "@/components/dashboard-header"
 import { Icons } from "@/components/icons"
 import { Chatbot } from "@/components/chatbot"
+import { useAuth } from "@/hooks/use-auth"
 
-const menuItems = [
+const publicMenuItems = [
+  { href: "/", label: "Home", icon: Home, tooltip: "Home" },
+  { href: "/players", label: "Players", icon: Users, tooltip: "Players" },
+  { href: "/news", label: "News", icon: Newspaper, tooltip: "News" },
+  { href: "/videos", label: "Videos", icon: Video, tooltip: "Videos" },
+];
+
+const adminMenuItems = [
   { href: "/", label: "Dashboard", icon: Home, tooltip: "Dashboard" },
   { href: "/players", label: "Players", icon: Users, tooltip: "Players" },
   { href: "/news", label: "News", icon: Newspaper, tooltip: "News" },
@@ -31,6 +39,9 @@ const menuItems = [
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar()
+  const { user } = useAuth()
+
+  const menuItems = user ? adminMenuItems : publicMenuItems;
 
   const isActive = (href: string) => {
     if (href === "/") {
