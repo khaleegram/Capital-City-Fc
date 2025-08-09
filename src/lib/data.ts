@@ -57,6 +57,7 @@ export type Fixture = {
   };
   notes?: string;
   articleId?: string;
+  createdAt?: Timestamp;
 };
 
 export type LiveEvent = {
