@@ -116,7 +116,7 @@ export default function VideosPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredVideos.map((video) => (
-            <Card key={video.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            <Card key={video.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
               <div className="relative aspect-video">
                 <Image
                   src={video.thumbnailUrl || 'https://placehold.co/400x225.png'}
@@ -130,9 +130,9 @@ export default function VideosPage() {
                 <CardTitle className="text-lg font-semibold truncate">{video.title}</CardTitle>
                 <CardDescription className="truncate h-5">{video.description}</CardDescription>
               </CardHeader>
-               <CardContent className="p-4 pt-0">
+               <CardContent className="p-4 pt-0 flex-grow flex items-end">
                   {video.taggedPlayers && video.taggedPlayers.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1 items-center">
                         <span className="text-xs font-semibold mr-1">Tagged:</span>
                         {video.taggedPlayers.map(p => <Badge key={p.id} variant="secondary">{p.name}</Badge>)}
                     </div>

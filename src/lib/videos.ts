@@ -51,14 +51,16 @@ export const addVideoWithTags = async (videoData: any, taggedPlayers: Player[]) 
     });
 
     // 2. Create a document in the junction collection for each tagged player
-    taggedPlayers.forEach(player => {
-        const playerVideoRef = doc(collection(db, "playerVideos"));
-        batch.set(playerVideoRef, {
-            playerId: player.id,
-            videoId: videoRef.id,
-            taggedAt: serverTimestamp(),
-        });
-    });
+    if (taggedPlayers.length > 0) {
+      taggedPlayers.forEach(player => {
+          const playerVideoRef = doc(collection(db, "playerVideos"));
+          batch.set(playerVideoRef, {
+              playerId: player.id,
+              videoId: videoRef.id,
+              taggedAt: serverTimestamp(),
+          });
+      });
+    }
 
     // 3. Commit the batch
     await batch.commit();

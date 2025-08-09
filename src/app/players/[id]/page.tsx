@@ -45,6 +45,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
       setIsLoading(false);
     }, (error) => {
         console.error("Error fetching player:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not fetch player."})
         setIsLoading(false);
     });
 
@@ -107,46 +108,54 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="bio">
-            <TabsList className="grid w-full grid-cols-3 md:w-auto md:inline-grid md:grid-cols-3">
-              <TabsTrigger value="bio"><User className="mr-2" />Bio</TabsTrigger>
-              <TabsTrigger value="stats"><BarChart2 className="mr-2" />Stats</TabsTrigger>
-              <TabsTrigger value="videos"><Clapperboard className="mr-2" />Videos</TabsTrigger>
+          <Tabs defaultValue="bio" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
+              <TabsTrigger value="bio"><User className="mr-2 h-4 w-4" />Bio</TabsTrigger>
+              <TabsTrigger value="stats"><BarChart2 className="mr-2 h-4 w-4" />Stats</TabsTrigger>
+              <TabsTrigger value="videos"><Clapperboard className="mr-2 h-4 w-4" />Videos ({videos.length})</TabsTrigger>
             </TabsList>
             <Separator className="my-4" />
-            <TabsContent value="bio" className="prose prose-sm max-w-none text-foreground">
-              <p>{player.bio}</p>
-              <h3 className="font-headline text-lg font-semibold mt-6 mb-2 flex items-center gap-2"><Medal className="text-accent" />Career Highlights</h3>
-              <ul className="list-disc pl-5 space-y-1">
-                {player.careerHighlights && player.careerHighlights.map((highlight, index) => (
-                  <li key={index}>{highlight}</li>
-                ))}
-              </ul>
+            <TabsContent value="bio">
+              <div className="prose prose-sm max-w-none text-foreground">
+                <p>{player.bio}</p>
+              </div>
+              
+              {player.careerHighlights && player.careerHighlights.length > 0 && (
+                <>
+                  <h3 className="font-headline text-lg font-semibold mt-6 mb-2 flex items-center gap-2"><Medal className="text-accent h-5 w-5" />Career Highlights</h3>
+                  <ul className="list-disc pl-5 space-y-1 text-sm">
+                    {player.careerHighlights.map((highlight, index) => (
+                      <li key={index}>{highlight}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </TabsContent>
             <TabsContent value="stats">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base text-muted-foreground">Appearances</CardTitle>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Appearances</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-4xl font-bold">{player.stats.appearances}</p>
+                    <p className="text-3xl font-bold">{player.stats.appearances}</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base text-muted-foreground">Goals</CardTitle>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Goals</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-4xl font-bold">{player.stats.goals}</p>
+                    <p className="text-3xl font-bold">{player.stats.goals}</p>
+
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base text-muted-foreground">Assists</CardTitle>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Assists</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-4xl font-bold">{player.stats.assists}</p>
+                    <p className="text-3xl font-bold">{player.stats.assists}</p>
                   </CardContent>
                 </Card>
               </div>

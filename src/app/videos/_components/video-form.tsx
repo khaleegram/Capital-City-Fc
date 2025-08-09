@@ -40,7 +40,7 @@ const videoSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
   video: z.any().refine(file => file?.length == 1, "Video is required."),
   thumbnail: z.any().refine(file => file?.length == 1, "Thumbnail is required."),
-  taggedPlayerIds: z.array(z.string()).min(1, "At least one player must be tagged."),
+  taggedPlayerIds: z.array(z.string()).optional(),
 })
 
 type VideoFormData = z.infer<typeof videoSchema>
@@ -114,7 +114,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
         thumbnailUrl 
       }
       
-      const taggedPlayers = players.filter(p => data.taggedPlayerIds.includes(p.id));
+      const taggedPlayers = data.taggedPlayerIds ? players.filter(p => data.taggedPlayerIds!.includes(p.id)) : [];
 
       await addVideoWithTags(videoPayload, taggedPlayers)
       
@@ -141,7 +141,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
         <DialogHeader>
           <DialogTitle className="font-headline">Add New Video</DialogTitle>
           <DialogDescription>
-            Upload a video file, provide details, and tag the relevant players.
+            Upload a video file, provide details, and optionally tag players.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -190,9 +190,9 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
                         {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
                     </div>
                     <div>
-                        <Label>Tag Players</Label>
+                        <Label>Tag Players (Optional)</Label>
                         <Command className="rounded-lg border">
-                            <div className="flex flex-wrap gap-1 p-2 bg-background rounded-t-lg">
+                            <div className="flex flex-wrap gap-1 p-2 bg-background rounded-t-lg min-h-[40px]">
                                 {selectedPlayers.map(player => (
                                     <Badge key={player.id} variant="secondary">
                                     {player.name}
