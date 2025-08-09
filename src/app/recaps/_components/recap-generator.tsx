@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
@@ -71,18 +71,25 @@ export function RecapGenerator() {
   }
   
   const handlePublish = async () => {
-    if (!generatedContent || !watch("fixtureId")) return;
+    const fixtureId = watch("fixtureId");
+    const selectedFixture = fixtures.find(f => f.id === fixtureId);
+
+    if (!generatedContent || !selectedFixture) {
+        toast({ variant: "destructive", title: "Error", description: "Missing generated content or selected fixture."})
+        return;
+    }
+    
     setIsSubmitting(true);
     try {
         await addRecap({
-            fixtureId: watch("fixtureId"),
+            fixtureId: selectedFixture.id,
             headline: editedHeadline,
             shortSummary: generatedContent.shortSummary,
             fullRecap: editedRecap,
             timeline: generatedContent.timeline,
             structuredData: generatedContent.structuredData,
-        })
-        toast({ title: "Success!", description: "Match recap has been published."});
+        }, selectedFixture)
+        toast({ title: "Success!", description: "Match recap has been published as a news article."});
         reset();
         setGeneratedContent(null);
         setEditedHeadline("");
@@ -95,6 +102,8 @@ export function RecapGenerator() {
     }
   }
 
+  const fixtureIdValue = watch('fixtureId')
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Input Form */}
@@ -106,17 +115,23 @@ export function RecapGenerator() {
           <form onSubmit={handleSubmit(handleGenerateRecap)} className="space-y-6">
             <div>
               <Label htmlFor="fixtureId">Select Fixture</Label>
-               <Select onValueChange={(value) => setValue("fixtureId", value)} defaultValue={watch('fixtureId')}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a match..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {fixtures.map(f => {
-                    const fixtureDate = (f.date as any).toDate ? (f.date as any).toDate() : new Date(f.date);
-                    return <SelectItem key={f.id} value={f.id}>{f.opponent} ({fixtureDate.toLocaleDateString()})</SelectItem>
-                  })}
-                </SelectContent>
-              </Select>
+               <Controller
+                    name="fixtureId"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger>
+                            <SelectValue placeholder="Select a match..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {fixtures.map(f => {
+                                const fixtureDate = (f.date as any).toDate ? (f.date as any).toDate() : new Date(f.date);
+                                return <SelectItem key={f.id} value={f.id}>{f.opponent} ({fixtureDate.toLocaleDateString()})</SelectItem>
+                            })}
+                            </SelectContent>
+                        </Select>
+                    )}
+                />
               {errors.fixtureId && <p className="text-sm text-destructive mt-1">{errors.fixtureId.message}</p>}
             </div>
             <div>
@@ -181,9 +196,9 @@ export function RecapGenerator() {
                     </CardContent>
                 </Card>
               </div>
-              <Button onClick={handlePublish} disabled={isSubmitting} className="w-full" size="lg">
+              <Button onClick={handlePublish} disabled={isSubmitting || !fixtureIdValue} className="w-full" size="lg">
                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                Publish Recap
+                Publish Recap as News
               </Button>
             </div>
           )}
