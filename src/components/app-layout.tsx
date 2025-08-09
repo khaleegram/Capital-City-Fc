@@ -4,6 +4,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, Newspaper, Search, Users, Video, Calendar, Trophy, Shield } from "lucide-react"
+import Image from "next/image"
 
 import {
   Sidebar,
@@ -17,10 +18,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { DashboardHeader } from "@/components/dashboard-header"
-import { Icons } from "@/components/icons"
 import { Chatbot } from "@/components/chatbot"
 import { useAuth } from "@/hooks/use-auth"
 import { useFcm } from "@/hooks/use-fcm"
+import { useEffect, useState } from "react"
+import { getTeamProfile } from "@/lib/team"
+import { TeamProfile } from "@/lib/data"
 
 const publicMenuItems = [
   { href: "/", label: "Home", icon: Home, tooltip: "Home" },
@@ -46,7 +49,16 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar()
   const { user } = useAuth()
+  const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null)
   useFcm();
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const profile = await getTeamProfile();
+      setTeamProfile(profile);
+    }
+    fetchProfile();
+  }, [])
 
   const menuItems = user ? adminMenuItems : publicMenuItems;
 
@@ -66,7 +78,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon">
         <SidebarHeader className="p-4">
           <Link href="/" onClick={handleLinkClick} className="flex items-center gap-2.5">
-            <Icons.logo className="size-7 text-primary" />
+            <Image src={teamProfile?.logoUrl || "/logo.svg"} alt="Team Logo" width={28} height={28} className="size-7" />
             <h1 className="text-xl font-headline font-semibold text-primary group-data-[collapsible=icon]:hidden">
               Capital City Hub
             </h1>
