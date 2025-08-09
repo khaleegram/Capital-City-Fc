@@ -58,7 +58,18 @@ export type LiveUpdate = {
     timestamp: Timestamp;
     text: string;
     type: "Goal" | "Card" | "Sub" | "Info";
-}
+};
+
+export type Recap = {
+    id: string;
+    fixtureId: string;
+    headline: string;
+    shortSummary: string;
+    fullRecap: string;
+    timeline: any[]; // Consider a stricter type
+    structuredData: any;
+    createdAt: Timestamp;
+};
 
 
 export const newsArticles: NewsArticle[] = [
