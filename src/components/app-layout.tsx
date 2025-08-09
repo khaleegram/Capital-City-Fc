@@ -20,6 +20,7 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { Icons } from "@/components/icons"
 import { Chatbot } from "@/components/chatbot"
 import { useAuth } from "@/hooks/use-auth"
+import { useFcm } from "@/hooks/use-fcm"
 
 const publicMenuItems = [
   { href: "/", label: "Home", icon: Home, tooltip: "Home" },
@@ -45,6 +46,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { setOpenMobile } = useSidebar()
   const { user } = useAuth()
+  useFcm();
 
   const menuItems = user ? adminMenuItems : publicMenuItems;
 

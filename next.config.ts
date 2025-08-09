@@ -1,7 +1,9 @@
+
 import type {NextConfig} from 'next';
 
 const withPWA = require('next-pwa')({
-  dest: 'public'
+  dest: 'public',
+  importScripts: ["/firebase-messaging-sw.js"],
 })
 
 const nextConfig: NextConfig = {
