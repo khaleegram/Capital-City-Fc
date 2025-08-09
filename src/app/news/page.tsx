@@ -1,24 +1,25 @@
+
 "use client"
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { NewsEditor } from "./_components/news-editor"
-import { TagSuggester } from "./_components/tag-suggester"
 import { Separator } from "@/components/ui/separator"
 import { newsArticles } from "@/lib/data"
-import type { NewsArticle } from "@/lib/data"
+import { Badge } from "@/components/ui/badge"
 
 type PublishedArticle = {
   headline: string;
   content: string;
   date: string;
   id: string;
+  tags: string[];
 }
 
 export default function NewsPage() {
   const [publishedArticles, setPublishedArticles] = useState<PublishedArticle[]>([]);
 
-  const handlePublishArticle = (article: { headline: string; content: string }) => {
+  const handlePublishArticle = (article: { headline: string; content: string; tags: string[] }) => {
     const newArticle: PublishedArticle = {
       ...article,
       id: `new-${publishedArticles.length + 1}`,
@@ -38,24 +39,17 @@ export default function NewsPage() {
         <h1 className="text-3xl font-headline font-bold">News & Content Creation</h1>
         <p className="text-muted-foreground mt-2">Use AI-powered tools to generate articles, suggest tags, and publish content.</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Article Generator</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <NewsEditor onPublish={handlePublishArticle} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Content Tagging</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TagSuggester />
-          </CardContent>
-        </Card>
-      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-headline">Content Workflow</CardTitle>
+          <CardDescription>Follow the steps to generate, edit, and publish your news article.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <NewsEditor onPublish={handlePublishArticle} />
+        </CardContent>
+      </Card>
+      
       <Separator />
        <div>
         <h2 className="text-2xl font-headline font-bold mb-4">Published Articles</h2>
@@ -67,8 +61,15 @@ export default function NewsPage() {
                   <CardTitle className="font-headline">{article.headline}</CardTitle>
                    <CardDescription>{article.date}</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <p className="text-sm text-muted-foreground line-clamp-3">{article.content}</p>
+                   {article.tags && article.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {article.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary">{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
