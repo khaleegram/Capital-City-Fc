@@ -20,27 +20,30 @@ function FixtureCard({ fixture }: { fixture: Fixture }) {
 
     return (
         <Link href={`/fixtures/${fixture.id}`} className="block">
-            <Card className="hover:bg-muted/50 transition-colors p-4">
-                <div className="flex justify-between items-center text-xs text-muted-foreground mb-2">
-                    <span>{new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(fixtureDate)}</span>
-                    <span>{fixture.competition}</span>
-                </div>
-                <CardContent className="flex items-center justify-between p-0">
-                    <div className="flex items-center gap-3 flex-1">
-                         <Avatar>
-                            <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
-                            <AvatarFallback>CC</AvatarFallback>
-                        </Avatar>
-                        <span className="font-bold text-base font-headline">Capital City FC</span>
+            <Card className="hover:bg-muted/50 transition-colors">
+                <CardContent className="p-4">
+                    <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
+                        <span>{new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(fixtureDate)}</span>
+                        <span>{fixture.competition}</span>
                     </div>
-                    <div className="text-center px-2">
-                        <span className="font-bold text-lg">vs</span>
-                    </div>
-                    <div className="flex items-center gap-3 flex-1 justify-end">
-                        <span className="font-bold text-base font-headline text-right">{fixture.opponent}</span>
-                        <Avatar>
-                            <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                            <Avatar>
+                                <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
+                                <AvatarFallback>CC</AvatarFallback>
+                            </Avatar>
+                            <span className="font-bold text-lg font-headline">Capital City FC</span>
+                        </div>
+                        <div className="text-center px-4">
+                            <span className="font-bold text-2xl">vs</span>
+                        </div>
+                        <div className="flex items-center gap-3 flex-1 justify-end">
+                            <span className="font-bold text-lg font-headline text-right">{fixture.opponent}</span>
+                            <Avatar>
+                                <AvatarImage src={fixture.opponentLogoUrl} alt={fixture.opponent} data-ai-hint="team logo" />
+                                <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

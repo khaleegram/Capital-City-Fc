@@ -81,7 +81,8 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
                         <span className="text-4xl font-bold">vs</span>
                     </div>
                     <div className="flex-1 flex items-center justify-start gap-4">
-                        <Avatar className="h-16 w-16">
+                         <Avatar className="h-16 w-16">
+                            <AvatarImage src={fixture.opponentLogoUrl} alt={fixture.opponent} data-ai-hint="team logo" />
                             <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <CardTitle className="font-headline text-3xl">{fixture.opponent}</CardTitle>

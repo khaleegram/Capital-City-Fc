@@ -46,6 +46,7 @@ export type PlayerVideoTag = {
 export type Fixture = {
   id: string;
   opponent: string;
+  opponentLogoUrl?: string;
   venue: string;
   competition: string;
   date: Timestamp | Date;

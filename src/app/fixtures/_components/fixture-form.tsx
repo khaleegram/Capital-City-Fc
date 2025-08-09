@@ -1,13 +1,14 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { addFixtureAndArticle } from "@/lib/fixtures"
+import { addFixtureAndArticle, uploadOpponentLogo } from "@/lib/fixtures"
 import { generateFixturePreview } from "@/ai/flows/generate-fixture-preview"
 import type { GenerateFixturePreviewOutput } from "@/ai/flows/generate-fixture-preview"
+import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -15,7 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Wand2, PlusCircle, Save } from "lucide-react"
+import { Loader2, Wand2, PlusCircle, Save, UploadCloud } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
@@ -28,6 +29,7 @@ const fixtureSchema = z.object({
     venue: z.string().min(2, "Venue is required."),
     competition: z.string().min(2, "Competition is required."),
     date: z.date({ required_error: "Match date is required." }),
+    opponentLogo: z.any().optional(),
     publishArticle: z.boolean().default(true),
     notes: z.string().optional(),
 })
@@ -40,6 +42,7 @@ export function FixtureForm() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [generatedContent, setGeneratedContent] = useState<GenerateFixturePreviewOutput | null>(null)
     const [editedPreview, setEditedPreview] = useState("")
+    const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
     const { toast } = useToast()
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<FixtureFormData>({
@@ -47,6 +50,16 @@ export function FixtureForm() {
         defaultValues: { publishArticle: true }
     })
     const dateValue = watch("date")
+    const opponentLogoFile = watch("opponentLogo")
+
+    useEffect(() => {
+        if (opponentLogoFile && opponentLogoFile[0]) {
+            const file = opponentLogoFile[0]
+            setLogoPreview(URL.createObjectURL(file))
+        } else {
+            setLogoPreview(null)
+        }
+    }, [opponentLogoFile])
 
     const handleGeneratePreview = async () => {
         const formData = watch()
@@ -85,8 +98,13 @@ export function FixtureForm() {
 
         setIsSubmitting(true);
         try {
+            let opponentLogoUrl: string | undefined = undefined;
+            if (data.opponentLogo && data.opponentLogo[0]) {
+                opponentLogoUrl = await uploadOpponentLogo(data.opponentLogo[0]);
+            }
+
             await addFixtureAndArticle({
-                fixtureData: data,
+                fixtureData: { ...data, opponentLogoUrl },
                 preview: editedPreview,
                 tags: generatedContent.tags,
             })
@@ -94,6 +112,7 @@ export function FixtureForm() {
             reset()
             setGeneratedContent(null)
             setEditedPreview("")
+            setLogoPreview(null)
             setIsOpen(false)
         } catch (error) {
             console.error(error)
@@ -109,29 +128,60 @@ export function FixtureForm() {
                 <PlusCircle className="mr-2" /> Add New Fixture
             </Button>
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-2xl">
+                <DialogContent className="max-w-3xl">
                     <DialogHeader>
                         <DialogTitle className="font-headline">Add New Fixture</DialogTitle>
                         <DialogDescription>Enter fixture details and generate a match preview article.</DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <Label htmlFor="opponent">Opponent</Label>
-                                <Input id="opponent" {...register("opponent")} />
-                                {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div>
+                                    <Label htmlFor="opponent">Opponent</Label>
+                                    <Input id="opponent" {...register("opponent")} />
+                                    {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
+                                </div>
+                                <div>
+                                    <Label htmlFor="competition">Competition</Label>
+                                    <Input id="competition" {...register("competition")} />
+                                    {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
+                                </div>
+                                <div>
+                                    <Label htmlFor="notes">Optional Notes for AI</Label>
+                                    <Textarea id="notes" {...register("notes")} placeholder="e.g., Rivalry match..." />
+                                </div>
                             </div>
-                            <div>
-                                <Label htmlFor="venue">Venue</Label>
-                                <Input id="venue" {...register("venue")} />
-                                {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
+                            <div className="space-y-4">
+                                <div>
+                                    <Label>Opponent Logo (Optional)</Label>
+                                    <div className="aspect-square rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50 mt-1">
+                                        {logoPreview ? (
+                                            <Image src={logoPreview} alt="Opponent logo preview" layout="fill" objectFit="contain" className="rounded-lg p-2" />
+                                        ) : (
+                                            <div className="text-center text-muted-foreground p-4">
+                                                <UploadCloud className="mx-auto h-12 w-12" />
+                                                <p className="mt-2 text-sm">Upload a logo</p>
+                                            </div>
+                                        )}
+                                        <Input
+                                            id="opponent-logo"
+                                            type="file"
+                                            accept="image/*"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            {...register("opponentLogo")}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label htmlFor="venue">Venue</Label>
+                                    <Input id="venue" {...register("venue")} />
+                                    {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
+                                </div>
                             </div>
-                            <div>
-                                <Label htmlFor="competition">Competition</Label>
-                                <Input id="competition" {...register("competition")} />
-                                {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
-                            </div>
-                            <div>
+                        </div>
+
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
                                 <Label htmlFor="date">Match Date & Time</Label>
                                  <Popover>
                                     <PopoverTrigger asChild>
@@ -177,15 +227,11 @@ export function FixtureForm() {
                                 </Popover>
                                 {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                             </div>
-                        </div>
-                        <div>
-                            <Label htmlFor="notes">Optional Notes for AI</Label>
-                            <Textarea id="notes" {...register("notes")} placeholder="e.g., Rivalry match, first meeting this season..." />
-                        </div>
+                         </div>
                         
                         <Button type="button" onClick={handleGeneratePreview} disabled={isGenerating}>
                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Generate Preview
+                            Generate Preview Article
                         </Button>
                         
                         {generatedContent && (
