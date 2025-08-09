@@ -30,7 +30,3 @@ export default function RootLayout({
           </AppLayout>
         </Providers>
         <Toaster />
-      </body>
-    </html>
-  );
-}
