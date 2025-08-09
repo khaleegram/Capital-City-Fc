@@ -103,7 +103,7 @@ export default function PlayersPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-headline font-bold">Club Roster</h1>
-            <p className="text-muted-foreground mt-2">Browse and manage the talented players of Capital City FC.</p>
+            <p className="text-muted-foreground mt-2">Browse the talented players of Capital City FC.</p>
           </div>
           {user && (
             <Button onClick={handleAddNew}>
@@ -145,7 +145,7 @@ export default function PlayersPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredPlayers.map((player) => (
             <Card key={player.id} className="h-full flex flex-col group/player">
-              <Link href={`/players/${player.id}`} className="flex flex-col h-full">
+              <Link href={`/players/${player.id}`} className="flex flex-col h-full grow">
                 <CardHeader className="p-0">
                   <div className="relative aspect-square">
                     <Image

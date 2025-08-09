@@ -65,11 +65,13 @@ export default function VideosPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
-      <VideoForm
-        isOpen={isFormOpen}
-        setIsOpen={setIsFormOpen}
-        players={players}
-      />
+      {user && 
+        <VideoForm
+          isOpen={isFormOpen}
+          setIsOpen={setIsFormOpen}
+          players={players}
+        />
+      }
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
             <h1 className="text-3xl font-headline font-bold">Video Library</h1>
@@ -138,7 +140,7 @@ export default function VideosPage() {
                     <p className="text-xs text-muted-foreground">No players tagged.</p>
                   )}
               </CardContent>
-            </Card>>
+            </Card>
           ))}
         </div>
       )}
