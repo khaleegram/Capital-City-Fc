@@ -1,26 +1,24 @@
 'use server';
 
 /**
- * @fileOverview Generates concise match summaries from raw text input.
+ * @fileOverview Enhances a brief match update note into a concise, engaging sentence for a live feed.
  *
- * - generateMatchSummary - A function that generates match summaries.
- * - GenerateMatchSummaryInput - The input type for the generateMatchSummary function.
- * - GenerateMatchSummaryOutput - The return type for the generateMatchSummary function.
+ * - generateMatchSummary - A function that handles the enhancement.
+ * - GenerateMatchSummaryInput - The input type for the function.
+ * - GenerateMatchSummaryOutput - The return type for the function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateMatchSummaryInputSchema = z.object({
-  bulletPoints: z.string().describe('Bullet points of the match.'),
+  note: z.string().describe('A brief note about a match event (e.g., "Rivera goal 55 min", "Smith yellow card").'),
 });
-
 export type GenerateMatchSummaryInput = z.infer<typeof GenerateMatchSummaryInputSchema>;
 
 const GenerateMatchSummaryOutputSchema = z.object({
-  summary: z.string().describe('Concise and engaging match summary.'),
+  update: z.string().describe('A single, engaging sentence for a live match feed.'),
 });
-
 export type GenerateMatchSummaryOutput = z.infer<typeof GenerateMatchSummaryOutputSchema>;
 
 export async function generateMatchSummary(input: GenerateMatchSummaryInput): Promise<GenerateMatchSummaryOutput> {
@@ -31,13 +29,13 @@ const prompt = ai.definePrompt({
   name: 'generateMatchSummaryPrompt',
   input: {schema: GenerateMatchSummaryInputSchema},
   output: {schema: GenerateMatchSummaryOutputSchema},
-  prompt: `You are an expert sports journalist specializing in creating concise and engaging summaries of soccer/football matches.
+  prompt: `You are a live match commentator for Capital City FC.
+Your task is to take a very brief note about a match event and expand it into a single, exciting sentence for a live feed.
+Keep it short and punchy.
 
-  Given the following bullet points of a match, expand on them to create a summary that allows fans to quickly catch up on games they missed. Extract key data points like goal scorers, final scores, and any other important highlights.
+Note: {{{note}}}
 
-  Bullet Points: {{{bulletPoints}}}
-
-  Summary:`,
+Live Feed Update:`,
 });
 
 const generateMatchSummaryFlow = ai.defineFlow(

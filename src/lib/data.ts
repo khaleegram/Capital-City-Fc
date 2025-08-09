@@ -53,6 +53,13 @@ export type Fixture = {
   articleId?: string;
 };
 
+export type LiveUpdate = {
+    id: string;
+    timestamp: Timestamp;
+    text: string;
+    type: "Goal" | "Card" | "Sub" | "Info";
+}
+
 
 export const newsArticles: NewsArticle[] = [
   // This mock data is no longer used for display, 
