@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -39,7 +39,6 @@ const videoSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
   video: z.any().refine((files) => files?.length === 1, "Video is required."),
-  thumbnail: z.any().refine((files) => files?.length === 1, "Thumbnail is required."),
   taggedPlayerIds: z.array(z.string()).optional(),
 })
 
@@ -55,6 +54,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
+  const [generatedThumbnailFile, setGeneratedThumbnailFile] = useState<File | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<Player[]>([])
 
   const {
@@ -78,21 +78,11 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     if (!isOpen) {
       reset()
       setThumbnailPreview(null)
+      setGeneratedThumbnailFile(null)
       setSelectedPlayers([])
     }
   }, [isOpen, reset])
   
-  // Effect for thumbnail preview
-  const thumbnailField = watch("thumbnail")
-  useEffect(() => {
-    if (thumbnailField && thumbnailField[0]) {
-      const file = thumbnailField[0]
-      setThumbnailPreview(URL.createObjectURL(file))
-    } else {
-        setThumbnailPreview(null)
-    }
-  }, [thumbnailField])
-
   // Effect to sync selectedPlayers with form value
   useEffect(() => {
     setValue("taggedPlayerIds", selectedPlayers.map(p => p.id));
@@ -102,12 +92,66 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
   const selectedVideoName = videoFile && videoFile[0] ? videoFile[0].name : null;
 
 
+  const handleVideoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setValue("video", event.target.files, { shouldValidate: true });
+      generateThumbnail(file);
+    }
+  };
+
+  const generateThumbnail = (file: File) => {
+    const videoUrl = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    const canvas = document.createElement("canvas");
+    video.style.display = "none";
+    canvas.style.display = "none";
+
+    video.src = videoUrl;
+    video.currentTime = 1; // Seek to 1 second
+
+    video.onloadeddata = () => {
+        // Set canvas size to video size
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw video frame on canvas
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Convert canvas to blob
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const thumbnailFile = new File([blob], `thumb_${file.name.split('.')[0]}.jpg`, { type: 'image/jpeg' });
+                    setGeneratedThumbnailFile(thumbnailFile);
+                    setThumbnailPreview(URL.createObjectURL(thumbnailFile));
+                }
+                URL.revokeObjectURL(videoUrl); // Clean up
+            }, 'image/jpeg');
+        } else {
+             URL.revokeObjectURL(videoUrl); // Clean up
+        }
+    };
+    
+    video.onerror = () => {
+        console.error("Error loading video for thumbnail generation.");
+        toast({ variant: "destructive", title: "Thumbnail Error", description: "Could not generate thumbnail from video."})
+        URL.revokeObjectURL(videoUrl);
+    }
+  };
+
+
   const onSubmit = async (data: VideoFormData) => {
+    if (!generatedThumbnailFile) {
+        toast({ variant: "destructive", title: "Error", description: "Thumbnail has not been generated yet. Please wait a moment."})
+        return;
+    }
+    
     setIsSubmitting(true)
     try {
       const [videoUrl, thumbnailUrl] = await Promise.all([
           uploadVideoFile(data.video[0]),
-          uploadThumbnailFile(data.thumbnail[0]),
+          uploadThumbnailFile(generatedThumbnailFile),
       ]);
 
       const videoPayload = { 
@@ -164,30 +208,29 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
                                    <span className="mt-2 block font-medium text-foreground">Click to upload a video</span>
                                 </>
                             )}
-                            <Input id="video" type="file" accept="video/*" className="absolute inset-0 h-full w-full opacity-0 cursor-pointer" {...register("video")} />
+                            <Input 
+                                id="video" 
+                                type="file" 
+                                accept="video/*" 
+                                className="absolute inset-0 h-full w-full opacity-0 cursor-pointer" 
+                                {...register("video")} 
+                                onChange={handleVideoFileChange}
+                            />
                         </div>
                         {errors.video && <p className="text-sm text-destructive mt-1">{(errors.video.message as string)}</p>}
                     </div>
                      <div>
-                        <Label>Thumbnail Image</Label>
+                        <Label>Generated Thumbnail</Label>
                         <div className="aspect-video mt-1 rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50">
                             {thumbnailPreview ? (
                                 <Image src={thumbnailPreview} alt="Thumbnail preview" layout="fill" objectFit="cover" className="rounded-lg" />
                             ) : (
                                 <div className="text-center text-muted-foreground">
                                     <UploadCloud className="mx-auto h-10 w-10" />
-                                    <p className="mt-2 text-sm">Upload a thumbnail</p>
+                                    <p className="mt-2 text-sm">Select a video to generate a thumbnail</p>
                                 </div>
                             )}
-                            <Input
-                                id="thumbnail"
-                                type="file"
-                                accept="image/*"
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                {...register("thumbnail")}
-                            />
                         </div>
-                        {errors.thumbnail && <p className="text-sm text-destructive mt-1">{(errors.thumbnail.message as string)}</p>}
                     </div>
                 </div>
                 <div className="space-y-4">
