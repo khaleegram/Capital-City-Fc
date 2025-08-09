@@ -14,9 +14,22 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Calendar } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 
 function FixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: TeamProfile }) {
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
+
+    const getStatusBadge = () => {
+        switch (fixture.status) {
+            case "LIVE":
+                return <Badge variant="destructive" className="flex items-center gap-1.5"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span></span> LIVE</Badge>;
+            case "FT":
+                return <Badge className="bg-green-600">FT</Badge>;
+            case "UPCOMING":
+            default:
+                return <Badge variant="secondary">UPCOMING</Badge>;
+        }
+    }
 
     return (
         <Link href={`/fixtures/${fixture.id}`} className="block">
@@ -24,7 +37,10 @@ function FixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: 
                 <CardContent className="p-4">
                     <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
                         <span>{new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(fixtureDate)}</span>
-                        <span>{fixture.competition}</span>
+                        <div className="flex items-center gap-2">
+                           <span>{fixture.competition}</span>
+                           {getStatusBadge()}
+                        </div>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
@@ -35,7 +51,7 @@ function FixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: 
                             <span className="font-bold text-lg font-headline">{teamProfile.name}</span>
                         </div>
                         <div className="text-center px-4">
-                            <span className="font-bold text-2xl">vs</span>
+                            <span className="font-bold text-2xl">{fixture.status === 'UPCOMING' ? 'vs' : `${fixture.score.home} - ${fixture.score.away}`}</span>
                         </div>
                         <div className="flex items-center gap-3 flex-1 justify-end">
                             <span className="font-bold text-lg font-headline text-right">{fixture.opponent}</span>
@@ -45,6 +61,7 @@ function FixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: 
                             </Avatar>
                         </div>
                     </div>
+                     <div className="text-center text-xs text-muted-foreground mt-3">{fixture.venue}</div>
                 </CardContent>
             </Card>
         </Link>

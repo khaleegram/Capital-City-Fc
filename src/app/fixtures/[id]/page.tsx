@@ -56,7 +56,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
         return () => unsubscribe();
     }, [params.id, toast]);
 
-    if (isLoading || !teamProfile) {
+    if (isLoading || !teamProfile || !fixture) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -91,7 +91,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
                         </Avatar>
                     </div>
                     <div className="px-8">
-                        <span className="text-4xl font-bold">vs</span>
+                        <span className="text-4xl font-bold">{fixture.score.home} - {fixture.score.away}</span>
                     </div>
                     <div className="flex-1 flex items-center justify-start gap-4">
                          <Avatar className="h-16 w-16">
@@ -103,7 +103,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
                 </CardContent>
             </Card>
 
-            <LiveUpdateForm fixtureId={fixture.id} />
+            <LiveUpdateForm fixture={fixture} />
 
             <Separator />
             

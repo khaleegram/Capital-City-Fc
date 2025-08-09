@@ -5,10 +5,12 @@ import {
   serverTimestamp,
   writeBatch,
   doc,
+  updateDoc,
 } from "firebase/firestore";
 import { db, storage } from "./firebase";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
+import type { Fixture } from "./data";
 
 const fixturesCollectionRef = collection(db, "fixtures");
 const newsCollectionRef = collection(db, "news");
@@ -25,7 +27,6 @@ export const uploadOpponentLogo = async (imageFile: File): Promise<string> => {
   const downloadURL = await getDownloadURL(imageRef);
   return downloadURL;
 };
-
 
 /**
  * Adds a new fixture and optionally a corresponding news article.
@@ -67,11 +68,15 @@ export const addFixtureAndArticle = async (data: {
         
         // Create the fixture document
         const fixtureRef = doc(fixturesCollectionRef);
-        batch.set(fixtureRef, {
+        const newFixtureData: Omit<Fixture, 'id'> = {
             ...fixtureData,
             articleId: articleId,
+            status: "UPCOMING",
+            score: { home: 0, away: 0 },
             createdAt: serverTimestamp(),
-        });
+        } as any;
+
+        batch.set(fixtureRef, newFixtureData);
 
         await batch.commit();
 
@@ -79,4 +84,46 @@ export const addFixtureAndArticle = async (data: {
         console.error("Error adding fixture and/or article: ", error);
         throw new Error("Failed to add fixture.");
     }
+};
+
+
+/**
+ * Posts a live update to a fixture, including score, status, and a timeline event.
+ * @param fixtureId The ID of the fixture to update.
+ * @param updateData The data for the update.
+ */
+export const postLiveUpdate = async (
+    fixtureId: string,
+    updateData: {
+        homeScore: number;
+        awayScore: number;
+        status: "UPCOMING" | "LIVE" | "FT";
+        eventText: string;
+        eventType: "Goal" | "Red Card" | "Match End" | "Info";
+    }
+) => {
+    const { homeScore, awayScore, status, eventText, eventType } = updateData;
+    const fixtureDocRef = doc(db, "fixtures", fixtureId);
+    const liveEventsColRef = collection(db, "fixtures", fixtureId, "liveEvents");
+
+    const batch = writeBatch(db);
+
+    // 1. Update the score and status on the main fixture document
+    batch.update(fixtureDocRef, {
+        "score.home": homeScore,
+        "score.away": awayScore,
+        "status": status,
+    });
+
+    // 2. Add a new document to the liveEvents subcollection
+    const newEventRef = doc(liveEventsColRef);
+    batch.set(newEventRef, {
+        text: eventText,
+        type: eventType,
+        timestamp: serverTimestamp(),
+        // You could add more structured data here based on eventType
+        score: `${homeScore} - ${awayScore}`
+    });
+
+    await batch.commit();
 };

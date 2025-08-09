@@ -50,6 +50,11 @@ export type Fixture = {
   venue: string;
   competition: string;
   date: Timestamp | Date;
+  status: "UPCOMING" | "LIVE" | "FT";
+  score: {
+      home: number;
+      away: number;
+  };
   notes?: string;
   articleId?: string;
 };
@@ -58,7 +63,7 @@ export type LiveEvent = {
     id: string;
     timestamp: Timestamp;
     text: string;
-    type: "Goal" | "Card" | "Sub" | "Info";
+    type: "Goal" | "Red Card" | "Match End" | "Info";
     // For more detailed events
     score?: string;
     playerName?: string;
