@@ -1,9 +1,8 @@
+// Scripts for Firebase
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
 
-// This file needs to be in the public directory
-
-importScripts("https://www.gstatic.com/firebasejs/9.2.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/9.2.0/firebase-messaging-compat.js");
-
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyC9alUkqtvrjudCzE3xFkUsHw8kqK_8w64",
   authDomain: "capital-city-app.firebaseapp.com",
@@ -14,18 +13,50 @@ const firebaseConfig = {
   measurementId: "G-C1ST753CL3"
 };
 
-firebase.initializeApp(firebaseConfig);
+// Initialize Firebase
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
+// Retrieve an instance of Firebase Messaging
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
+messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
+  
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: payload.notification.image || '/icon-192x192.png' 
+    icon: '/icons/icon-192x192.png',
+    data: {
+      url: payload.data.url || '/'
+    }
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Event listener for notification click
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+
+  const urlToOpen = new URL(event.notification.data.url, self.location.origin).href;
+
+  event.waitUntil(
+    clients.matchAll({
+      type: "window",
+      includeUncontrolled: true
+    }).then(function(clientList) {
+      if (clientList.length > 0) {
+        for (const client of clientList) {
+           if (new URL(client.url).pathname === new URL(urlToOpen).pathname) {
+              return client.focus();
+           }
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
 });
