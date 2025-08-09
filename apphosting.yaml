@@ -5,3 +5,16 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
+  # Increase the timeout to allow for longer operations like video uploads.
+  # The default is 60s. Maximum is 1800s (30 minutes).
+  timeoutSeconds: 300
+
+# Add a budget to your backend to prevent unexpected costs.
+# https://firebase.google.com/docs/app-hosting/configure-spend
+# budgetaryAlerts:
+# - cpu: 0.5
+#   memory: 512MiB
+#   alert_name: High Usage Alert
+#   thresholds:
+#   - 80 # percent
+#   - 95 # percent
