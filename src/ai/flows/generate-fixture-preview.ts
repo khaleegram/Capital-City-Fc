@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
-export const GenerateFixturePreviewInputSchema = z.object({
+const GenerateFixturePreviewInputSchema = z.object({
   opponent: z.string().describe('The name of the opponent team.'),
   venue: z.string().describe("The venue (e.g., 'Home', 'Away', 'Wembley Stadium')."),
   competition: z.string().describe('The name of the competition (e.g., "Premier League", "FA Cup").'),
@@ -21,7 +21,7 @@ export const GenerateFixturePreviewInputSchema = z.object({
 });
 export type GenerateFixturePreviewInput = z.infer<typeof GenerateFixturePreviewInputSchema>;
 
-export const GenerateFixturePreviewOutputSchema = z.object({
+const GenerateFixturePreviewOutputSchema = z.object({
   preview: z.string().describe('A short, engaging preview paragraph for the match (max 100 words).'),
   tags: z.array(z.string()).describe('A list of suggested relevant tags (e.g., opponent name, competition).'),
 });
