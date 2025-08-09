@@ -31,7 +31,7 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
     const defaultProfile: TeamProfile = {
       id: TEAM_PROFILE_DOC_ID,
       name: "Capital City FC",
-      logoUrl: "/logo.svg",
+      logoUrl: "/icon.png",
       homeVenue: "Capital Stadium",
     };
     await setDoc(profileDocRef, defaultProfile);

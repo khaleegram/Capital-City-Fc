@@ -78,7 +78,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       <Sidebar collapsible="icon">
         <SidebarHeader className="p-4">
           <Link href="/" onClick={handleLinkClick} className="flex items-center gap-2.5">
-            <Image src={teamProfile?.logoUrl || "/logo.svg"} alt="Team Logo" width={28} height={28} className="size-7" />
+            <Image src={teamProfile?.logoUrl || "/icon.png"} alt="Team Logo" width={28} height={28} className="size-7" />
             <h1 className="text-xl font-headline font-semibold text-primary group-data-[collapsible=icon]:hidden">
               Capital City Hub
             </h1>
