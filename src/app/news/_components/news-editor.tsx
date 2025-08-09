@@ -2,9 +2,10 @@
 "use client"
 
 import { useState, KeyboardEvent } from "react"
-import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X } from "lucide-react"
+import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy } from "lucide-react"
 import { generateNewsArticle } from "@/ai/flows/generate-news-article"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
+import { generateSocialPost } from "@/ai/flows/generate-social-post"
 import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
@@ -19,15 +20,22 @@ interface NewsEditorProps {
   onPublish: (article: { headline: string; content: string; tags: string[] }) => void
 }
 
+interface SocialPosts {
+  twitterPost: string;
+  instagramPost: string;
+}
+
 export function NewsEditor({ onPublish }: NewsEditorProps) {
   const [bulletPoints, setBulletPoints] = useState("")
   const [articleContent, setArticleContent] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [suggestedTags, setSuggestedTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState("")
-  
+  const [socialPosts, setSocialPosts] = useState<SocialPosts | null>(null);
+
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
   const [isSuggestingTags, setIsSuggestingTags] = useState(false)
+  const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
   
   const { toast } = useToast()
 
@@ -36,12 +44,13 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setIsGeneratingArticle(true)
     setArticleContent("")
     setSuggestedTags([])
+    setSocialPosts(null);
     setIsEditing(false)
     
     try {
       const result = await generateNewsArticle({ bulletPoints })
       setArticleContent(result.article)
-      setIsEditing(true) // Automatically enter edit mode
+      setIsEditing(true)
     } catch (error) {
       console.error("Failed to generate article:", error)
       toast({
@@ -57,7 +66,8 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
   const handleSuggestTags = async () => {
     if (!articleContent.trim()) return
     setIsSuggestingTags(true)
-    setIsEditing(false) // Lock editing while suggesting tags
+    setIsEditing(false)
+    setSocialPosts(null)
     try {
       const result = await suggestNewsTags({ articleContent })
       setSuggestedTags(result.tags)
@@ -73,6 +83,24 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     }
   }
 
+  const handleGenerateSocial = async () => {
+    if (!articleContent.trim()) return
+    setIsGeneratingSocial(true)
+    try {
+        const result = await generateSocialPost({ articleContent, tags: suggestedTags });
+        setSocialPosts(result);
+    } catch (error) {
+        console.error("Failed to generate social posts:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "There was an issue generating social posts. Please try again.",
+        });
+    } finally {
+        setIsGeneratingSocial(false);
+    }
+  };
+
   const handlePublish = () => {
     const lines = articleContent.split('\n');
     const headline = lines.find(line => line.trim() !== '') || "Untitled Article"
@@ -80,17 +108,20 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
 
     onPublish({ headline, content, tags: suggestedTags });
     
-    toast({
-      title: "Success!",
-      description: "Your article has been published.",
-      className: "bg-green-500 text-white",
-    })
-
     // Reset fields
     setBulletPoints("");
     setArticleContent("");
     setSuggestedTags([]);
+    setSocialPosts(null);
     setIsEditing(false);
+  }
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied!",
+      description: "Post content copied to clipboard.",
+    });
   }
 
   const handleAddTag = () => {
@@ -111,9 +142,10 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setSuggestedTags(suggestedTags.filter(tag => tag !== tagToRemove));
   };
 
-  const isLoading = isGeneratingArticle || isSuggestingTags;
+  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial;
   const showArticleEditor = isGeneratingArticle || articleContent;
   const showTagSection = isSuggestingTags || suggestedTags.length > 0;
+  const showSocialSection = isGeneratingSocial || socialPosts;
 
   return (
     <div className="space-y-6">
@@ -220,13 +252,65 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
                   />
                   <Button onClick={handleAddTag} variant="outline">Add Tag</Button>
                 </div>
+                 <div className="mt-4">
+                  <Button onClick={handleGenerateSocial} disabled={isLoading}>
+                    {isGeneratingSocial ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="mr-2 h-4 w-4" />
+                    )}
+                    Generate Social Posts
+                  </Button>
+                </div>
               </>
             )}
           </div>
         </>
       )}
       
-      {suggestedTags.length > 0 && !isLoading && (
+      {showSocialSection && (
+        <>
+           <Separator />
+           <div>
+              <h3 className="font-semibold text-base mt-6 mb-2">Step 4: Review Social Posts</h3>
+              {isGeneratingSocial ? (
+                 <div className="flex items-center space-x-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin"/>
+                    <span>Generating social posts...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                    {/* Twitter */}
+                    <div>
+                        <Label className="flex items-center gap-2 mb-2"><Twitter className="h-5 w-5 text-[#1DA1F2]" /> Twitter Post</Label>
+                        <Card className="bg-muted">
+                            <CardContent className="p-3 relative">
+                                <p className="text-sm whitespace-pre-wrap">{socialPosts?.twitterPost}</p>
+                                <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(socialPosts?.twitterPost || '')}>
+                                    <Copy className="h-4 w-4" />
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                    {/* Instagram */}
+                     <div>
+                        <Label className="flex items-center gap-2 mb-2"><Instagram className="h-5 w-5 text-[#E4405F]" /> Instagram Post</Label>
+                        <Card className="bg-muted">
+                            <CardContent className="p-3 relative">
+                                <p className="text-sm whitespace-pre-wrap">{socialPosts?.instagramPost}</p>
+                                 <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(socialPosts?.instagramPost || '')}>
+                                    <Copy className="h-4 w-4" />
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+              )}
+           </div>
+        </>
+      )}
+
+      {socialPosts && !isLoading && (
         <>
           <Separator />
           <div className="flex justify-end">
