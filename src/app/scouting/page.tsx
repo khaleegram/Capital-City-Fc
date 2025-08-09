@@ -1,3 +1,4 @@
+
 import { PlayerInsights } from "./_components/player-insights"
 
 export default function ScoutingPage() {
