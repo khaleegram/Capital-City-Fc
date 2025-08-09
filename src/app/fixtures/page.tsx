@@ -9,12 +9,11 @@ import { useToast } from "@/hooks/use-toast"
 import type { Fixture } from "@/lib/data"
 import Link from "next/link"
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Shield } from "lucide-react"
+import { Loader2, Calendar } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
 
 function FixtureCard({ fixture }: { fixture: Fixture }) {
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
