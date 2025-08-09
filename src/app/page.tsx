@@ -17,16 +17,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 function AdminDashboard() {
   const [playerCount, setPlayerCount] = useState(0);
   const [newsCount, setNewsCount] = useState(0);
+  const [recapCount, setRecapCount] = useState(0);
   const [recentNews, setRecentNews] = useState<NewsArticle[]>([]);
 
   useEffect(() => {
     const fetchCounts = async () => {
       const playersColl = collection(db, "players");
       const newsColl = collection(db, "news");
+      const recapsColl = collection(db, "recaps");
+      
       const playersSnapshot = await getCountFromServer(playersColl);
       const newsSnapshot = await getCountFromServer(newsColl);
+      const recapsSnapshot = await getCountFromServer(recapsColl);
+
       setPlayerCount(playersSnapshot.data().count);
       setNewsCount(newsSnapshot.data().count);
+      setRecapCount(recapsSnapshot.data().count);
     };
 
     const newsQuery = query(collection(db, "news"), orderBy("date", "desc"), limit(3));
@@ -65,22 +71,22 @@ function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Match Summaries</CardTitle>
+            <CardTitle className="text-sm font-medium">Match Recaps</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">38</div>
-            <p className="text-xs text-muted-foreground">Season total</p>
+            <div className="text-2xl font-bold">{recapCount}</div>
+            <p className="text-xs text-muted-foreground">Total match recaps generated</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Scouting Reports</CardTitle>
+            <CardTitle className="text-sm font-medium">Scouting</CardTitle>
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">73</div>
-            <p className="text-xs text-muted-foreground">+5 new reports</p>
+            <div className="text-2xl font-bold">AI Ready</div>
+            <p className="text-xs text-muted-foreground">Use the Scouting Assistant</p>
           </CardContent>
         </Card>
       </div>
