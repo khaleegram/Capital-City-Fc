@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Sparkles, ChevronsUpDown, Check } from "lucide-react"
 import { answerPlayerQuestion } from "@/ai/flows/answer-player-questions"
 import { NewsArticle, Player } from "@/lib/data"
 import { collection, onSnapshot, query } from "firebase/firestore"
@@ -19,14 +19,22 @@ import {
 } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 export function PlayerInsights() {
   const [players, setPlayers] = useState<Player[]>([])
@@ -35,6 +43,7 @@ export function PlayerInsights() {
   const [question, setQuestion] = useState("")
   const [answer, setAnswer] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false)
   const { toast } = useToast()
 
    useEffect(() => {
@@ -98,6 +107,8 @@ export function PlayerInsights() {
     }
   }
 
+  const selectedPlayerName = players.find(p => p.id === selectedPlayerId)?.name || "Select a player...";
+
   return (
     <Card>
       <CardHeader>
@@ -111,22 +122,48 @@ export function PlayerInsights() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="player-select">Player</Label>
-              <Select
-                value={selectedPlayerId}
-                onValueChange={setSelectedPlayerId}
-                disabled={isLoading || players.length === 0}
-              >
-                <SelectTrigger id="player-select">
-                  <SelectValue placeholder="Select a player" />
-                </SelectTrigger>
-                <SelectContent>
-                  {players.map((player) => (
-                    <SelectItem key={player.id} value={player.id}>
-                      {player.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isPopoverOpen}
+                    className="w-full justify-between"
+                    disabled={isLoading || players.length === 0}
+                  >
+                    {selectedPlayerName}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search player..." />
+                    <CommandList>
+                      <CommandEmpty>No player found.</CommandEmpty>
+                      <CommandGroup>
+                        {players.map((player) => (
+                          <CommandItem
+                            key={player.id}
+                            value={player.name}
+                            onSelect={() => {
+                              setSelectedPlayerId(player.id)
+                              setIsPopoverOpen(false)
+                            }}
+                          >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedPlayerId === player.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {player.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <div className="space-y-2">
