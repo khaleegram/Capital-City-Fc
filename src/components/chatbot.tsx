@@ -1,8 +1,12 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Bot, Send, X, Loader2 } from "lucide-react"
+import { collection, getDocs } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { answerFanQuestion } from "@/ai/flows/answer-fan-questions"
+import type { Player, NewsArticle } from "@/lib/data"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
@@ -24,24 +28,62 @@ export function Chatbot() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSend = async () => {
-    if (input.trim() === "") return
+  // State to hold the context data
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [news, setNews] = useState<NewsArticle[]>([]);
+  const [isContextLoading, setIsContextLoading] = useState(true);
 
-    const userMessage: Message = { id: Date.now(), text: input, sender: "user" }
-    setMessages((prev) => [...prev, userMessage])
-    setInput("")
-    setIsLoading(true)
+  useEffect(() => {
+    const fetchContextData = async () => {
+      if (!isOpen) return;
+      setIsContextLoading(true);
+      try {
+        const playersSnapshot = await getDocs(collection(db, "players"));
+        const playersData = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
+        setPlayers(playersData);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const botResponse: Message = {
-        id: Date.now() + 1,
-        text: "This is a simulated response. You can ask me about players, stats, or recent matches.",
-        sender: "bot",
+        const newsSnapshot = await getDocs(collection(db, "news"));
+        const newsData = newsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
+        setNews(newsData);
+
+      } catch (error) {
+        console.error("Failed to fetch context data for chatbot:", error);
+      } finally {
+        setIsContextLoading(false);
       }
-      setMessages((prev) => [...prev, botResponse])
-      setIsLoading(false)
-    }, 1500)
+    }
+    fetchContextData();
+  }, [isOpen]);
+
+
+  const handleSend = async () => {
+    if (input.trim() === "" || isContextLoading) return;
+
+    const userMessage: Message = { id: Date.now(), text: input, sender: "user" };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+        const result = await answerFanQuestion({
+            question: input,
+            players: JSON.stringify(players),
+            newsArticles: JSON.stringify(news)
+        });
+        const botResponse: Message = { id: Date.now() + 1, text: result.answer, sender: "bot" };
+        setMessages((prev) => [...prev, botResponse]);
+
+    } catch(error) {
+        console.error("Error getting response from AI:", error);
+        const botResponse: Message = { 
+            id: Date.now() + 1, 
+            text: "Sorry, I'm having a little trouble connecting right now. Please try again in a moment.", 
+            sender: "bot" 
+        };
+        setMessages((prev) => [...prev, botResponse]);
+    } finally {
+        setIsLoading(false)
+    }
   }
 
   return (
@@ -106,9 +148,9 @@ export function Chatbot() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask about a player..."
                 className="flex-1"
-                disabled={isLoading}
+                disabled={isLoading || isContextLoading}
               />
-              <Button type="submit" size="icon" disabled={isLoading}>
+              <Button type="submit" size="icon" disabled={isLoading || isContextLoading}>
                 <Send className="h-4 w-4" />
               </Button>
             </form>
