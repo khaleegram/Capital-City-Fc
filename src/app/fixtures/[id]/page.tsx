@@ -8,12 +8,13 @@ import { db } from "@/lib/firebase"
 import type { Fixture } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Calendar } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { LiveUpdateForm } from "@/app/summaries/_components/live-update-form"
 import { LiveMatchFeed } from "@/app/summaries/_components/live-match-feed"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 
 export default function FixtureDetailsPage({ params }: { params: { id: string }}) {
@@ -60,14 +61,31 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
              <Card>
                 <CardHeader>
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                        <CardTitle className="font-headline text-3xl">Capital City FC vs. {fixture.opponent}</CardTitle>
                         <Badge variant="secondary" className="text-base">{fixture.competition}</Badge>
+                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4"/>
+                            {new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}
+                        </div>
                     </div>
-                    <CardDescription className="flex items-center gap-2 pt-2">
-                        <Calendar className="h-4 w-4"/>
-                        {new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}
-                    </CardDescription>
                 </CardHeader>
+                <CardContent className="flex items-center justify-between">
+                     <div className="flex items-center gap-4">
+                         <Avatar className="h-16 w-16">
+                            <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
+                            <AvatarFallback>CC</AvatarFallback>
+                        </Avatar>
+                        <CardTitle className="font-headline text-3xl">Capital City FC</CardTitle>
+                    </div>
+                     <div className="text-center">
+                        <span className="text-4xl font-bold mx-4">vs</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <CardTitle className="font-headline text-3xl text-right">{fixture.opponent}</CardTitle>
+                        <Avatar className="h-16 w-16">
+                            <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                    </div>
+                </CardContent>
             </Card>
 
             <LiveUpdateForm fixtureId={fixture.id} />

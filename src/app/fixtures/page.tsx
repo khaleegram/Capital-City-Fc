@@ -11,23 +11,39 @@ import Link from "next/link"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar } from "lucide-react"
+import { Loader2, Calendar, Shield } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Separator } from "@/components/ui/separator"
 
 function FixtureCard({ fixture }: { fixture: Fixture }) {
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
 
     return (
-        <Link href={`/fixtures/${fixture.id}`}>
+        <Link href={`/fixtures/${fixture.id}`} className="block">
             <Card className="hover:bg-muted/50 transition-colors">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="font-headline text-xl">{fixture.opponent}</CardTitle>
-                    <Badge variant="outline">{fixture.competition}</Badge>
+                <CardHeader className="pb-4">
+                    <div className="flex justify-between items-center">
+                        <CardDescription>{new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}</CardDescription>
+                        <Badge variant="outline">{fixture.competition}</Badge>
+                    </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="text-sm text-muted-foreground">
-                        <p>{new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}</p>
-                        <p>{fixture.venue}</p>
+                <CardContent className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                         <Avatar>
+                            <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
+                            <AvatarFallback>CC</AvatarFallback>
+                        </Avatar>
+                        <span className="font-bold text-lg font-headline">Capital City FC</span>
+                    </div>
+                    <div className="text-center">
+                        <span className="text-2xl font-bold mx-4">vs</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className="font-bold text-lg font-headline text-right">{fixture.opponent}</span>
+                        <Avatar>
+                            <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
                     </div>
                 </CardContent>
             </Card>
