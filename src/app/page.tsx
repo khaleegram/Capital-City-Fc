@@ -109,7 +109,7 @@ function PublicLandingPage() {
 
   useEffect(() => {
     // Fetch a few players to feature
-    const playersQuery = query(collection(db, "players"), orderBy("name", "asc"), limit(3));
+    const playersQuery = query(collection(db, "players"), orderBy("createdAt", "desc"), limit(3));
     const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
       const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
       setFeaturedPlayers(playersData);
@@ -151,34 +151,36 @@ function PublicLandingPage() {
       </section>
       
       {/* Recent News Section */}
-      <section className="py-12 bg-background">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-headline font-bold text-center mb-8">Latest News</h2>
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {recentNews.map(article => (
-              <Card key={article.id} className="hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <CardTitle className="font-headline text-2xl">{article.headline}</CardTitle>
-                  <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground line-clamp-3">{article.content}</p>
-                </CardContent>
-                <CardFooter>
-                  <Button asChild variant="link" className="p-0">
-                    <Link href="/news">Read More &rarr;</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+      {recentNews.length > 0 && (
+        <section className="py-12 bg-background">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-headline font-bold text-center mb-8">Latest News</h2>
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+              {recentNews.map(article => (
+                <Card key={article.id} className="hover:shadow-xl transition-shadow">
+                  <CardHeader>
+                    <CardTitle className="font-headline text-2xl">{article.headline}</CardTitle>
+                    <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground line-clamp-3">{article.content}</p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button asChild variant="link" className="p-0">
+                      <Link href="/news">Read More &rarr;</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+            <div className="text-center mt-8">
+              <Button asChild>
+                  <Link href="/news">View All News</Link>
+              </Button>
+            </div>
           </div>
-           <div className="text-center mt-8">
-             <Button asChild>
-                <Link href="/news">View All News</Link>
-             </Button>
-           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Featured Players Section */}
       {featuredPlayers.length > 0 && (
@@ -224,3 +226,5 @@ export default function HomePage() {
 
   return user ? <AdminDashboard /> : <PublicLandingPage />;
 }
+
+    
