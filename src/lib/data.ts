@@ -43,6 +43,16 @@ export type PlayerVideoTag = {
   taggedAt: Timestamp;
 };
 
+export type Fixture = {
+  id: string;
+  opponent: string;
+  venue: string;
+  competition: string;
+  date: Timestamp | Date;
+  notes?: string;
+  articleId?: string;
+};
+
 
 export const newsArticles: NewsArticle[] = [
   // This mock data is no longer used for display, 
