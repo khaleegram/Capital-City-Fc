@@ -18,14 +18,13 @@ import { LiveMatchFeed } from "@/app/summaries/_components/live-match-feed"
 
 export default function FixtureDetailsPage({ params }: { params: { id: string }}) {
     const { toast } = useToast()
-    const { id } = params;
     const [fixture, setFixture] = useState<Fixture | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        if (!id) return;
+        if (!params.id) return;
 
-        const docRef = doc(db, "fixtures", id);
+        const docRef = doc(db, "fixtures", params.id);
         const unsubscribe = onSnapshot(docRef, (doc) => {
             if (doc.exists()) {
                 setFixture({ id: doc.id, ...doc.data() } as Fixture);
@@ -40,7 +39,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
         });
 
         return () => unsubscribe();
-    }, [id, toast]);
+    }, [params.id, toast]);
 
     if (isLoading) {
         return (
