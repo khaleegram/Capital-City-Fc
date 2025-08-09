@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Bot, Send, X, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -51,6 +51,7 @@ export function Chatbot() {
             <DialogTitle className="font-headline flex items-center gap-2">
               <Bot className="text-primary" /> Capital City Assistant
             </DialogTitle>
+             <DialogDescription className="sr-only">A chatbot to assist with Capital City Hub.</DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
