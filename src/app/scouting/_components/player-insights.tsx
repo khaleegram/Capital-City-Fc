@@ -1,9 +1,13 @@
+
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, Sparkles } from "lucide-react"
 import { answerPlayerQuestion } from "@/ai/flows/answer-player-questions"
-import { players, newsArticles } from "@/lib/data"
+import { newsArticles, Player } from "@/lib/data"
+import { collection, onSnapshot, query } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,14 +25,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
 
 export function PlayerInsights() {
+  const [players, setPlayers] = useState<Player[]>([])
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("")
   const [question, setQuestion] = useState("")
   const [answer, setAnswer] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
+
+   useEffect(() => {
+    const q = query(collection(db, "players"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
+      setPlayers(playersData);
+    }, (error) => {
+      console.error("Error fetching players:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not fetch players for scouting."})
+    });
+    return () => unsubscribe();
+  }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,7 +100,7 @@ export function PlayerInsights() {
               <Select
                 value={selectedPlayerId}
                 onValueChange={setSelectedPlayerId}
-                disabled={isLoading}
+                disabled={isLoading || players.length === 0}
               >
                 <SelectTrigger id="player-select">
                   <SelectValue placeholder="Select a player" />

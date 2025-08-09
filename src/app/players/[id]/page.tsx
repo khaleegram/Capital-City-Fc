@@ -1,16 +1,21 @@
+
+"use client"
+
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { BarChart2, Clapperboard, Medal, User } from "lucide-react"
+import { doc, onSnapshot } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { getVideosByPlayerId, Player } from "@/lib/data"
 
-import { getPlayerById, getVideosByPlayerId } from "@/lib/data"
+import { BarChart2, Clapperboard, Medal, User, Loader2 } from "lucide-react"
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -18,7 +23,36 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function PlayerProfilePage({ params }: { params: { id: string } }) {
-  const player = getPlayerById(params.id)
+  const [player, setPlayer] = useState<Player | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!params.id) return;
+    const docRef = doc(db, "players", params.id);
+    const unsubscribe = onSnapshot(docRef, (doc) => {
+      if (doc.exists()) {
+        setPlayer({ id: doc.id, ...doc.data() } as Player);
+      } else {
+        setPlayer(null); // Or handle as not found
+      }
+      setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching player:", error);
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [params.id]);
+
+
+  if (isLoading) {
+     return (
+        <div className="flex h-[80vh] w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    )
+  }
+
   if (!player) {
     notFound()
   }
@@ -36,7 +70,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
           <div className="flex-1">
             <div className="flex items-center justify-between">
               <h1 className="text-4xl font-headline font-bold">{player.name}</h1>
-              <Badge variant="secondary" className="text-lg">#{player.number}</Badge>
+              <Badge variant="secondary" className="text-lg">#{player.jerseyNumber}</Badge>
             </div>
             <p className="text-xl text-primary font-semibold mt-1">{player.position}</p>
           </div>
