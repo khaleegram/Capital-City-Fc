@@ -8,9 +8,8 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { MonthlyGoalChart } from "./_components/monthly-goal-chart"
 import { useAuth } from "@/hooks/use-auth"
-import { newsArticles } from "@/lib/data"
+import { NewsArticle, Player } from "@/lib/data"
 import { useState, useEffect } from "react"
-import { Player } from "@/lib/data"
 import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -106,19 +105,29 @@ function AdminDashboard() {
 
 function PublicLandingPage() {
   const [featuredPlayers, setFeaturedPlayers] = useState<Player[]>([]);
+  const [recentNews, setRecentNews] = useState<NewsArticle[]>([]);
 
   useEffect(() => {
     // Fetch a few players to feature
-    const q = query(collection(db, "players"), orderBy("name", "asc"), limit(3));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const playersQuery = query(collection(db, "players"), orderBy("name", "asc"), limit(3));
+    const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
       const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
       setFeaturedPlayers(playersData);
     });
 
-    return () => unsubscribe();
-  }, []);
+    // Fetch recent news
+    const newsQuery = query(collection(db, "news"), orderBy("date", "desc"), limit(2));
+    const newsUnsubscribe = onSnapshot(newsQuery, (snapshot) => {
+      const newsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
+      setRecentNews(newsData);
+    });
 
-  const recentNews = newsArticles.slice(0, 2);
+
+    return () => {
+      playersUnsubscribe();
+      newsUnsubscribe();
+    }
+  }, []);
 
   return (
     <div>
@@ -150,7 +159,7 @@ function PublicLandingPage() {
               <Card key={article.id} className="hover:shadow-xl transition-shadow">
                 <CardHeader>
                   <CardTitle className="font-headline text-2xl">{article.headline}</CardTitle>
-                  <CardDescription>{article.date}</CardDescription>
+                  <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground line-clamp-3">{article.content}</p>

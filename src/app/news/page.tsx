@@ -1,37 +1,53 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import { addNewsArticle } from "@/lib/news"
+import { useToast } from "@/hooks/use-toast"
+import type { NewsArticle } from "@/lib/data"
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { NewsEditor } from "./_components/news-editor"
 import { Separator } from "@/components/ui/separator"
-import { newsArticles as initialArticlesData } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
-
-type PublishedArticle = {
-  headline: string;
-  content: string;
-  date: string;
-  id: string;
-  tags: string[];
-}
+import { Loader2, FileText } from "lucide-react"
 
 export default function NewsPage() {
-  const [publishedArticles, setPublishedArticles] = useState<PublishedArticle[]>([]);
+  const [publishedArticles, setPublishedArticles] = useState<NewsArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  const handlePublishArticle = (article: { headline: string; content: string; tags: string[] }) => {
-    const newArticle: PublishedArticle = {
-      ...article,
-      id: `new-${publishedArticles.length + 1}`,
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-    };
-    setPublishedArticles([newArticle, ...publishedArticles]);
+  useEffect(() => {
+    const q = query(collection(db, "news"), orderBy("date", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const articlesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
+      setPublishedArticles(articlesData);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Error fetching articles:", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not fetch news articles."})
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [toast]);
+
+
+  const handlePublishArticle = async (article: { headline: string; content: string; tags: string[] }) => {
+    try {
+      await addNewsArticle(article);
+      toast({
+        title: "Success!",
+        description: "Your article has been published.",
+        className: "bg-green-500 text-white",
+      });
+    } catch (error) {
+       console.error("Error publishing article:", error);
+       toast({ variant: "destructive", title: "Error", description: "Failed to publish article."})
+    }
   };
-
-  const initialArticles = initialArticlesData.map(a => ({...a, id: `initial-${a.id}`}))
-
-  const allArticles = [...publishedArticles, ...initialArticles];
-
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
@@ -54,12 +70,16 @@ export default function NewsPage() {
        <div>
         <h2 className="text-2xl font-headline font-bold mb-4">Published Articles</h2>
         <div className="space-y-6">
-          {allArticles.length > 0 ? (
-            allArticles.map(article => (
+          {isLoading ? (
+             <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin" />
+             </div>
+          ) : publishedArticles.length > 0 ? (
+            publishedArticles.map(article => (
               <Card key={article.id}>
                 <CardHeader>
                   <CardTitle className="font-headline">{article.headline}</CardTitle>
-                   <CardDescription>{article.date}</CardDescription>
+                   <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-sm text-foreground whitespace-pre-line">{article.content}</p>
@@ -74,7 +94,13 @@ export default function NewsPage() {
               </Card>
             ))
           ) : (
-            <p className="text-muted-foreground text-center py-8">No articles have been published yet.</p>
+            <div className="text-center py-16">
+              <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-medium">No Articles Published</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                  Use the content workflow above to publish your first article.
+              </p>
+            </div>
           )}
         </div>
       </div>
