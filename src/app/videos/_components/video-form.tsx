@@ -73,6 +73,8 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     },
   })
 
+  const videoFileInput = register("video");
+
   // Effect to reset form when dialog opens/closes
   useEffect(() => {
     if (!isOpen) {
@@ -93,9 +95,10 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
 
 
   const handleVideoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    // Manually call the react-hook-form onChange handler
+    videoFileInput.onChange(event); 
     const file = event.target.files?.[0];
     if (file) {
-      setValue("video", event.target.files, { shouldValidate: true });
       generateThumbnail(file);
     }
   };
@@ -107,6 +110,8 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     video.style.display = "none";
     canvas.style.display = "none";
 
+    // Mute the video to prevent autoplay sounds on some browsers
+    video.muted = true;
     video.src = videoUrl;
     video.currentTime = 1; // Seek to 1 second
 
@@ -213,7 +218,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
                                 type="file" 
                                 accept="video/*" 
                                 className="absolute inset-0 h-full w-full opacity-0 cursor-pointer" 
-                                {...register("video")} 
+                                {...videoFileInput}
                                 onChange={handleVideoFileChange}
                             />
                         </div>
