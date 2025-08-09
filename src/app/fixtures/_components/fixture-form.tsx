@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Wand2, PlusCircle, Calendar, Edit, Save } from "lucide-react"
+import { Loader2, Wand2, PlusCircle, Calendar, Save } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
@@ -122,7 +122,7 @@ export function FixtureForm() {
                                 {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
                             </div>
                             <div>
-                                <Label htmlFor="venue">Venue (e.g., Home, Away)</Label>
+                                <Label htmlFor="venue">Venue</Label>
                                 <Input id="venue" {...register("venue")} />
                                 {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
                             </div>
@@ -143,7 +143,7 @@ export function FixtureForm() {
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateValue ? format(dateValue, "PPP") : <span>Pick a date</span>}
+                                        {dateValue ? format(dateValue, "PPP HH:mm") : <span>Pick a date and time</span>}
                                     </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0">
