@@ -28,8 +28,8 @@ const fixtureSchema = z.object({
     venue: z.string().min(2, "Venue is required."),
     competition: z.string().min(2, "Competition is required."),
     date: z.date({ required_error: "Match date is required." }),
-    notes: z.string().optional(),
     publishArticle: z.boolean().default(true),
+    notes: z.string().optional(),
 })
 
 type FixtureFormData = z.infer<typeof fixtureSchema>
@@ -132,7 +132,7 @@ export function FixtureForm() {
                                 {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
                             </div>
                             <div>
-                                <Label htmlFor="date">Match Date</Label>
+                                <Label htmlFor="date">Match Date & Time</Label>
                                  <Popover>
                                     <PopoverTrigger asChild>
                                     <Button
@@ -150,9 +150,29 @@ export function FixtureForm() {
                                         <CalendarPicker
                                             mode="single"
                                             selected={dateValue}
-                                            onSelect={(date) => setValue("date", date as Date)}
+                                            onSelect={(date) => {
+                                                if (!date) return;
+                                                const newDate = new Date(date);
+                                                if (dateValue) {
+                                                    newDate.setHours(dateValue.getHours());
+                                                    newDate.setMinutes(dateValue.getMinutes());
+                                                }
+                                                setValue("date", newDate);
+                                            }}
                                             initialFocus
                                         />
+                                        <div className="p-2 border-t">
+                                            <Input 
+                                                type="time"
+                                                onChange={(e) => {
+                                                    const [hours, minutes] = e.target.value.split(':').map(Number);
+                                                    const newDate = dateValue ? new Date(dateValue) : new Date();
+                                                    newDate.setHours(hours, minutes);
+                                                    setValue("date", newDate);
+                                                }}
+                                                value={dateValue ? format(dateValue, "HH:mm") : ""}
+                                            />
+                                        </div>
                                     </PopoverContent>
                                 </Popover>
                                 {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
