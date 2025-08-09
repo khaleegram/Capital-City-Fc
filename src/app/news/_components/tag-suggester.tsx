@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Loader2, Tags } from "lucide-react"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
+import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,7 @@ export function TagSuggester() {
   const [articleContent, setArticleContent] = useState("")
   const [suggestedTags, setSuggestedTags] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   const handleSuggest = async () => {
     if (!articleContent.trim()) return
@@ -23,7 +25,11 @@ export function TagSuggester() {
       setSuggestedTags(result.tags)
     } catch (error) {
       console.error("Failed to suggest tags:", error)
-      // You could add a toast notification here
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "There was an issue suggesting tags. Please try again.",
+      })
     } finally {
       setIsLoading(false)
     }
