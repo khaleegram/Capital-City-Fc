@@ -167,8 +167,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
               : "Enter the details for the new player."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1 space-y-2">
                 <Label>Player Photo</Label>
                 <div className="aspect-square rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50">
@@ -249,8 +248,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                 </div>
               </div>
             </div>
-          </div>
-          <DialogFooter>
+          <DialogFooter className="col-span-1 md:col-span-3">
             <Button
               type="button"
               variant="outline"
