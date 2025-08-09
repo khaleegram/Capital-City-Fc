@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import type { Fixture } from "@/lib/data"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Loader2, Calendar } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
 
