@@ -23,9 +23,10 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        if (!params.id) return;
+        const fixtureId = params.id;
+        if (!fixtureId) return;
 
-        const docRef = doc(db, "fixtures", params.id);
+        const docRef = doc(db, "fixtures", fixtureId);
         const unsubscribe = onSnapshot(docRef, (doc) => {
             if (doc.exists()) {
                 setFixture({ id: doc.id, ...doc.data() } as Fixture);
