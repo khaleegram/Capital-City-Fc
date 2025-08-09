@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateMatchSummaryInputSchema = z.object({
-  rawText: z.string().describe('Raw text of the match.'),
+  bulletPoints: z.string().describe('Bullet points of the match.'),
 });
 
 export type GenerateMatchSummaryInput = z.infer<typeof GenerateMatchSummaryInputSchema>;
@@ -33,9 +33,9 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateMatchSummaryOutputSchema},
   prompt: `You are an expert sports journalist specializing in creating concise and engaging summaries of soccer/football matches.
 
-  Given the following raw text of a match, extract key data points like goal scorers, final scores, and any other important highlights to create a summary that allows fans to quickly catch up on games they missed.
+  Given the following bullet points of a match, expand on them to create a summary that allows fans to quickly catch up on games they missed. Extract key data points like goal scorers, final scores, and any other important highlights.
 
-  Raw Text: {{{rawText}}}
+  Bullet Points: {{{bulletPoints}}}
 
   Summary:`,
 });

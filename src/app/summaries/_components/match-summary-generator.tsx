@@ -7,23 +7,29 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, FileText } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 export function MatchSummaryGenerator() {
-  const [rawText, setRawText] = useState("")
+  const [bulletPoints, setBulletPoints] = useState("")
   const [summary, setSummary] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!rawText.trim()) return
+    if (!bulletPoints.trim()) return
     setIsLoading(true)
     setSummary("")
     try {
-      const result = await generateMatchSummary({ rawText })
+      const result = await generateMatchSummary({ bulletPoints })
       setSummary(result.summary)
     } catch (error) {
       console.error(error)
-      setSummary("Failed to generate summary.")
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to generate summary. Please try again.",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -37,17 +43,17 @@ export function MatchSummaryGenerator() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="raw-text" className="font-semibold">Raw Match Text</Label>
+            <Label htmlFor="bullet-points" className="font-semibold">Match Bullet Points</Label>
             <Textarea
-              id="raw-text"
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder="Paste raw match text here... For example: 'Final whistle blows. Capital City 2, Rivals United 1. Leo Rivera scores in the 89th minute. Marco Jensen with the assist...'"
+              id="bullet-points"
+              value={bulletPoints}
+              onChange={(e) => setBulletPoints(e.target.value)}
+              placeholder="Enter key points from the match... e.g.&#10;- Final score: 2-1 vs Rivals United&#10;- Goalscorers: Leo Rivera (89'), Sofia Cruz (45')&#10;- Key moment: Alex Chen saved a penalty in the 60th minute."
               className="mt-2 min-h-[200px]"
               disabled={isLoading}
             />
           </div>
-          <Button type="submit" disabled={isLoading || !rawText.trim()}>
+          <Button type="submit" disabled={isLoading || !bulletPoints.trim()}>
             {isLoading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
