@@ -6,16 +6,16 @@ import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { useAuth } from "@/hooks/use-auth"
 import { useToast } from "@/hooks/use-toast"
-import type { Fixture } from "@/lib/data"
+import type { Fixture, TeamProfile } from "@/lib/data"
 import Link from "next/link"
+import { getTeamProfile } from "@/lib/team"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Loader2, Calendar } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
-function FixtureCard({ fixture }: { fixture: Fixture }) {
+function FixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: TeamProfile }) {
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
 
     return (
@@ -29,10 +29,10 @@ function FixtureCard({ fixture }: { fixture: Fixture }) {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
                             <Avatar>
-                                <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
-                                <AvatarFallback>CC</AvatarFallback>
+                                <AvatarImage src={teamProfile.logoUrl} alt={teamProfile.name} data-ai-hint="team logo" />
+                                <AvatarFallback>{teamProfile.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                             </Avatar>
-                            <span className="font-bold text-lg font-headline">Capital City FC</span>
+                            <span className="font-bold text-lg font-headline">{teamProfile.name}</span>
                         </div>
                         <div className="text-center px-4">
                             <span className="font-bold text-2xl">vs</span>
@@ -55,9 +55,21 @@ export default function FixturesPage() {
     const { user } = useAuth()
     const { toast } = useToast()
     const [fixtures, setFixtures] = useState<Fixture[]>([])
+    const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const profile = await getTeamProfile();
+                setTeamProfile(profile);
+            } catch (error) {
+                console.error("Failed to fetch team profile", error);
+                toast({ variant: "destructive", title: "Error", description: "Could not load team profile." });
+            }
+        }
+        fetchProfile();
+
         const q = query(collection(db, "fixtures"), orderBy("date", "asc"));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Fixture));
@@ -87,9 +99,9 @@ export default function FixturesPage() {
                     <div className="flex justify-center items-center h-40">
                         <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
-                ) : fixtures.length > 0 ? (
+                ) : fixtures.length > 0 && teamProfile ? (
                     fixtures.map(fixture => (
-                        <FixtureCard key={fixture.id} fixture={fixture} />
+                        <FixtureCard key={fixture.id} fixture={fixture} teamProfile={teamProfile} />
                     ))
                 ) : (
                     <div className="text-center py-16 rounded-lg bg-muted">

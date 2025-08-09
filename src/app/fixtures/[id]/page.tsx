@@ -5,8 +5,9 @@ import { useState, useEffect } from "react"
 import { notFound } from "next/navigation"
 import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import type { Fixture } from "@/lib/data"
+import type { Fixture, TeamProfile } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
+import { getTeamProfile } from "@/lib/team"
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,11 +21,23 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 export default function FixtureDetailsPage({ params }: { params: { id: string }}) {
     const { toast } = useToast()
     const [fixture, setFixture] = useState<Fixture | null>(null)
+    const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         const fixtureId = params.id;
         if (!fixtureId) return;
+        
+        const fetchProfile = async () => {
+            try {
+                const profile = await getTeamProfile();
+                setTeamProfile(profile);
+            } catch (error) {
+                console.error("Failed to fetch team profile", error);
+                toast({ variant: "destructive", title: "Error", description: "Could not load team profile." });
+            }
+        }
+        fetchProfile();
 
         const docRef = doc(db, "fixtures", fixtureId);
         const unsubscribe = onSnapshot(docRef, (doc) => {
@@ -43,7 +56,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
         return () => unsubscribe();
     }, [params.id, toast]);
 
-    if (isLoading) {
+    if (isLoading || !teamProfile) {
         return (
             <div className="flex h-[80vh] w-full items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -71,10 +84,10 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
                 </CardHeader>
                 <CardContent className="flex items-center justify-center text-center">
                     <div className="flex-1 flex items-center justify-end gap-4">
-                        <CardTitle className="font-headline text-3xl">Capital City FC</CardTitle>
+                        <CardTitle className="font-headline text-3xl">{teamProfile.name}</CardTitle>
                         <Avatar className="h-16 w-16">
-                            <AvatarImage src="/logo.png" alt="Capital City FC" data-ai-hint="team logo" />
-                            <AvatarFallback>CC</AvatarFallback>
+                            <AvatarImage src={teamProfile.logoUrl} alt={teamProfile.name} data-ai-hint="team logo" />
+                            <AvatarFallback>{teamProfile.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                     </div>
                     <div className="px-8">

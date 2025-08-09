@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { FileText, Home, Newspaper, Search, Users, Video, Calendar, Trophy } from "lucide-react"
+import { FileText, Home, Newspaper, Search, Users, Video, Calendar, Trophy, Shield } from "lucide-react"
 
 import {
   Sidebar,
@@ -40,6 +40,7 @@ const adminMenuItems = [
   { href: "/summaries", label: "Summaries", icon: FileText, tooltip: "Summaries" },
   { href: "/recaps", label: "Recaps", icon: Trophy, tooltip: "Recaps" },
   { href: "/scouting", label: "Scouting", icon: Search, tooltip: "Scouting" },
+  { href: "/team", label: "Team", icon: Shield, tooltip: "Team Profile" },
 ];
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {

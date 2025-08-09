@@ -1,0 +1,68 @@
+
+"use client"
+
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { getTeamProfile } from "@/lib/team";
+import type { TeamProfile } from "@/lib/data";
+
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Lock, Loader2 } from "lucide-react";
+import { TeamProfileForm } from "./_components/team-profile-form";
+
+export default function TeamProfilePage() {
+    const { user } = useAuth();
+    const [profile, setProfile] = useState<TeamProfile | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const teamProfile = await getTeamProfile();
+                setProfile(teamProfile);
+            } catch (error) {
+                console.error("Failed to fetch team profile:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
+
+    if (!user) {
+        return (
+            <div className="p-4 sm:p-6 lg:p-8 flex items-center justify-center h-[calc(100vh-10rem)]">
+                <Card className="max-w-md w-full">
+                    <CardHeader className="text-center">
+                        <Lock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <CardTitle className="font-headline">Admin Access Required</CardTitle>
+                        <CardDescription>
+                            You must be logged in to manage the team profile.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
+            </div>
+        )
+    }
+
+    if (isLoading) {
+        return (
+            <div className="flex h-[80vh] w-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
+    }
+
+    return (
+        <div className="p-4 sm:p-6 lg:p-8">
+            <div className="max-w-4xl mx-auto">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-headline font-bold">Team Profile</h1>
+                    <p className="text-muted-foreground mt-2">Manage your club's official name, logo, and other details.</p>
+                </div>
+                {profile && <TeamProfileForm profile={profile} />}
+            </div>
+        </div>
+    )
+}

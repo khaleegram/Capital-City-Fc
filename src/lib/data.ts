@@ -76,6 +76,13 @@ export type Recap = {
     createdAt: Timestamp;
 };
 
+export type TeamProfile = {
+    id: string;
+    name: string;
+    logoUrl: string;
+    homeVenue: string;
+};
+
 
 export const newsArticles: NewsArticle[] = [
   // This mock data is no longer used for display, 
