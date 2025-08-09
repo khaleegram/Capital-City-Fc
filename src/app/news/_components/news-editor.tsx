@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { Wand2, Loader2 } from "lucide-react"
+import { generateNewsArticle } from "@/ai/flows/generate-news-article"
+import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -12,19 +14,26 @@ export function NewsEditor() {
   const [bulletPoints, setBulletPoints] = useState("")
   const [generatedArticle, setGeneratedArticle] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   const handleGenerate = async () => {
     if (!bulletPoints.trim()) return
     setIsLoading(true)
     setGeneratedArticle("")
-    // Mock AI call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    const article = `**Capital City Secures Victory in a Thrilling Encounter**\n\nBased on the key points provided, Capital City FC has once again demonstrated their dominance on the field. The match, filled with tense moments and brilliant plays, ultimately tipped in our favor.\n\n${bulletPoints
-      .split("\n")
-      .map((point) => `- ${point.trim()}`)
-      .join("\n")}\n\nThis result further solidifies the team's position in the league standings and gives the fans another reason to celebrate. The synergy between the players was palpable, leading to this well-deserved win.`
-    setGeneratedArticle(article)
-    setIsLoading(false)
+    
+    try {
+      const result = await generateNewsArticle({ bulletPoints })
+      setGeneratedArticle(result.article)
+    } catch (error) {
+      console.error("Failed to generate article:", error)
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "There was an issue generating the article. Please try again.",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -50,12 +59,19 @@ export function NewsEditor() {
         )}
         Generate Article
       </Button>
-      {generatedArticle && (
+      {(isLoading || generatedArticle) && (
         <div>
           <h3 className="font-headline text-lg font-semibold mt-6 mb-2">Generated Article</h3>
-          <Card>
+           <Card className="mt-2 bg-muted">
             <CardContent className="p-4">
-              <pre className="whitespace-pre-wrap font-body text-sm">{generatedArticle}</pre>
+               {isLoading ? (
+                  <div className="flex items-center space-x-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin"/>
+                      <span>Generating article...</span>
+                  </div>
+              ) : (
+                <pre className="whitespace-pre-wrap font-body text-sm">{generatedArticle}</pre>
+              )}
             </CardContent>
           </Card>
         </div>
