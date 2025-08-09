@@ -94,7 +94,7 @@ export default function NewsPage() {
               </Card>
             ))
           ) : (
-            <div className="text-center py-16">
+            <div className="text-center py-16 rounded-lg bg-muted">
               <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-medium">No Articles Published</h3>
               <p className="mt-1 text-sm text-muted-foreground">
