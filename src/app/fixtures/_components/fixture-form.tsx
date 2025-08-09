@@ -180,7 +180,7 @@ export function FixtureForm() {
                                     <p className="text-sm text-muted-foreground">{generatedContent.tags.join(', ')}</p>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <Checkbox id="publishArticle" {...register("publishArticle")} />
+                                    <Checkbox id="publishArticle" defaultChecked={true} onCheckedChange={(checked) => setValue("publishArticle", !!checked)} />
                                     <Label htmlFor="publishArticle">Publish preview as a news article</Label>
                                 </div>
                             </div>
