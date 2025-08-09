@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { doc, onSnapshot, collection, query, where, getDocs } from "firebase/firestore"
+import { doc, onSnapshot, collection, query, where, getDocs, documentId } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Player, Video } from "@/lib/data"
 
@@ -53,12 +53,12 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
     const fetchPlayerVideos = async () => {
       setIsVideosLoading(true);
       try {
-        const tagsQuery = query(collection(db, "playerVideos"), where("playerId", "==", params.id));
-        const tagsSnapshot = await getDocs(tagsQuery);
-        const videoIds = tagsSnapshot.docs.map(doc => doc.data().videoId);
+        const playerVideosQuery = query(collection(db, "playerVideos"), where("playerId", "==", params.id));
+        const playerVideosSnapshot = await getDocs(playerVideosQuery);
+        const videoIds = playerVideosSnapshot.docs.map(doc => doc.data().videoId);
 
         if (videoIds.length > 0) {
-          const videosQuery = query(collection(db, "videos"), where("__name__", "in", videoIds));
+          const videosQuery = query(collection(db, "videos"), where(documentId(), "in", videoIds));
           const videosSnapshot = await getDocs(videosQuery);
           const videosData = videosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
           setVideos(videosData);
@@ -175,7 +175,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
                         </div>
                         <CardHeader className="p-3">
                           <CardTitle className="text-base font-semibold truncate">{video.title}</CardTitle>
-                          <CardDescription className="text-xs">{new Date(video.uploadDate.seconds * 1000).toLocaleDateString()}</CardDescription>
+                          <CardDescription className="text-xs">{new Date((video.uploadDate as any).seconds * 1000).toLocaleDateString()}</CardDescription>
                         </CardHeader>
                       </Card>
                     </Link>
