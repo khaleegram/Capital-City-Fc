@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react";
@@ -11,7 +12,7 @@ import type { Player, Formation } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, useDraggable } from "@dnd-kit/core";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -34,6 +35,51 @@ const formationSchema = z.object({
 });
 type FormationFormData = z.infer<typeof formationSchema>;
 
+const positionCoordinates: { [key: string]: { [key: string]: string } } = {
+  "4-4-2": {
+    "GK": "top-[90%] left-1/2",
+    "DEF-1": "top-[75%] left-[15%]", "DEF-2": "top-[78%] left-[35%]", "DEF-3": "top-[78%] left-[65%]", "DEF-4": "top-[75%] left-[85%]",
+    "MID-1": "top-[50%] left-[18%]", "MID-2": "top-[55%] left-[40%]", "MID-3": "top-[55%] left-[60%]", "MID-4": "top-[50%] left-[82%]",
+    "FWD-1": "top-[25%] left-[35%]", "FWD-2": "top-[25%] left-[65%]",
+  },
+  "4-3-3": {
+    "GK": "top-[90%] left-1/2",
+    "DEF-1": "top-[75%] left-[15%]", "DEF-2": "top-[78%] left-[35%]", "DEF-3": "top-[78%] left-[65%]", "DEF-4": "top-[75%] left-[85%]",
+    "MID-1": "top-[55%] left-[25%]", "MID-2": "top-[60%] left-[50%]", "MID-3": "top-[55%] left-[75%]",
+    "FWD-1": "top-[25%] left-[20%]", "FWD-2": "top-[18%] left-[50%]", "FWD-3": "top-[25%] left-[80%]",
+  }
+};
+
+const formationSlots = {
+    "4-4-2": [
+        { id: "starter-0", position: positionCoordinates["4-4-2"]["GK"]},
+        { id: "starter-1", position: positionCoordinates["4-4-2"]["DEF-1"]},
+        { id: "starter-2", position: positionCoordinates["4-4-2"]["DEF-2"]},
+        { id: "starter-3", position: positionCoordinates["4-4-2"]["DEF-3"]},
+        { id: "starter-4", position: positionCoordinates["4-4-2"]["DEF-4"]},
+        { id: "starter-5", position: positionCoordinates["4-4-2"]["MID-1"]},
+        { id: "starter-6", position: positionCoordinates["4-4-2"]["MID-2"]},
+        { id: "starter-7", position: positionCoordinates["4-4-2"]["MID-3"]},
+        { id: "starter-8", position: positionCoordinates["4-4-2"]["MID-4"]},
+        { id: "starter-9", position: positionCoordinates["4-4-2"]["FWD-1"]},
+        { id: "starter-10", position: positionCoordinates["4-4-2"]["FWD-2"]},
+    ],
+    "4-3-3": [
+        { id: "starter-0", position: positionCoordinates["4-3-3"]["GK"]},
+        { id: "starter-1", position: positionCoordinates["4-3-3"]["DEF-1"]},
+        { id: "starter-2", position: positionCoordinates["4-3-3"]["DEF-2"]},
+        { id: "starter-3", position: positionCoordinates["4-3-3"]["DEF-3"]},
+        { id: "starter-4", position: positionCoordinates["4-3-3"]["DEF-4"]},
+        { id: "starter-5", position: positionCoordinates["4-3-3"]["MID-1"]},
+        { id: "starter-6", position: positionCoordinates["4-3-3"]["MID-2"]},
+        { id: "starter-7", position: positionCoordinates["4-3-3"]["MID-3"]},
+        { id: "starter-8", position: positionCoordinates["4-3-3"]["FWD-1"]},
+        { id: "starter-9", position: positionCoordinates["4-3-3"]["FWD-2"]},
+        { id: "starter-10", position: positionCoordinates["4-3-3"]["FWD-3"]},
+    ]
+}
+
+
 export function FormationManager() {
   const { toast } = useToast();
   const [allPlayers, setAllPlayers] = useState<Player[]>([]);
@@ -41,7 +87,8 @@ export function FormationManager() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tacticalNotes, setTacticalNotes] = useState("");
-
+  const [currentFormation, setCurrentFormation] = useState<"4-4-2" | "4-3-3">("4-4-2");
+  
   const [startingXI, setStartingXI] = useState<(Player | null)[]>(Array(11).fill(null));
   const [substitutes, setSubstitutes] = useState<(Player | null)[]>(Array(7).fill(null));
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,9 +122,7 @@ export function FormationManager() {
     };
   }, [toast]);
 
-  const handleDragStart = () => {
-    setIsDragging(true);
-  };
+  const handleDragStart = () => setIsDragging(true);
   
   const handleDragEnd = (event: DragEndEvent) => {
     setIsDragging(false);
@@ -93,10 +138,9 @@ export function FormationManager() {
       const isStarterSlot = slotId.startsWith("starter-");
       const index = parseInt(slotId.split('-')[1]);
 
-      const existingStarterIndex = startingXI.findIndex(p => p?.id === draggedPlayerId);
-      const existingSubIndex = substitutes.findIndex(p => p?.id === draggedPlayerId);
+      const isAlreadyAssigned = startingXI.some(p => p?.id === draggedPlayerId) || substitutes.some(p => p?.id === draggedPlayerId);
 
-      if (existingStarterIndex !== -1 || existingSubIndex !== -1) {
+      if (isAlreadyAssigned) {
         toast({ title: "Player already assigned", description: "This player is already in the lineup.", variant: "destructive" });
         return;
       }
@@ -127,33 +171,23 @@ export function FormationManager() {
   }
 
   const setPresetFormation = (preset: '4-4-2' | '4-3-3') => {
+    setCurrentFormation(preset);
     let available = [...allPlayers];
     const newStarters: (Player | null)[] = Array(11).fill(null);
     const newSubs: (Player | null)[] = Array(7).fill(null);
 
-    const assign = (position: Player['position'], count: number): (Player | null)[] => {
-      const assigned: (Player | null)[] = [];
+    const assign = (position: Player['position'], count: number): Player[] => {
+      const assigned: Player[] = [];
       for (let i = 0; i < count; i++) {
         const playerIndex = available.findIndex(p => p.position === position);
         if (playerIndex !== -1) {
           assigned.push(available[playerIndex]);
           available.splice(playerIndex, 1);
-        } else {
-          assigned.push(null);
         }
       }
       return assigned;
     }
-
-    const fillGaps = (arr: (Player | null)[]) => {
-      return arr.map(slot => {
-        if (slot === null && available.length > 0) {
-          return available.shift()!;
-        }
-        return slot;
-      });
-    }
-
+    
     let gk = assign('Goalkeeper', 1);
     let defs, mids, fwds;
 
@@ -166,10 +200,15 @@ export function FormationManager() {
       mids = assign("Midfielder", 3);
       fwds = assign("Forward", 3);
     }
-
-    const startersDraft = [...gk, ...defs, ...mids, ...fwds];
-    setStartingXI(fillGaps(startersDraft));
     
+    // Fill with best-fit players first
+    let startersDraft = [...gk, ...defs, ...mids, ...fwds];
+    // Fill any gaps with remaining players
+    while(startersDraft.length < 11 && available.length > 0) {
+        startersDraft.push(available.shift()!);
+    }
+    
+    setStartingXI(startersDraft.concat(Array(11-startersDraft.length).fill(null)));
     setSubstitutes(newSubs.map(() => available.shift() || null));
     toast({ title: `Loaded ${preset} preset` });
   };
@@ -230,8 +269,8 @@ export function FormationManager() {
                   {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
                 </div>
                 <div className="space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setPresetFormation('4-4-2')}>4-4-2</Button>
-                  <Button type="button" variant="outline" onClick={() => setPresetFormation('4-3-3')}>4-3-3</Button>
+                  <Button type="button" variant={currentFormation === '4-4-2' ? 'default' : 'outline'} onClick={() => setPresetFormation('4-4-2')}>4-4-2</Button>
+                  <Button type="button" variant={currentFormation === '4-3-3' ? 'default' : 'outline'} onClick={() => setPresetFormation('4-3-3')}>4-3-3</Button>
                 </div>
               </div>
 
@@ -240,26 +279,13 @@ export function FormationManager() {
                 <div className="lg:col-span-2">
                   <div className="aspect-[3/4] md:aspect-video bg-green-900/40 p-2 sm:p-4 rounded-lg relative overflow-hidden border-2 border-green-600/30">
                     <Image src="/pitch-vertical.svg" alt="Pitch" layout="fill" objectFit="cover" className="opacity-20" />
-                    <div className="relative z-10 h-full">
+                    <div className="relative z-10 h-full w-full">
                       <h3 className="text-center font-bold text-white mb-2 sm:mb-4">Starting XI ({startingXI.filter(p => p).length}/11)</h3>
-                      <div className="grid grid-cols-3 grid-rows-5 h-[calc(100%-40px)] gap-1 sm:gap-2">
-                         {/* Goalkeeper */}
-                        <div className="col-span-3 flex justify-center items-end">
-                            <DroppablePlayerSlot id="starter-0" player={startingXI[0]} onRemove={handleUnassignPlayer} showPulse={isDragging} />
-                        </div>
-                        {/* Defenders */}
-                        <div className="col-span-3 flex justify-around items-center">
-                            {startingXI.slice(1, 5).map((p, i) => <DroppablePlayerSlot key={`starter-${i+1}`} id={`starter-${i+1}`} player={p} onRemove={handleUnassignPlayer} showPulse={isDragging} />)}
-                        </div>
-                        {/* Midfielders */}
-                        <div className="col-span-3 flex justify-around items-center">
-                           {startingXI.slice(5, 9).map((p, i) => <DroppablePlayerSlot key={`starter-${i+5}`} id={`starter-${i+5}`} player={p} onRemove={handleUnassignPlayer} showPulse={isDragging} />)}
-                        </div>
-                        {/* Forwards */}
-                        <div className="col-span-3 flex justify-around items-center">
-                           {startingXI.slice(9, 11).map((p, i) => <DroppablePlayerSlot key={`starter-${i+9}`} id={`starter-${i+9}`} player={p} onRemove={handleUnassignPlayer} showPulse={isDragging} />)}
-                        </div>
-                      </div>
+                      {formationSlots[currentFormation].map((slot, i) => (
+                          <div key={slot.id} className={cn("absolute -translate-x-1/2 -translate-y-1/2", slot.position)}>
+                             <DroppablePlayerSlot id={slot.id} player={startingXI[i]} onRemove={handleUnassignPlayer} showPulse={isDragging} />
+                          </div>
+                      ))}
                     </div>
                   </div>
                   <div className="mt-4 p-2 sm:p-4 rounded-lg bg-muted">
@@ -275,9 +301,9 @@ export function FormationManager() {
                 {/* Player Roster */}
                 <div className="lg:col-span-1">
                   <Card className="flex flex-col h-full">
-                    <CardHeader className="p-4 border-b">
+                    <CardHeader className="p-4 border-b sticky top-0 bg-card z-10">
                       <CardTitle className="text-lg">Available Players</CardTitle>
-                      <CardDescription>Drag a player from this list to an empty slot on the pitch or bench.</CardDescription>
+                      <CardDescription>Drag a player to an empty slot on the pitch or bench.</CardDescription>
                       <div className="relative pt-2">
                         <Search className="absolute left-2.5 top-4 h-4 w-4 text-muted-foreground" />
                         <Input
@@ -339,12 +365,12 @@ export function FormationManager() {
               <div className="space-y-2">
                 {formations.map(formation => (
                   <Collapsible key={formation.id} className="border rounded-lg transition-all hover:bg-muted/50">
-                    <div className="flex items-center justify-between p-2">
+                    <div className="flex items-center justify-between p-2 group">
                       <CollapsibleTrigger asChild>
-                        <div className="flex items-center gap-3 flex-1 cursor-pointer p-2 group">
+                        <div className="flex items-center gap-3 flex-1 cursor-pointer p-2">
                           <Shirt className="h-5 w-5 text-primary" />
                           <h4 className="font-semibold text-lg">{formation.name}</h4>
-                          <ChevronDown className="h-5 w-5 transition-transform group-data-[state=open]:-rotate-180" />
+                          <ChevronDown className="h-5 w-5 transition-transform data-[state=open]:-rotate-180" />
                         </div>
                       </CollapsibleTrigger>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -401,3 +427,5 @@ export function FormationManager() {
     </DndContext>
   );
 }
+
+    

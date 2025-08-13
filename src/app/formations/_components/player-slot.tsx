@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Player } from "@/lib/data";
@@ -27,12 +28,12 @@ export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false
         ref={setNodeRef} 
         className={cn(
           "aspect-square rounded-full flex items-center justify-center border-dashed border-2 border-white/20 bg-black/20 transition-all duration-200",
-          isSubstitute ? "w-14 h-14" : "w-20 h-20",
+          isSubstitute ? "w-14 h-14" : "w-16 h-16 sm:w-20 sm:h-20",
           isOver && "border-primary scale-110 bg-primary/20",
-          showPulse && "animate-pulse border-primary"
+          showPulse && !isOver && "animate-pulse border-primary"
         )}
       >
-        <Shirt className={cn("h-6 w-6 text-white/30 transition-colors", isOver && "text-primary")} />
+        <Shirt className={cn("transition-colors", isSubstitute ? "h-5 w-5" : "h-6 w-6", isOver ? "text-primary" : "text-white/30" )} />
       </div>
     );
   }
@@ -42,7 +43,7 @@ export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false
       ref={setNodeRef}
       className={cn(
         "relative group/player aspect-square flex flex-col items-center justify-center text-center p-1 rounded-full transition-all duration-200",
-        isSubstitute ? "w-14 h-14" : "w-20 h-20",
+        isSubstitute ? "w-14 h-14" : "w-16 h-16 sm:w-20 sm:h-20",
         isOver ? "ring-2 ring-primary" : ""
       )}
     >
@@ -50,7 +51,7 @@ export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex flex-col items-center justify-center w-full h-full bg-primary/90 text-primary-foreground rounded-full shadow-lg">
-              <span className={cn("font-bold", isSubstitute ? "text-lg" : "text-2xl")}>
+              <span className={cn("font-bold", isSubstitute ? "text-lg" : "text-xl sm:text-2xl")}>
                   {player.jerseyNumber}
               </span>
               <p className="text-white/80 font-semibold truncate max-w-full leading-tight" style={{ fontSize: isSubstitute ? '0.6rem' : '0.7rem' }}>
@@ -105,3 +106,5 @@ export function PlayerSlot({ player, isSubstitute = false }: { player: Player | 
     </div>
   );
 }
+
+    
