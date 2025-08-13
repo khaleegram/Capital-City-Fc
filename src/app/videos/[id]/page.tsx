@@ -16,7 +16,7 @@ export default function VideoPlayerPage({ params }: { params: { id: string } }) 
     const { toast } = useToast()
     const [video, setVideo] = useState<Video | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const videoId = params.id;
+    const { id: videoId } = params;
 
     useEffect(() => {
         if (!videoId) return;

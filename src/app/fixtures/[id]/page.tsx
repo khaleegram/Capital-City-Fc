@@ -226,7 +226,7 @@ export default function FixtureDetailsPage({ params }: { params: { id: string }}
     const [fixture, setFixture] = useState<Fixture | null>(null)
     const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true)
-    const fixtureId = params.id;
+    const { id: fixtureId } = params;
 
     useEffect(() => {
         if (!fixtureId) return;

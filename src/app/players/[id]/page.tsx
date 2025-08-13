@@ -30,7 +30,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
   const [isLoading, setIsLoading] = useState(true);
   const [isVideosLoading, setIsVideosLoading] = useState(true);
   const { toast } = useToast();
-  const playerId = params.id;
+  const { id: playerId } = params;
 
   useEffect(() => {
     if (!playerId) return;
