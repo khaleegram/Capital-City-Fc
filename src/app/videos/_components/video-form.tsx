@@ -40,12 +40,13 @@ const videoSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
   video: z.any().optional(),
   taggedPlayerIds: z.array(z.string()).optional(),
+  isEditing: z.boolean().optional(),
 }).refine(data => {
-    // If it's a new video (no existing URL), a file must be provided.
-    // The `video` field will be a FileList instance for new uploads.
-    if (typeof data.video !== 'string' && (!data.video || data.video.length === 0)) {
-        return false;
+    // If we are NOT editing, we must have a video file.
+    if (!data.isEditing) {
+        return data.video && data.video.length > 0;
     }
+    // If we ARE editing, the video field is optional.
     return true;
 }, {
     message: "Video is required.",
@@ -93,6 +94,7 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
                 description: videoToEdit.description,
                 video: videoToEdit.videoUrl, // Keep existing URL
                 taggedPlayerIds: videoToEdit.taggedPlayers.map(p => p.id),
+                isEditing: true,
             });
             setThumbnailPreview(videoToEdit.thumbnailUrl);
             setSelectedPlayers(videoToEdit.taggedPlayers);
@@ -102,6 +104,7 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
                 description: "",
                 video: undefined,
                 taggedPlayerIds: [],
+                isEditing: false,
             });
             setThumbnailPreview(null);
             setSelectedPlayers([]);
