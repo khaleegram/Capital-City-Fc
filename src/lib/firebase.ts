@@ -5,14 +5,15 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
+// This is a public configuration and it's safe to expose.
 const firebaseConfig = {
-  apiKey: "AIzaSyC9alUkqtvrjudCzE3xFkUsHw8kqK_8w64",
-  authDomain: "capital-city-app.firebaseapp.com",
-  projectId: "capital-city-app",
-  storageBucket: "capital-city-app.appspot.com",
-  messagingSenderId: "883323125833",
-  appId: "1:883323125833:web:8641022c00620f6928bf98",
-  measurementId: "G-C1ST753CL3"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
