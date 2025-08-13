@@ -44,3 +44,4 @@ export function PlayerDraggableCard({ player }: PlayerDraggableCardProps) {
     </div>
   );
 }
+    
