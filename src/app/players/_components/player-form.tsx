@@ -62,7 +62,7 @@ interface PlayerFormProps {
 export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isGenerating, setIsGenerating = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(player?.imageUrl || null)
 
   const {
