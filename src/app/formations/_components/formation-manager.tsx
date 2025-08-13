@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { PlayerSlot } from "./player-slot";
+import { cn } from "@/lib/utils";
 
 const formationSchema = z.object({
     name: z.string().min(3, "Formation name is required."),
@@ -143,24 +144,24 @@ export function FormationManager() {
                             {errors.name && <p className="text-sm text-destructive mt-1">{errors.name.message}</p>}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                            {/* Pitch and Bench */}
-                            <div className="md:col-span-2">
-                                <div className="aspect-[4/3] bg-green-800/20 border-2 border-dashed border-white/20 p-4 rounded-lg relative overflow-hidden">
-                                     <Image src="/pitch-lines.svg" alt="Pitch" layout="fill" objectFit="contain" className="opacity-30" />
+                            <div className="lg:col-span-2">
+                                <div className="aspect-[4/3] bg-green-800/20 border-2 border-dashed border-green-300/20 p-2 sm:p-4 rounded-lg relative overflow-hidden">
+                                     <Image src="/pitch-lines.svg" alt="Pitch" layout="fill" objectFit="contain" className="opacity-20" />
                                     {/* Starters */}
                                     <div className="relative z-10 h-full">
-                                        <h3 className="text-center font-bold text-white mb-4">Starting XI ({startingXI.length}/11)</h3>
-                                        <div className="grid grid-cols-5 grid-rows-4 h-[calc(100%-40px)] gap-2">
+                                        <h3 className="text-center font-bold text-white mb-2 sm:mb-4">Starting XI ({startingXI.length}/11)</h3>
+                                        <div className="grid grid-cols-5 grid-rows-4 h-[calc(100%-40px)] gap-1 sm:gap-2">
                                             {Array.from({ length: 11 }).map((_, i) => (
                                                 <PlayerSlot key={`starter-${i}`} player={startingXI[i]} onRemove={handleUnassignPlayer} />
                                             ))}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="mt-4 p-4 rounded-lg bg-muted">
+                                <div className="mt-4 p-2 sm:p-4 rounded-lg bg-muted">
                                      <h3 className="font-bold text-lg mb-2">Bench ({substitutes.length})</h3>
-                                     <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-7 gap-2">
+                                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-1 sm:gap-2">
                                         {Array.from({ length: 7 }).map((_, i) => (
                                              <PlayerSlot key={`sub-${i}`} player={substitutes[i]} isSubstitute onRemove={handleUnassignPlayer} />
                                         ))}
@@ -169,14 +170,14 @@ export function FormationManager() {
                             </div>
 
                             {/* Player Roster */}
-                            <div className="md:col-span-1">
+                            <div className="lg:col-span-1">
                                 <Card>
                                     <CardHeader className="p-4">
                                         <CardTitle className="text-lg">Roster</CardTitle>
                                         <CardDescription>Select a player to assign</CardDescription>
                                     </CardHeader>
                                     <CardContent className="p-0">
-                                        <ScrollArea className="h-[400px]">
+                                        <ScrollArea className="h-[400px] lg:h-[480px]">
                                             <div className="p-2 space-y-1">
                                                 {availablePlayers.map(p => (
                                                     <div 
