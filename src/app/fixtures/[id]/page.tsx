@@ -306,7 +306,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                 </CardContent>
             </Card>
 
-            {fixture.status === 'LIVE' && <LiveUpdateForm fixture={fixture} />}
+            {(fixture.status === 'LIVE' || fixture.status === 'FT') && <LiveUpdateForm fixture={fixture} />}
             
             <Separator />
             
