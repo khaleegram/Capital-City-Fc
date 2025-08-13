@@ -41,7 +41,6 @@ const adminMenuItems = [
   { href: "/recaps", label: "Recaps", icon: Trophy, tooltip: "Recaps" },
   { href: "/formations", label: "Formations", icon: LayoutDashboard, tooltip: "Formations" },
   { href: "/team", label: "Team", icon: Shield, tooltip: "Team Profile" },
-  { href: "/scouting", label: "Scouting", icon: Search, tooltip: "Scouting" },
 ];
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
