@@ -171,7 +171,9 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         return
       }
 
-      const playerPayload = { ...data, imageUrl, careerHighlights: data.careerHighlights?.map(h => h.value) || [] }
+      // Omit the 'image' field from the data payload before sending to Firestore
+      const { image, ...restOfData } = data;
+      const playerPayload = { ...restOfData, imageUrl, careerHighlights: data.careerHighlights?.map(h => h.value) || [] }
 
       if (player) {
         await updatePlayer(player.id, playerPayload)
@@ -335,5 +337,3 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
     </Dialog>
   )
 }
-
-    
