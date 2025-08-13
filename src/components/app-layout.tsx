@@ -39,7 +39,6 @@ const adminMenuItems = [
   { href: "/videos", label: "Videos", icon: Video, tooltip: "Videos" },
   { href: "/fixtures", label: "Fixtures", icon: Calendar, tooltip: "Fixtures" },
   { href: "/recaps", label: "Recaps", icon: Trophy, tooltip: "Recaps" },
-  { href: "/scouting", label: "Scouting", icon: Search, tooltip: "Scouting" },
   { href: "/team", label: "Team", icon: Shield, tooltip: "Team Profile" },
 ];
 
