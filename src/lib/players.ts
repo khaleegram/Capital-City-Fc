@@ -5,14 +5,17 @@ import {
   updateDoc,
   doc,
   serverTimestamp,
+  deleteDoc,
 } from "firebase/firestore";
 import {
   ref,
   uploadBytes,
   getDownloadURL,
+  deleteObject,
 } from "firebase/storage";
 import { db, storage } from "./firebase";
 import { v4 as uuidv4 } from 'uuid';
+import type { Player } from "./data";
 
 // Firestore collection reference
 const playersCollectionRef = collection(db, "players");
@@ -66,4 +69,30 @@ export const updatePlayer = async (playerId: string, playerData: any) => {
   }
 };
 
+/**
+ * Deletes a player from Firestore and their image from Storage.
+ * @param player The player object to delete.
+ */
+export const deletePlayer = async (player: Player) => {
+    try {
+      // Delete Firestore document
+      await deleteDoc(doc(db, "players", player.id));
+      
+      // Delete image from Storage, if it's a Firebase Storage URL
+      if (player.imageUrl && player.imageUrl.includes('firebasestorage.googleapis.com')) {
+        try {
+            const imageRef = ref(storage, player.imageUrl);
+            await deleteObject(imageRef);
+        } catch (storageError: any) {
+            // It's possible the file doesn't exist or permissions are wrong,
+            // but we don't want this to block the Firestore deletion.
+            console.warn("Could not delete player image from storage:", storageError.code);
+        }
+      }
+
+    } catch (error) {
+       console.error("Error deleting player:", error);
+       throw new Error("Failed to delete player.");
+    }
+  }
     

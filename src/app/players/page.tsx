@@ -4,10 +4,10 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from "firebase/firestore"
-import { deleteObject, ref } from "firebase/storage"
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { useAuth } from "@/hooks/use-auth"
-import { db, storage } from "@/lib/firebase"
+import { db } from "@/lib/firebase"
+import { deletePlayer } from "@/lib/players"
 import type { Player } from "@/lib/data"
 import {
   Card,
@@ -72,15 +72,7 @@ export default function PlayersPage() {
 
   const handleDelete = async (player: Player) => {
     try {
-      // Delete Firestore document
-      await deleteDoc(doc(db, "players", player.id));
-      
-      // Delete image from Storage
-      if (player.imageUrl) {
-        const imageRef = ref(storage, player.imageUrl);
-        await deleteObject(imageRef);
-      }
-
+      await deletePlayer(player);
       toast({ title: "Success", description: "Player deleted successfully."})
     } catch (error) {
        console.error("Error deleting player:", error);
@@ -128,7 +120,7 @@ export default function PlayersPage() {
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       ) : filteredPlayers.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 rounded-lg bg-muted">
             <UserX className="mx-auto h-12 w-12 text-muted-foreground" />
             <h3 className="mt-4 text-lg font-medium">No Players Found</h3>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -144,7 +136,7 @@ export default function PlayersPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredPlayers.map((player) => (
-            <Card key={player.id} className="h-full flex flex-col group/player">
+            <Card key={player.id} className="h-full flex flex-col group/player relative">
               <Link href={`/players/${player.id}`} className="flex flex-col h-full grow">
                 <CardHeader className="p-0">
                   <div className="relative aspect-square">
@@ -169,7 +161,7 @@ export default function PlayersPage() {
                 </CardFooter>
               </Link>
               {user && (
-                <div className="absolute top-2 left-2 flex gap-2 opacity-0 group-hover/player:opacity-100 transition-opacity">
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/player:opacity-100 transition-opacity">
                   <Button size="icon" variant="outline" className="h-8 w-8 bg-background/80" onClick={() => handleEdit(player)}>
                       <Edit className="h-4 w-4" />
                       <span className="sr-only">Edit</span>
