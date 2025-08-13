@@ -38,9 +38,20 @@ import { Badge } from "@/components/ui/badge"
 const videoSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
-  video: z.any().refine((files) => files?.length > 0 || typeof files === 'string', "Video is required."),
+  video: z.any().optional(),
   taggedPlayerIds: z.array(z.string()).optional(),
-})
+}).refine(data => {
+    // If it's a new video (no existing URL), a file must be provided.
+    // The `video` field will be a FileList instance for new uploads.
+    if (typeof data.video !== 'string' && (!data.video || data.video.length === 0)) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Video is required.",
+    path: ["video"],
+});
+
 
 type VideoFormData = z.infer<typeof videoSchema>
 
