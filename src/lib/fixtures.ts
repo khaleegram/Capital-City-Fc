@@ -10,6 +10,7 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
 } from "firebase/firestore";
 import { db, storage } from "./firebase";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -161,10 +162,12 @@ export const postLiveUpdate = async (
         awayScore: number;
         status: "UPCOMING" | "LIVE" | "FT";
         eventText: string;
-        eventType: "Goal" | "Red Card" | "Match End" | "Info";
+        eventType: "Goal" | "Red Card" | "Substitution" | "Info";
+        playerId?: string;
+        teamName?: string;
     }
 ) => {
-    const { homeScore, awayScore, status, eventText, eventType } = updateData;
+    const { homeScore, awayScore, status, eventText, eventType, playerId, teamName } = updateData;
     const fixtureDocRef = doc(db, "fixtures", fixtureId);
     const liveEventsColRef = collection(db, "fixtures", fixtureId, "liveEvents");
 
@@ -177,14 +180,23 @@ export const postLiveUpdate = async (
         "status": status,
     });
 
+    let playerName: string | undefined;
+    if (playerId) {
+        const playerSnap = await getDoc(doc(db, "players", playerId));
+        if (playerSnap.exists()) {
+            playerName = playerSnap.data().name;
+        }
+    }
+
     // 2. Add a new document to the liveEvents subcollection
     const newEventRef = doc(liveEventsColRef);
     batch.set(newEventRef, {
         text: eventText,
         type: eventType,
         timestamp: serverTimestamp(),
-        // You could add more structured data here based on eventType
-        score: `${homeScore} - ${awayScore}`
+        score: `${homeScore} - ${awayScore}`,
+        playerName: playerName || null,
+        teamName: teamName || null,
     });
 
     await batch.commit();

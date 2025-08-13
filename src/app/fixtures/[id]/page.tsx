@@ -14,7 +14,7 @@ import { FormationDisplay } from "@/app/formations/_components/formation-display
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Wand2 } from "lucide-react"
 
@@ -37,17 +38,21 @@ const updateSchema = z.object({
   awayScore: z.coerce.number().min(0),
   status: z.enum(["UPCOMING", "LIVE", "FT"]),
   eventText: z.string().min(5, "Event description is required."),
-  eventType: z.enum(["Goal", "Red Card", "Match End", "Info"]),
+  eventType: z.enum(["Goal", "Red Card", "Substitution", "Info"]),
+  playerId: z.string().optional(),
+  teamName: z.string().optional(),
   noteForAI: z.string().optional(),
 })
 type UpdateFormData = z.infer<typeof updateSchema>
 
-function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
+function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfile: TeamProfile }) {
   const { user } = useAuth()
   const { toast } = useToast()
   const [isGenerating, setIsGenerating] = useState(false)
   const [isPosting, setIsPosting] = useState(false)
   
+  const allInvolvedPlayers = [...(fixture.startingXI || []), ...(fixture.substitutes || [])];
+
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<UpdateFormData>({
     resolver: zodResolver(updateSchema),
     defaultValues: {
@@ -66,6 +71,8 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
         eventType: "Info",
         eventText: "",
         noteForAI: "",
+        playerId: "",
+        teamName: "",
     })
   }, [fixture, reset])
 
@@ -92,6 +99,7 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
         toast({ title: "Success", description: "Live update posted!" });
         setValue("noteForAI", "");
         setValue("eventText", "");
+        setValue("playerId", "");
     } catch(error) {
         console.error("Error posting update:", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to post update."});
@@ -131,26 +139,53 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
                         )} />
                     </div>
                 </div>
-                <div className="space-y-4">
+                 <div className="space-y-4">
                      <div>
-                       <Label>Event Type</Label>
-                        <Controller name="eventType" control={control} render={({ field }) => (
-                            <RadioGroup value={field.value} onValueChange={field.onChange} className="flex items-center space-x-4 mt-2">
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Info" id="info" /><Label htmlFor="info">Info</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Goal" id="goal" /><Label htmlFor="goal">Goal</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Red Card" id="redcard" /><Label htmlFor="redcard">Red Card</Label></div>
-                            </RadioGroup>
-                        )} />
-                    </div>
-                     <div>
-                        <Label htmlFor="noteForAI">Quick Note for AI</Label>
+                        <Label>Quick Note for AI</Label>
                         <div className="flex items-center gap-2">
-                            <Input id="noteForAI" {...register("noteForAI")} placeholder="e.g., Rivera scores a header" />
+                            <Input {...register("noteForAI")} placeholder="e.g., Rivera scores a header" />
                             <Button type="button" onClick={handleGenerate} disabled={isGenerating || !noteForAI?.trim()} variant="outline" size="icon">
                                 {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                             </Button>
                         </div>
                     </div>
+                    <div>
+                        <Label>Event Type</Label>
+                        <Controller name="eventType" control={control} render={({ field }) => (
+                            <RadioGroup value={field.value} onValueChange={field.onChange} className="flex items-center space-x-4 mt-2">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Info" id="info" /><Label htmlFor="info">Info</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Goal" id="goal" /><Label htmlFor="goal">Goal</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Red Card" id="redcard" /><Label htmlFor="redcard">Red Card</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="Substitution" id="sub" /><Label htmlFor="sub">Sub</Label></div>
+                            </RadioGroup>
+                        )} />
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <Label>Player Involved</Label>
+                    <Controller name="playerId" control={control} render={({ field }) => (
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger><SelectValue placeholder="Select a player..." /></SelectTrigger>
+                            <SelectContent>
+                                {allInvolvedPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )} />
+                </div>
+                <div>
+                     <Label>Team Involved</Label>
+                      <Controller name="teamName" control={control} render={({ field }) => (
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger><SelectValue placeholder="Select a team..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value={teamProfile.name}>{teamProfile.name}</SelectItem>
+                                <SelectItem value={fixture.opponent}>{fixture.opponent}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )} />
                 </div>
             </div>
             
@@ -198,6 +233,22 @@ function SubstitutesDisplay({ players, title }: { players: Player[], title: stri
     )
 }
 
+const eventIcons = {
+    "Goal": <Goal className="h-4 w-4 text-white" />,
+    "Red Card": <RectangleVertical className="h-4 w-4 text-white" />,
+    "Substitution": <Repeat className="h-4 w-4 text-white" />,
+    "Info": <Radio className="h-4 w-4 text-white" />,
+    "Match End": <Trophy className="h-4 w-4 text-white" />,
+}
+
+const eventColors = {
+    "Goal": "bg-green-500",
+    "Red Card": "bg-red-600",
+    "Substitution": "bg-blue-500",
+    "Info": "bg-gray-500",
+    "Match End": "bg-yellow-500",
+}
+
 // --- LiveMatchFeed Component ---
 function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
     const { toast } = useToast()
@@ -226,10 +277,12 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
     }
 
     return updates.length > 0 ? (
-        <div className="space-y-6 border-l-2 border-primary/20 pl-6 relative">
+        <div className="space-y-6 border-l-2 border-primary/20 pl-8 relative">
              {updates.map((update) => (
                  <div key={update.id} className="relative">
-                    <div className="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-primary" />
+                    <div className={cn("absolute -left-[45px] top-1 h-8 w-8 rounded-full flex items-center justify-center", eventColors[update.type as keyof typeof eventColors] || "bg-primary")}>
+                       {eventIcons[update.type as keyof typeof eventIcons]}
+                    </div>
                     <p className="text-sm font-semibold">{update.text}</p>
                     <p className="text-xs text-muted-foreground mt-1">{update.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
@@ -328,7 +381,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                 </CardContent>
             </Card>
 
-            <LiveUpdateForm fixture={fixture} />
+            <LiveUpdateForm fixture={fixture} teamProfile={teamProfile} />
             
             <Separator />
             
@@ -363,5 +416,3 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         </div>
     )
 }
-
-    

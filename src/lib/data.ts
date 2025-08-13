@@ -68,8 +68,7 @@ export type LiveEvent = {
     id: string;
     timestamp: Timestamp;
     text: string;
-    type: "Goal" | "Red Card" | "Match End" | "Info";
-    // For more detailed events
+    type: "Goal" | "Red Card" | "Substitution" | "Info" | "Match End";
     score?: string;
     playerName?: string;
     teamName?: string;

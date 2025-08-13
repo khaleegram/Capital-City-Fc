@@ -70,15 +70,19 @@ exports.sendLiveUpdateNotification = functions.firestore
     switch (event.type) {
       case "Goal":
         title = "⚽ GOAL!";
-        body = `${event.playerName || "Unknown Player"} scores for ${event.teamName || "Team"} — ${event.score || ""}`;
+        body = `${event.playerName || 'Unknown Player'} scores for ${event.teamName || 'Team'} — ${event.score || ''}`;
         break;
       case "Red Card":
         title = "🟥 Red Card";
-        body = `${event.playerName || "Player"} — ${event.teamName || "Team"} down to 10 men`;
+        body = `${event.playerName || 'Player'} sent off for ${event.teamName || 'Team'}`;
         break;
+      case "Substitution":
+         title = "🔄 Substitution";
+         body = event.text; // Text should be descriptive like "Player A comes on for Player B"
+         break;
       case "Match End":
         title = "✅ Full Time";
-        body = event.score || "";
+        body = `Match finished. Final score: ${event.score || ""}`;
         break;
       default:
          // For "Info" and other types, only send if there's engaging text.
