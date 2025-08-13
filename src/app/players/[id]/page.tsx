@@ -24,12 +24,13 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 
-export default function PlayerProfilePage({ params: { id: playerId } }: { params: { id: string } }) {
+export default function PlayerProfilePage({ params }: { params: { id: string } }) {
   const [player, setPlayer] = useState<Player | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVideosLoading, setIsVideosLoading] = useState(true);
   const { toast } = useToast();
+  const playerId = params.id;
 
   useEffect(() => {
     if (!playerId) return;
