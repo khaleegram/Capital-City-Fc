@@ -92,6 +92,14 @@ export type TeamProfile = {
     homeVenue: string;
 };
 
+export type Formation = {
+  id: string;
+  name: string;
+  startingXI: Player[];
+  substitutes: Player[];
+  createdAt: Timestamp;
+};
+
 
 export const newsArticles: NewsArticle[] = [
   // This mock data is no longer used for display, 

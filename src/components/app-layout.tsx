@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, Search } from "lucide-react"
+import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, Search, LayoutDashboard } from "lucide-react"
 import Image from "next/image"
 
 import {
@@ -39,6 +39,7 @@ const adminMenuItems = [
   { href: "/videos", label: "Videos", icon: Video, tooltip: "Videos" },
   { href: "/fixtures", label: "Fixtures", icon: Calendar, tooltip: "Fixtures" },
   { href: "/recaps", label: "Recaps", icon: Trophy, tooltip: "Recaps" },
+  { href: "/formations", label: "Formations", icon: LayoutDashboard, tooltip: "Formations" },
   { href: "/team", label: "Team", icon: Shield, tooltip: "Team Profile" },
   { href: "/scouting", label: "Scouting", icon: Search, tooltip: "Scouting" },
 ];
