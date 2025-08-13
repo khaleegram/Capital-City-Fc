@@ -52,7 +52,7 @@ export type Fixture = {
   competition: string;
   date: Timestamp | Date;
   status: "UPCOMING" | "LIVE" | "FT";
-  score: {
+  score?: {
       home: number;
       away: number;
   };
