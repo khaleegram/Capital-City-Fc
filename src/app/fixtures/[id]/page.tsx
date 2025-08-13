@@ -9,6 +9,7 @@ import type { Fixture, TeamProfile, LiveEvent, Player } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { getTeamProfile } from "@/lib/team"
 import { useAuth } from "@/hooks/use-auth"
+import { FormationDisplay } from "@/app/formations/_components/formation-display"
 
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
@@ -169,13 +170,16 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
   )
 }
 
-function LineupDisplay({ players, title }: { players: Player[], title: string }) {
+function SubstitutesDisplay({ players, title }: { players: Player[], title: string }) {
     if (!players || players.length === 0) return null;
 
     return (
-        <div>
-            <h3 className="font-headline text-lg font-semibold mb-3">{title}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-headline text-lg">{title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {players.map(player => (
                     <div key={player.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/50">
                         <Avatar className="h-10 w-10">
@@ -183,13 +187,14 @@ function LineupDisplay({ players, title }: { players: Player[], title: string })
                             <AvatarFallback>{player.name.substring(0, 2)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="font-semibold">{player.name}</p>
+                            <p className="font-semibold text-sm">{player.name}</p>
                             <p className="text-xs text-muted-foreground">{player.position}</p>
                         </div>
                     </div>
                 ))}
             </div>
-        </div>
+          </CardContent>
+        </Card>
     )
 }
 
@@ -342,8 +347,14 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                          </TabsContent>
                          <TabsContent value="lineups" className="mt-6">
                             <div className="space-y-6">
-                                <LineupDisplay players={fixture.startingXI!} title="Starting XI" />
-                                <LineupDisplay players={fixture.substitutes!} title="Substitutes" />
+                                <FormationDisplay
+                                    teamName={teamProfile.name}
+                                    startingXI={fixture.startingXI || []}
+                                />
+                                <SubstitutesDisplay
+                                    players={fixture.substitutes || []}
+                                    title="Substitutes"
+                                />
                             </div>
                          </TabsContent>
                     </Tabs>
@@ -352,3 +363,5 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         </div>
     )
 }
+
+    
