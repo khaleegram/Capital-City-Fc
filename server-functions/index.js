@@ -1,4 +1,3 @@
-
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 
@@ -41,6 +40,7 @@ exports.sendLiveUpdateNotification = functions.firestore
             return null;
         }
     }
+
 
     // 2. Get all tokens
     const tokensSnap = await admin.firestore().collection("userPushTokens").get();
@@ -87,3 +87,4 @@ exports.sendLiveUpdateNotification = functions.firestore
     console.log(`Notification sent for fixture ${fixtureId}`);
     return null;
   });
+
