@@ -168,7 +168,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
               ) : videos.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {videos.map((video) => (
-                     <Link href={`/videos`} key={video.id}>
+                     <Link href={`/videos/${video.id}`} key={video.id}>
                       <Card className="overflow-hidden hover:shadow-lg transition-shadow">
                         <div className="relative aspect-video">
                            <Image src={video.thumbnailUrl || 'https://placehold.co/400x225.png'} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
