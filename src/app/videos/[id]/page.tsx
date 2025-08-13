@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { notFound } from "next/navigation"
 import { doc, onSnapshot } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -12,8 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
-export default function VideoPlayerPage({ params }: { params: { id: string } }) {
-    const { id: videoId } = params;
+export default function VideoPlayerPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id: videoId } = use(params);
     const { toast } = useToast()
     const [video, setVideo] = useState<Video | null>(null)
     const [isLoading, setIsLoading] = useState(true)

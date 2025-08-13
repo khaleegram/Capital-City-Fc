@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { notFound } from "next/navigation"
 import { doc, onSnapshot, collection, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
@@ -221,8 +221,8 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
 
 // --- FixtureDetailsPage Component ---
 
-export default function FixtureDetailsPage({ params }: { params: { id: string }}) {
-    const { id: fixtureId } = params;
+export default function FixtureDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id: fixtureId } = use(params);
     const { toast } = useToast()
     const [fixture, setFixture] = useState<Fixture | null>(null)
     const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);

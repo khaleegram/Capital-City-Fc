@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -24,8 +24,8 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 
-export default function PlayerProfilePage({ params }: { params: { id: string } }) {
-  const { id: playerId } = params;
+export default function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: playerId } = use(params);
   const [player, setPlayer] = useState<Player | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
