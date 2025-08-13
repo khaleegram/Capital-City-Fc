@@ -27,12 +27,12 @@ export function PlayerDraggableCard({ player }: PlayerDraggableCardProps) {
       ref={setNodeRef}
       style={style}
       className={cn(
-        "p-2 rounded-md flex items-center gap-3 transition-colors",
+        "p-2 rounded-md flex items-center gap-3 transition-all",
         "bg-background hover:bg-muted",
-        isDragging ? "opacity-50 cursor-grabbing" : "cursor-grab"
+        isDragging ? "opacity-50 cursor-grabbing scale-105 shadow-lg" : "cursor-grab"
       )}
     >
-      <div {...listeners} {...attributes} className="p-1 touch-none">
+      <div {...listeners} {...attributes} className="p-1 touch-none cursor-grab">
           <GripVertical className="h-5 w-5 text-muted-foreground" />
       </div>
       <Image src={player.imageUrl} alt={player.name} width={40} height={40} className="rounded-full w-10 h-10 object-cover" />

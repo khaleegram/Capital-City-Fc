@@ -3,7 +3,7 @@
 import { Player } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
-import { X } from "lucide-react";
+import { X, Shirt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -13,29 +13,26 @@ interface DroppablePlayerSlotProps {
   player: Player | null;
   onRemove: (player: Player) => void;
   isSubstitute?: boolean;
+  showPulse?: boolean;
 }
 
-export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false }: DroppablePlayerSlotProps) {
+export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false, showPulse = false }: DroppablePlayerSlotProps) {
   const { isOver, setNodeRef } = useDroppable({
     id,
   });
-
-  const style = {
-    opacity: isOver ? 0.7 : 1,
-    border: isOver ? "2px dashed hsl(var(--primary))" : isSubstitute ? "1px dashed hsl(var(--border))" : "none",
-    backgroundColor: isOver ? "hsl(var(--primary) / 0.2)" : "transparent",
-  };
 
   if (!player) {
     return (
       <div 
         ref={setNodeRef} 
-        style={style} 
         className={cn(
-          "aspect-square rounded-lg flex items-center justify-center border-dashed transition-all",
-          isSubstitute ? 'bg-black/20 border-white/20' : 'bg-white/10'
+          "aspect-square rounded-full flex items-center justify-center border-dashed border-2 border-white/20 bg-black/20 transition-all duration-200",
+          isSubstitute ? "w-14 h-14" : "w-20 h-20",
+          isOver && "border-primary scale-110 bg-primary/20",
+          showPulse && "animate-pulse border-primary"
         )}
       >
+        <Shirt className={cn("h-6 w-6 text-white/30 transition-colors", isOver && "text-primary")} />
       </div>
     );
   }
@@ -44,20 +41,21 @@ export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false
     <div
       ref={setNodeRef}
       className={cn(
-        "relative group/player aspect-square flex flex-col items-center justify-center text-center p-1 bg-black/40 rounded-lg transition-all",
-        isSubstitute && 'bg-black/20'
+        "relative group/player aspect-square flex flex-col items-center justify-center text-center p-1 rounded-full transition-all duration-200",
+        isSubstitute ? "w-14 h-14" : "w-20 h-20",
+        isOver ? "ring-2 ring-primary" : ""
       )}
     >
-      <TooltipProvider>
+      <TooltipProvider delayDuration={100}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex flex-col items-center justify-center w-full h-full">
-              <div className={cn("flex items-center justify-center rounded-full font-bold text-primary-foreground", 
-                isSubstitute ? "h-8 w-8 text-sm bg-primary/80" : "h-10 w-10 text-lg bg-primary"
-              )}>
+            <div className="flex flex-col items-center justify-center w-full h-full bg-primary/90 text-primary-foreground rounded-full shadow-lg">
+              <span className={cn("font-bold", isSubstitute ? "text-lg" : "text-2xl")}>
                   {player.jerseyNumber}
-              </div>
-              <p className="text-white text-[10px] sm:text-xs font-semibold mt-1 truncate max-w-full bg-black/50 px-1.5 py-0.5 rounded-sm">{player.name.split(' ').pop()}</p>
+              </span>
+              <p className="text-white/80 font-semibold truncate max-w-full leading-tight" style={{ fontSize: isSubstitute ? '0.6rem' : '0.7rem' }}>
+                {player.name.split(' ').pop()}
+              </p>
             </div>
           </TooltipTrigger>
           <TooltipContent>
@@ -80,24 +78,22 @@ export function DroppablePlayerSlot({ id, player, onRemove, isSubstitute = false
   );
 }
 
-
-// PlayerSlot is now just a wrapper for the visuals, used in other places like saved formations.
+// Kept for other potential uses, but DroppablePlayerSlot is primary for the manager
 export function PlayerSlot({ player, isSubstitute = false }: { player: Player | null, isSubstitute?: boolean }) {
   if (!player) return null;
   return (
     <div
       className={cn(
-        "relative flex flex-col items-center justify-center p-1 rounded-lg text-white bg-green-700/60 transition-all duration-200",
-        "w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24",
-        isSubstitute ? "w-12 h-12 sm:w-16 sm:h-16" : ""
+        "relative flex flex-col items-center justify-center p-1 rounded-lg text-white bg-green-700/60",
+        isSubstitute ? "w-16 h-16" : "w-24 h-24"
       )}
     >
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex flex-col items-center">
-              <span className="font-bold text-lg leading-none sm:text-xl md:text-2xl">{player.jerseyNumber}</span>
-              <span className="text-xs leading-tight opacity-90">{player.name.split(" ")[0]}</span>
+              <span className="font-bold text-xl md:text-2xl">{player.jerseyNumber}</span>
+              <span className="text-xs opacity-90">{player.name.split(" ")[0]}</span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
@@ -109,4 +105,3 @@ export function PlayerSlot({ player, isSubstitute = false }: { player: Player | 
     </div>
   );
 }
-    
