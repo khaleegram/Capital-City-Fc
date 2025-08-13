@@ -12,7 +12,7 @@ import { getTeamProfile } from "@/lib/team"
 import { deleteFixture } from "@/lib/fixtures"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Calendar, Edit, Trash2 } from "lucide-react"
+import { Loader2, Calendar, Edit, Trash2, PlusCircle } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
