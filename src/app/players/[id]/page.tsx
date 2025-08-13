@@ -32,10 +32,11 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!params.id) return;
+    const playerId = params.id;
+    if (!playerId) return;
 
     // Fetch Player Data
-    const playerDocRef = doc(db, "players", params.id);
+    const playerDocRef = doc(db, "players", playerId);
     const unsubscribePlayer = onSnapshot(playerDocRef, (doc) => {
       if (doc.exists()) {
         setPlayer({ id: doc.id, ...doc.data() } as Player);
@@ -53,7 +54,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
     const fetchPlayerVideos = async () => {
       setIsVideosLoading(true);
       try {
-        const playerVideosQuery = query(collection(db, "playerVideos"), where("playerId", "==", params.id));
+        const playerVideosQuery = query(collection(db, "playerVideos"), where("playerId", "==", playerId));
         const playerVideosSnapshot = await getDocs(playerVideosQuery);
         const videoIds = playerVideosSnapshot.docs.map(doc => doc.data().videoId);
 

@@ -18,9 +18,10 @@ export default function VideoPlayerPage({ params }: { params: { id: string } }) 
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        if (!params.id) return;
+        const videoId = params.id;
+        if (!videoId) return;
 
-        const docRef = doc(db, "videos", params.id);
+        const docRef = doc(db, "videos", videoId);
         const unsubscribe = onSnapshot(docRef, (doc) => {
             if (doc.exists()) {
                 setVideo({ id: doc.id, ...doc.data() } as Video);
