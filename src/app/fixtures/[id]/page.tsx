@@ -49,8 +49,8 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<UpdateFormData>({
     resolver: zodResolver(updateSchema),
     defaultValues: {
-        homeScore: fixture.score.home,
-        awayScore: fixture.score.away,
+        homeScore: fixture.score?.home ?? 0,
+        awayScore: fixture.score?.away ?? 0,
         status: fixture.status,
         eventType: "Info",
     }
@@ -58,8 +58,8 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
 
   useEffect(() => {
     reset({
-        homeScore: fixture.score.home,
-        awayScore: fixture.score.away,
+        homeScore: fixture.score?.home ?? 0,
+        awayScore: fixture.score?.away ?? 0,
         status: fixture.status,
         eventType: "Info",
         eventText: "",
@@ -294,7 +294,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                         </Avatar>
                     </div>
                     <div className="px-8">
-                        <span className="text-4xl font-bold">{fixture.score.home} - {fixture.score.away}</span>
+                        <span className="text-4xl font-bold">{fixture.score?.home ?? 0} - {fixture.score?.away ?? 0}</span>
                     </div>
                     <div className="flex-1 flex items-center justify-start gap-4">
                          <Avatar className="h-16 w-16">
