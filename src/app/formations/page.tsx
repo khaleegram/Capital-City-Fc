@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Lock, LayoutDashboard } from "lucide-react";
+import { Lock, Users } from "lucide-react";
 import { FormationManager } from "./_components/formation-manager";
 
 export default function FormationsPage() {
@@ -29,7 +30,7 @@ export default function FormationsPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-headline font-bold flex items-center gap-3">
-                        <LayoutDashboard className="h-8 w-8 text-primary"/>
+                        <Users className="h-8 w-8 text-primary"/>
                         Formation Manager
                     </h1>
                     <p className="text-muted-foreground mt-2">Create and manage reusable team lineups for matches.</p>
