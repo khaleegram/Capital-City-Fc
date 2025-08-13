@@ -14,7 +14,7 @@ import {
 import { db, storage } from "./firebase";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
-import type { Fixture } from "./data";
+import type { Fixture, Player } from "./data";
 
 const fixturesCollectionRef = collection(db, "fixtures");
 const newsCollectionRef = collection(db, "news");
@@ -45,6 +45,8 @@ export const addFixtureAndArticle = async (data: {
         date: Date;
         notes?: string;
         publishArticle: boolean;
+        startingXI?: Player[];
+        substitutes?: Player[];
     };
     preview: string;
     tags: string[];
@@ -95,13 +97,11 @@ export const addFixtureAndArticle = async (data: {
  * @param fixtureId The ID of the fixture to update.
  * @param fixtureData The data to update.
  */
-export const updateFixture = async (fixtureId: string, fixtureData: Fixture) => {
+export const updateFixture = async (fixtureId: string, fixtureData: Partial<Omit<Fixture, 'id'>>) => {
     try {
         const fixtureDocRef = doc(db, "fixtures", fixtureId);
-        // Omit id because we don't save it inside the document
-        const { id, ...dataToUpdate } = fixtureData;
         await updateDoc(fixtureDocRef, {
-            ...dataToUpdate,
+            ...fixtureData,
             updatedAt: serverTimestamp(),
         });
     } catch (error) {
@@ -109,6 +109,7 @@ export const updateFixture = async (fixtureId: string, fixtureData: Fixture) => 
         throw new Error("Failed to update fixture.");
     }
 };
+
 
 /**
  * Deletes a fixture and its associated preview article if it exists.

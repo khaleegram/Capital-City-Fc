@@ -2,14 +2,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { addFixtureAndArticle, updateFixture, uploadOpponentLogo } from "@/lib/fixtures"
 import { generateFixturePreview } from "@/ai/flows/generate-fixture-preview"
 import type { GenerateFixturePreviewOutput } from "@/ai/flows/generate-fixture-preview"
-import type { Fixture } from "@/lib/data"
+import type { Fixture, Player, Formation } from "@/lib/data"
 import Image from "next/image"
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
@@ -17,13 +19,17 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Wand2, PlusCircle, Save, UploadCloud } from "lucide-react"
+import { Loader2, Wand2, PlusCircle, Save, UploadCloud, Users, Trash2 } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Calendar as CalendarPicker } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const fixtureSchema = z.object({
     opponent: z.string().min(2, "Opponent name is required."),
@@ -33,6 +39,8 @@ const fixtureSchema = z.object({
     opponentLogo: z.any().optional(),
     publishArticle: z.boolean().default(true),
     notes: z.string().optional(),
+    startingXI: z.array(z.any()).optional(),
+    substitutes: z.array(z.any()).optional(),
 })
 
 type FixtureFormData = z.infer<typeof fixtureSchema>
@@ -43,12 +51,52 @@ interface FixtureFormProps {
   fixture?: Fixture | null
 }
 
+const PlayerPicker = ({ title, allPlayers, selectedPlayers, onTogglePlayer, maxPlayers }: { title: string, allPlayers: Player[], selectedPlayers: Player[], onTogglePlayer: (player: Player) => void, maxPlayers?: number }) => {
+    const availablePlayers = allPlayers.filter(p => !selectedPlayers.some(sp => sp.id === p.id));
+    const canAddMore = !maxPlayers || selectedPlayers.length < maxPlayers;
+
+    return (
+        <div className="border rounded-lg">
+            <div className="p-3 border-b">
+                <h4 className="font-semibold">{title} ({selectedPlayers.length}{maxPlayers ? `/${maxPlayers}` : ''})</h4>
+            </div>
+            <ScrollArea className="h-40">
+                <div className="p-2 space-y-1">
+                    {selectedPlayers.length > 0 ? selectedPlayers.map(player => (
+                        <div key={player.id} className="flex items-center justify-between p-1.5 rounded-md bg-muted text-sm">
+                            <span>{player.name}</span>
+                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onTogglePlayer(player)}>
+                                <Trash2 className="h-3.5 w-3.5 text-destructive"/>
+                            </Button>
+                        </div>
+                    )) : <p className="text-xs text-muted-foreground text-center p-4">No players selected.</p>}
+                </div>
+            </ScrollArea>
+            <Separator />
+            <ScrollArea className="h-40">
+                <div className="p-2 space-y-1">
+                    {availablePlayers.map(player => (
+                        <div key={player.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-muted cursor-pointer text-sm" onClick={() => canAddMore && onTogglePlayer(player)}>
+                           <span>{player.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </ScrollArea>
+        </div>
+    );
+};
+
+
 export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     const [isGenerating, setIsGenerating] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [generatedContent, setGeneratedContent] = useState<GenerateFixturePreviewOutput | null>(null)
     const [editedPreview, setEditedPreview] = useState("")
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
+    const [formations, setFormations] = useState<Formation[]>([])
+    const [allPlayers, setAllPlayers] = useState<Player[]>([])
+    const [startingXI, setStartingXI] = useState<Player[]>([])
+    const [substitutes, setSubstitutes] = useState<Player[]>([])
 
     const { toast } = useToast()
     const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<FixtureFormData>({
@@ -57,12 +105,31 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     })
     
     useEffect(() => {
+        const playersQuery = query(collection(db, "players"), orderBy("name", "asc"));
+        const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
+            setAllPlayers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player)));
+        });
+
+        const formationsQuery = query(collection(db, "formations"), orderBy("createdAt", "desc"));
+        const formationsUnsubscribe = onSnapshot(formationsQuery, (snapshot) => {
+            setFormations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Formation)));
+        });
+
+        return () => {
+            playersUnsubscribe();
+            formationsUnsubscribe();
+        };
+    }, []);
+
+    useEffect(() => {
         if (fixture) {
             reset({
                 ...fixture,
                 date: fixture.date ? (fixture.date as any).toDate() : new Date(),
                 publishArticle: !!fixture.articleId,
             });
+            setStartingXI(fixture.startingXI || []);
+            setSubstitutes(fixture.substitutes || []);
             setLogoPreview(fixture.opponentLogoUrl || null);
         } else {
             reset({
@@ -73,11 +140,31 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                 notes: "",
                 publishArticle: true,
             });
+            setStartingXI([]);
+            setSubstitutes([]);
             setLogoPreview(null);
             setGeneratedContent(null);
             setEditedPreview("");
         }
     }, [fixture, reset, isOpen]);
+
+    const handleSelectFormation = (formationId: string) => {
+        const selectedFormation = formations.find(f => f.id === formationId);
+        if (selectedFormation) {
+            setStartingXI(selectedFormation.startingXI);
+            setSubstitutes(selectedFormation.substitutes);
+        }
+    };
+
+    const handleToggleStartingXI = (player: Player) => {
+        setStartingXI(prev => prev.some(p => p.id === player.id) ? prev.filter(p => p.id !== player.id) : [...prev, player]);
+        setSubstitutes(prev => prev.filter(p => p.id !== player.id));
+    };
+
+    const handleToggleSubstitute = (player: Player) => {
+        setSubstitutes(prev => prev.some(p => p.id === player.id) ? prev.filter(p => p.id !== player.id) : [...prev, player]);
+        setStartingXI(prev => prev.filter(p => p.id !== player.id));
+    };
 
     const dateValue = watch("date")
     const opponentLogoFile = watch("opponentLogo")
@@ -131,18 +218,21 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                 opponentLogoUrl = await uploadOpponentLogo(data.opponentLogo[0]);
             }
 
+            const finalFixtureData = {
+                ...data,
+                opponentLogoUrl,
+                startingXI,
+                substitutes,
+            };
+
             if (fixture) {
                 // Update existing fixture
-                await updateFixture(fixture.id, {
-                    ...fixture,
-                    ...data,
-                    opponentLogoUrl,
-                });
+                await updateFixture(fixture.id, finalFixtureData);
                 toast({ title: "Success", description: "Fixture has been updated." });
             } else {
                 // Add new fixture
                 await addFixtureAndArticle({
-                    fixtureData: { ...data, opponentLogoUrl },
+                    fixtureData: finalFixtureData,
                     preview: editedPreview,
                     tags: generatedContent!.tags,
                 })
@@ -164,7 +254,7 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-3xl">
+            <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle className="font-headline">{fixture ? 'Edit Fixture' : 'Add New Fixture'}</DialogTitle>
                     <DialogDescription>
@@ -218,57 +308,83 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                         </div>
                     </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                            <Label htmlFor="date">Match Date & Time</Label>
-                                <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !dateValue && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateValue ? format(dateValue, "PPP HH:mm") : <span>Pick a date and time</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <CalendarPicker
-                                        mode="single"
-                                        selected={dateValue}
-                                        onSelect={(date) => {
-                                            if (!date) return;
-                                            const newDate = new Date(date);
-                                            if (dateValue) {
-                                                newDate.setHours(dateValue.getHours());
-                                                newDate.setMinutes(dateValue.getMinutes());
-                                            }
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                        <Label htmlFor="date">Match Date & Time</Label>
+                            <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !dateValue && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateValue ? format(dateValue, "PPP HH:mm") : <span>Pick a date and time</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <CalendarPicker
+                                    mode="single"
+                                    selected={dateValue}
+                                    onSelect={(date) => {
+                                        if (!date) return;
+                                        const newDate = new Date(date);
+                                        if (dateValue) {
+                                            newDate.setHours(dateValue.getHours());
+                                            newDate.setMinutes(dateValue.getMinutes());
+                                        }
+                                        setValue("date", newDate);
+                                    }}
+                                    initialFocus
+                                />
+                                <div className="p-2 border-t">
+                                    <Input 
+                                        type="time"
+                                        onChange={(e) => {
+                                            const [hours, minutes] = e.target.value.split(':').map(Number);
+                                            const newDate = dateValue ? new Date(dateValue) : new Date();
+                                            newDate.setHours(hours, minutes);
                                             setValue("date", newDate);
                                         }}
-                                        initialFocus
+                                        value={dateValue ? format(dateValue, "HH:mm") : ""}
                                     />
-                                    <div className="p-2 border-t">
-                                        <Input 
-                                            type="time"
-                                            onChange={(e) => {
-                                                const [hours, minutes] = e.target.value.split(':').map(Number);
-                                                const newDate = dateValue ? new Date(dateValue) : new Date();
-                                                newDate.setHours(hours, minutes);
-                                                setValue("date", newDate);
-                                            }}
-                                            value={dateValue ? format(dateValue, "HH:mm") : ""}
-                                        />
-                                    </div>
-                                </PopoverContent>
-                            </Popover>
-                            {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                        {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                    </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-lg font-headline">Match Lineup</h3>
+                            <div className="w-64">
+                                <Select onValueChange={handleSelectFormation}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Load from saved formation..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {formations.map(f => (
+                                            <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <PlayerPicker title="Starting XI" allPlayers={allPlayers} selectedPlayers={startingXI} onTogglePlayer={handleToggleStartingXI} maxPlayers={11} />
+                            <PlayerPicker title="Substitutes" allPlayers={allPlayers} selectedPlayers={substitutes} onTogglePlayer={handleToggleSubstitute} />
                         </div>
+                    </div>
+
                     
                     {!fixture && (
                         <>
+                        <Separator />
                         <Button type="button" onClick={handleGeneratePreview} disabled={isGenerating}>
                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                             Generate Preview Article
@@ -276,7 +392,7 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                         
                         {generatedContent && (
                             <div className="space-y-4 pt-4 border-t">
-                                <h3 className="font-semibold text-lg font-headline">Review & Publish</h3>
+                                <h3 className="font-semibold text-lg font-headline">Review & Publish Preview</h3>
                                 <div>
                                     <Label htmlFor="preview">Generated Preview</Label>
                                     <Textarea id="preview" value={editedPreview} onChange={(e) => setEditedPreview(e.target.value)} rows={5} />

@@ -5,7 +5,7 @@ import { useState, useEffect, use } from "react"
 import { notFound } from "next/navigation"
 import { doc, onSnapshot, collection, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import type { Fixture, TeamProfile, LiveEvent } from "@/lib/data"
+import type { Fixture, TeamProfile, LiveEvent, Player } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
 import { getTeamProfile } from "@/lib/team"
 import { useAuth } from "@/hooks/use-auth"
@@ -13,9 +13,10 @@ import { useAuth } from "@/hooks/use-auth"
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 // --- LiveUpdateForm Component ---
 import { useForm, Controller } from "react-hook-form"
@@ -168,8 +169,31 @@ function LiveUpdateForm({ fixture }: { fixture: Fixture }) {
   )
 }
 
-// --- LiveMatchFeed Component ---
+function LineupDisplay({ players, title }: { players: Player[], title: string }) {
+    if (!players || players.length === 0) return null;
 
+    return (
+        <div>
+            <h3 className="font-headline text-lg font-semibold mb-3">{title}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {players.map(player => (
+                    <div key={player.id} className="flex items-center gap-3 p-2 rounded-md bg-muted/50">
+                        <Avatar className="h-10 w-10">
+                            <AvatarImage src={player.imageUrl} alt={player.name} />
+                            <AvatarFallback>{player.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-semibold">{player.name}</p>
+                            <p className="text-xs text-muted-foreground">{player.position}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+// --- LiveMatchFeed Component ---
 function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
     const { toast } = useToast()
     const [updates, setUpdates] = useState<LiveEvent[]>([])
@@ -192,35 +216,26 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
         return () => unsubscribe();
     }, [fixtureId, toast]);
 
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="font-headline text-2xl flex items-center gap-2"><Radio className="text-primary animate-pulse" /> Live Feed</CardTitle>
-                <CardDescription>Updates from the match will appear here automatically.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
-                ) : updates.length > 0 ? (
-                    <div className="space-y-6 border-l-2 border-primary/20 pl-6 relative">
-                         {updates.map((update) => (
-                             <div key={update.id} className="relative">
-                                <div className="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-primary" />
-                                <p className="text-sm font-semibold">{update.text}</p>
-                                <p className="text-xs text-muted-foreground mt-1">{update.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                            </div>
-                         ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-10"><p className="text-muted-foreground">Waiting for the match to begin...</p></div>
-                )}
-            </CardContent>
-        </Card>
-    )
+    if (isLoading) {
+        return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
+    }
+
+    return updates.length > 0 ? (
+        <div className="space-y-6 border-l-2 border-primary/20 pl-6 relative">
+             {updates.map((update) => (
+                 <div key={update.id} className="relative">
+                    <div className="absolute -left-[33px] top-1 h-4 w-4 rounded-full bg-primary" />
+                    <p className="text-sm font-semibold">{update.text}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{update.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+             ))}
+        </div>
+    ) : (
+        <div className="text-center py-10"><p className="text-muted-foreground">Waiting for the match to begin...</p></div>
+    );
 }
 
 // --- FixtureDetailsPage Component ---
-
 export default function FixtureDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: fixtureId } = use(params);
     const { toast } = useToast()
@@ -273,6 +288,8 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
 
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
 
+    const hasLineup = fixture.startingXI && fixture.startingXI.length > 0;
+
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-8">
              <Card>
@@ -294,7 +311,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                         </Avatar>
                     </div>
                     <div className="px-8">
-                        <span className="text-4xl font-bold">{fixture.score?.home ?? 0} - {fixture.score?.away ?? 0}</span>
+                        <span className="text-4xl font-bold">{fixture.status === 'UPCOMING' ? "vs" : `${fixture.score?.home ?? 0} - ${fixture.score?.away ?? 0}`}</span>
                     </div>
                     <div className="flex-1 flex items-center justify-start gap-4">
                          <Avatar className="h-16 w-16">
@@ -306,11 +323,32 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                 </CardContent>
             </Card>
 
-            {(fixture.status === 'LIVE' || fixture.status === 'FT') && <LiveUpdateForm fixture={fixture} />}
+            <LiveUpdateForm fixture={fixture} />
             
             <Separator />
             
-            <LiveMatchFeed fixtureId={fixture.id} />
+            <Card>
+                <CardHeader>
+                    <Tabs defaultValue="feed" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="feed"><Radio className="mr-2 h-4 w-4"/>Live Feed</TabsTrigger>
+                            <TabsTrigger value="lineups" disabled={!hasLineup}><Users className="mr-2 h-4 w-4" />Lineups</TabsTrigger>
+                        </TabsList>
+                        <CardDescription className="mt-4">
+                            {hasLineup ? 'View live match updates or team lineups.' : 'View live match updates. Lineups will be available closer to kick-off.'}
+                        </CardDescription>
+                         <TabsContent value="feed" className="mt-6">
+                            <LiveMatchFeed fixtureId={fixture.id} />
+                         </TabsContent>
+                         <TabsContent value="lineups" className="mt-6">
+                            <div className="space-y-6">
+                                <LineupDisplay players={fixture.startingXI!} title="Starting XI" />
+                                <LineupDisplay players={fixture.substitutes!} title="Substitutes" />
+                            </div>
+                         </TabsContent>
+                    </Tabs>
+                </CardHeader>
+            </Card>
         </div>
     )
 }

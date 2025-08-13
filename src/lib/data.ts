@@ -60,6 +60,8 @@ export type Fixture = {
   notes?: string;
   articleId?: string;
   createdAt?: Timestamp;
+  startingXI?: Player[];
+  substitutes?: Player[];
 };
 
 export type LiveEvent = {
