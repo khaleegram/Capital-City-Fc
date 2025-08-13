@@ -98,8 +98,8 @@ export type Formation = {
   name: string;
   startingXI: Player[];
   substitutes: Player[];
-  createdAt: Timestamp;
   notes?: string;
+  createdAt: Timestamp;
 };
 
 

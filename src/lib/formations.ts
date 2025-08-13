@@ -6,7 +6,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Formation, Player } from "./data";
+import type { Player } from "./data";
 
 const formationsCollectionRef = collection(db, "formations");
 
