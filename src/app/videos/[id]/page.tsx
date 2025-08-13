@@ -13,10 +13,10 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
 export default function VideoPlayerPage({ params }: { params: { id: string } }) {
+    const { id: videoId } = params;
     const { toast } = useToast()
     const [video, setVideo] = useState<Video | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const { id: videoId } = params;
 
     useEffect(() => {
         if (!videoId) return;

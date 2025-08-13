@@ -222,11 +222,11 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
 // --- FixtureDetailsPage Component ---
 
 export default function FixtureDetailsPage({ params }: { params: { id: string }}) {
+    const { id: fixtureId } = params;
     const { toast } = useToast()
     const [fixture, setFixture] = useState<Fixture | null>(null)
     const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true)
-    const { id: fixtureId } = params;
 
     useEffect(() => {
         if (!fixtureId) return;
