@@ -10,6 +10,7 @@ import React from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { auth } from "@/lib/firebase"
 import { LoginDialog } from "./login-dialog"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export function DashboardHeader() {
   const { toggleSidebar } = useSidebar()
@@ -52,7 +53,8 @@ export function DashboardHeader() {
           </React.Fragment>
         ))}
       </div>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-2">
+        <ThemeToggle />
         {user ? (
           <Button variant="outline" onClick={() => auth.signOut()}>
             <LogOut className="mr-2" />
