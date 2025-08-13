@@ -2,11 +2,13 @@
 "use client"
 
 import { useState, KeyboardEvent } from "react"
-import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy } from "lucide-react"
+import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy, Image as ImageIcon } from "lucide-react"
 import { generateNewsArticle } from "@/ai/flows/generate-news-article"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
 import { generateSocialPost } from "@/ai/flows/generate-social-post"
+import { generateNewsImage } from "@/ai/flows/generate-news-image"
 import { useToast } from "@/hooks/use-toast"
+import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -17,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[] }) => void
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageDataUri: string | null }) => void
 }
 
 interface SocialPosts {
@@ -32,10 +34,12 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
   const [suggestedTags, setSuggestedTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState("")
   const [socialPosts, setSocialPosts] = useState<SocialPosts | null>(null);
+  const [generatedImageDataUri, setGeneratedImageDataUri] = useState<string | null>(null);
 
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
   const [isSuggestingTags, setIsSuggestingTags] = useState(false)
   const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   
   const { toast } = useToast()
 
@@ -45,6 +49,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setArticleContent("")
     setSuggestedTags([])
     setSocialPosts(null);
+    setGeneratedImageDataUri(null);
     setIsEditing(false)
     
     try {
@@ -68,6 +73,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setIsSuggestingTags(true)
     setIsEditing(false)
     setSocialPosts(null)
+    setGeneratedImageDataUri(null)
     try {
       const result = await suggestNewsTags({ articleContent })
       setSuggestedTags(result.tags)
@@ -82,6 +88,26 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
       setIsSuggestingTags(false)
     }
   }
+
+  const handleGenerateImage = async () => {
+    const headline = articleContent.split('\n').find(line => line.trim() !== '') || "Untitled Article";
+    if (!headline) return;
+
+    setIsGeneratingImage(true);
+    try {
+        const result = await generateNewsImage({ prompt: headline });
+        setGeneratedImageDataUri(result.imageDataUri);
+    } catch (error) {
+        console.error("Failed to generate image:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "There was an issue generating the image. Please try again.",
+        });
+    } finally {
+        setIsGeneratingImage(false);
+    }
+  };
 
   const handleGenerateSocial = async () => {
     if (!articleContent.trim()) return
@@ -106,13 +132,14 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     const headline = lines.find(line => line.trim() !== '') || "Untitled Article"
     const content = lines.slice(lines.indexOf(headline) + 1).join('\n').trim();
 
-    onPublish({ headline, content, tags: suggestedTags });
+    onPublish({ headline, content, tags: suggestedTags, imageDataUri: generatedImageDataUri });
     
     // Reset fields
     setBulletPoints("");
     setArticleContent("");
     setSuggestedTags([]);
     setSocialPosts(null);
+    setGeneratedImageDataUri(null);
     setIsEditing(false);
   }
   
@@ -142,9 +169,10 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setSuggestedTags(suggestedTags.filter(tag => tag !== tagToRemove));
   };
 
-  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial;
+  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial || isGeneratingImage;
   const showArticleEditor = isGeneratingArticle || articleContent;
   const showTagSection = isSuggestingTags || suggestedTags.length > 0;
+  const showImageSection = isGeneratingImage || generatedImageDataUri || (suggestedTags.length > 0 && !isSuggestingTags);
   const showSocialSection = isGeneratingSocial || socialPosts;
 
   return (
@@ -252,27 +280,66 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
                   />
                   <Button onClick={handleAddTag} variant="outline">Add Tag</Button>
                 </div>
-                 <div className="mt-4">
-                  <Button onClick={handleGenerateSocial} disabled={isLoading}>
-                    {isGeneratingSocial ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Wand2 className="mr-2 h-4 w-4" />
-                    )}
-                    Generate Social Posts
-                  </Button>
-                </div>
               </>
             )}
           </div>
         </>
       )}
       
+      {showImageSection && (
+        <>
+            <Separator />
+            <div>
+                <h3 className="font-semibold text-base mt-6 mb-2">Step 4: Generate Header Image</h3>
+                <Card className="mt-2 bg-muted aspect-video flex items-center justify-center">
+                    {isGeneratingImage ? (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-8 w-8 animate-spin"/>
+                            <span>Generating image...</span>
+                        </div>
+                    ) : generatedImageDataUri ? (
+                       <Image src={generatedImageDataUri} alt="Generated news article image" width={500} height={281} className="rounded-md object-cover w-full h-full" />
+                    ) : (
+                        <div className="text-center text-muted-foreground">
+                            <ImageIcon className="mx-auto h-12 w-12" />
+                            <p className="mt-2">Your generated image will appear here.</p>
+                        </div>
+                    )}
+                </Card>
+                <div className="mt-4">
+                    <Button onClick={handleGenerateImage} disabled={isLoading || socialPosts !== null}>
+                        {isGeneratingImage ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Wand2 className="mr-2 h-4 w-4" />
+                        )}
+                        Generate Image
+                    </Button>
+                </div>
+            </div>
+        </>
+      )}
+
+      {generatedImageDataUri && !isGeneratingImage && (
+         <>
+          <Separator />
+           <div>
+              <h3 className="font-semibold text-base mt-6 mb-2">Step 5: Review Social Posts</h3>
+              <Button onClick={handleGenerateSocial} disabled={isLoading}>
+                {isGeneratingSocial ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="mr-2 h-4 w-4" />
+                )}
+                Generate Social Posts
+              </Button>
+           </div>
+         </>
+      )}
+
       {showSocialSection && (
         <>
-           <Separator />
-           <div>
-              <h3 className="font-semibold text-base mt-6 mb-2">Step 4: Review Social Posts</h3>
+           <div className="mt-4">
               {isGeneratingSocial ? (
                  <div className="flex items-center space-x-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin"/>
@@ -313,7 +380,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
       {socialPosts && !isLoading && (
         <>
           <Separator />
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-6">
             <Button onClick={handlePublish} size="lg">
               <CheckCircle className="mr-2 h-5 w-5" />
               Publish Article

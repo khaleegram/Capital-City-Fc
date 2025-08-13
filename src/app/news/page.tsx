@@ -7,6 +7,7 @@ import { db } from "@/lib/firebase"
 import { addNewsArticle } from "@/lib/news"
 import { useToast } from "@/hooks/use-toast"
 import type { NewsArticle } from "@/lib/data"
+import Image from "next/image"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { NewsEditor } from "./_components/news-editor"
@@ -35,7 +36,7 @@ export default function NewsPage() {
   }, [toast]);
 
 
-  const handlePublishArticle = async (article: { headline: string; content: string; tags: string[] }) => {
+  const handlePublishArticle = async (article: { headline: string; content: string; tags: string[]; imageDataUri: string | null; }) => {
     try {
       await addNewsArticle(article);
       toast({
@@ -77,6 +78,11 @@ export default function NewsPage() {
           ) : publishedArticles.length > 0 ? (
             publishedArticles.map(article => (
               <Card key={article.id}>
+                 {article.imageUrl && (
+                    <div className="aspect-video relative">
+                        <Image src={article.imageUrl} alt={article.headline} fill className="object-cover rounded-t-lg" data-ai-hint="news header" />
+                    </div>
+                  )}
                 <CardHeader>
                   <CardTitle className="font-headline">{article.headline}</CardTitle>
                    <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
