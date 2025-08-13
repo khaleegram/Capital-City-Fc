@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 
-export default function PlayerProfilePage({ params }: { params: { id: string } }) {
+export default function PlayerProfilePage({ params: { id: playerId } }: { params: { id: string } }) {
   const [player, setPlayer] = useState<Player | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +32,6 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
   const { toast } = useToast();
 
   useEffect(() => {
-    const playerId = params.id;
     if (!playerId) return;
 
     // Fetch Player Data
@@ -77,7 +76,7 @@ export default function PlayerProfilePage({ params }: { params: { id: string } }
     fetchPlayerVideos();
 
     return () => unsubscribePlayer();
-  }, [params.id, toast]);
+  }, [playerId, toast]);
 
 
   if (isLoading) {

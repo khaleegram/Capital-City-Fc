@@ -12,13 +12,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 
-export default function VideoPlayerPage({ params }: { params: { id: string } }) {
+export default function VideoPlayerPage({ params: { id: videoId } }: { params: { id: string } }) {
     const { toast } = useToast()
     const [video, setVideo] = useState<Video | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        const videoId = params.id;
         if (!videoId) return;
 
         const docRef = doc(db, "videos", videoId);
@@ -36,7 +35,7 @@ export default function VideoPlayerPage({ params }: { params: { id: string } }) 
         });
 
         return () => unsubscribe();
-    }, [params.id, toast]);
+    }, [videoId, toast]);
 
     if (isLoading) {
         return (
