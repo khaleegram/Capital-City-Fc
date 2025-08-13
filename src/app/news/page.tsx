@@ -82,6 +82,14 @@ export default function NewsPage() {
                    <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {article.audioUrl && (
+                    <div className="mb-4">
+                      <audio controls className="w-full">
+                        <source src={article.audioUrl} type="audio/wav" />
+                        Your browser does not support the audio element.
+                      </audio>
+                    </div>
+                  )}
                   <p className="text-sm text-foreground whitespace-pre-line">{article.content}</p>
                    {article.tags && article.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-4 border-t">

@@ -24,6 +24,7 @@ export type NewsArticle = {
   imageUrl: string;
   date: string; // Should be ISO string
   tags: string[];
+  audioUrl?: string;
 };
 
 export type Video = {
@@ -80,6 +81,7 @@ export type Recap = {
     timeline: any[]; // Consider a stricter type
     structuredData: any;
     createdAt: Timestamp;
+    audioUrl?: string | null;
 };
 
 export type TeamProfile = {

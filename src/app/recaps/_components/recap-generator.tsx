@@ -10,6 +10,7 @@ import { db } from "@/lib/firebase"
 import { addRecap } from "@/lib/recaps"
 
 import { generateMatchRecap } from "@/ai/flows/generate-match-recap"
+import { generateRecapAudio } from "@/ai/flows/generate-recap-audio"
 import type { GenerateMatchRecapOutput } from "@/ai/flows/generate-match-recap"
 import type { Fixture } from "@/lib/data"
 
@@ -20,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Wand2, Save, Trophy, ListOrdered, CheckCircle, Pencil } from "lucide-react"
+import { Loader2, Wand2, Save, Trophy, ListOrdered, CheckCircle, Pencil, AudioLines } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
 const recapSchema = z.object({
@@ -33,11 +34,13 @@ type RecapFormData = z.infer<typeof recapSchema>
 export function RecapGenerator() {
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [generatedContent, setGeneratedContent] = useState<GenerateMatchRecapOutput | null>(null)
   
   const [editedHeadline, setEditedHeadline] = useState("")
   const [editedRecap, setEditedRecap] = useState("")
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
 
 
   const { toast } = useToast()
@@ -57,6 +60,7 @@ export function RecapGenerator() {
   const handleGenerateRecap = async (data: RecapFormData) => {
     setIsLoading(true)
     setGeneratedContent(null)
+    setAudioUrl(null)
     try {
       const result = await generateMatchRecap({ matchNotes: data.matchNotes })
       setGeneratedContent(result)
@@ -69,6 +73,21 @@ export function RecapGenerator() {
       setIsLoading(false)
     }
   }
+
+  const handleGenerateAudio = async () => {
+    if (!editedRecap) return;
+    setIsGeneratingAudio(true);
+    try {
+      const result = await generateRecapAudio({ recapText: editedRecap });
+      setAudioUrl(result.audioUrl);
+      toast({ title: "Success", description: "Audio commentary generated." });
+    } catch (error) {
+      console.error("Error generating audio:", error);
+      toast({ variant: "destructive", title: "Error", description: "Failed to generate audio." });
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
   
   const handlePublish = async () => {
     const fixtureId = watch("fixtureId");
@@ -88,12 +107,14 @@ export function RecapGenerator() {
             fullRecap: editedRecap,
             timeline: generatedContent.timeline,
             structuredData: generatedContent.structuredData,
+            audioUrl: audioUrl,
         }, selectedFixture)
         toast({ title: "Success!", description: "Match recap has been published as a news article."});
         reset();
         setGeneratedContent(null);
         setEditedHeadline("");
         setEditedRecap("");
+        setAudioUrl(null);
     } catch (error) {
         console.error(error);
         toast({ variant: "destructive", title: "Error", description: "Failed to publish recap."})
@@ -176,6 +197,20 @@ export function RecapGenerator() {
                     <Label htmlFor="fullRecap" className="font-semibold flex items-center gap-2 mb-2"><Pencil className="h-4 w-4" /> Full Recap</Label>
                     <Textarea id="fullRecap" value={editedRecap} onChange={(e) => setEditedRecap(e.target.value)} rows={12} disabled={isSubmitting}/>
                 </div>
+
+                {audioUrl ? (
+                    <div>
+                        <Label className="font-semibold flex items-center gap-2 mb-2"><AudioLines className="h-4 w-4" /> Audio Commentary</Label>
+                        <audio controls src={audioUrl} className="w-full">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                ) : (
+                    <Button onClick={handleGenerateAudio} disabled={isGeneratingAudio || isSubmitting} variant="outline" className="w-full">
+                         {isGeneratingAudio ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AudioLines className="mr-2 h-4 w-4" />}
+                        Generate Audio Commentary
+                    </Button>
+                )}
               
               <Separator />
 

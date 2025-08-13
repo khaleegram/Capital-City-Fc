@@ -10,3 +10,4 @@ import '@/ai/flows/generate-social-post.ts';
 import '@/ai/flows/generate-fixture-preview.ts';
 import '@/ai/flows/answer-fan-questions.ts';
 import '@/ai/flows/generate-player-highlights.ts';
+import '@/ai/flows/generate-recap-audio.ts';

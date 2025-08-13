@@ -39,6 +39,7 @@ export const addRecap = async (recapData: Omit<Recap, 'id' | 'createdAt'>, fixtu
         recapId: recapRef.id,
         fixtureId: fixture.id,
         createdAt: serverTimestamp(),
+        audioUrl: recapData.audioUrl || null,
     });
 
     await batch.commit();
