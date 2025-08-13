@@ -12,6 +12,7 @@ export type Player = {
     goals: number;
     assists: number;
   };
+  status?: "Active" | "Injured" | "On Loan" | "Former Player";
   createdAt: Timestamp;
   updatedAt: Timestamp;
   careerHighlights: string[];

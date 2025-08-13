@@ -92,6 +92,14 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
     notFound()
   }
 
+  const getStatusVariant = (status?: string) => {
+    switch (status) {
+        case "Injured": return "destructive";
+        case "On Loan": return "secondary";
+        default: return "default";
+    }
+  }
+
   return (
     <div className="p-4 sm:p-6 lg:p-8">
       <Card>
@@ -101,9 +109,14 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
             <AvatarFallback>{player.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-y-2">
               <h1 className="text-4xl font-headline font-bold">{player.name}</h1>
-              <Badge variant="secondary" className="text-lg">#{player.jerseyNumber}</Badge>
+              <div className="flex items-center gap-2">
+                {player.status && player.status !== "Active" && (
+                    <Badge variant={getStatusVariant(player.status)} className="text-base">{player.status}</Badge>
+                )}
+                <Badge variant="secondary" className="text-lg">#{player.jerseyNumber}</Badge>
+              </div>
             </div>
             <p className="text-xl text-primary font-semibold mt-1">{player.position}</p>
           </div>

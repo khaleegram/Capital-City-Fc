@@ -83,6 +83,14 @@ export default function PlayersPage() {
   const filteredPlayers = players.filter(player => 
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const getStatusVariant = (status?: string) => {
+    switch (status) {
+        case "Injured": return "destructive";
+        case "On Loan": return "secondary";
+        default: return undefined;
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6 lg:p-8">
@@ -147,9 +155,14 @@ export default function PlayersPage() {
                       className="object-cover rounded-t-lg"
                       data-ai-hint="player portrait"
                     />
-                    <Badge className="absolute top-3 right-3 bg-primary/80 backdrop-blur-sm">
-                      #{player.jerseyNumber}
-                    </Badge>
+                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
+                        <Badge className="bg-primary/80 backdrop-blur-sm">
+                        #{player.jerseyNumber}
+                        </Badge>
+                         {player.status && player.status !== "Active" && (
+                            <Badge variant={getStatusVariant(player.status)} className="backdrop-blur-sm">{player.status}</Badge>
+                        )}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 flex-1">

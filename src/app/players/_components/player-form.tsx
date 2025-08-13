@@ -40,6 +40,7 @@ import { Loader2, UploadCloud, Wand2, PlusCircle, Trash2 } from "lucide-react"
 const playerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   position: z.enum(["Goalkeeper", "Defender", "Midfielder", "Forward"]),
+  status: z.enum(["Active", "Injured", "On Loan", "Former Player"]).optional(),
   jerseyNumber: z.coerce.number().int().min(1, "Jersey number must be at least 1."),
   bio: z.string().min(10, "Bio must be at least 10 characters."),
   stats: z.object({
@@ -79,6 +80,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
     defaultValues: {
       name: "",
       position: "Forward",
+      status: "Active",
       jerseyNumber: 99,
       bio: "",
       stats: { appearances: 0, goals: 0, assists: 0 },
@@ -96,6 +98,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       reset({
         name: player.name,
         position: player.position,
+        status: player.status || "Active",
         jerseyNumber: player.jerseyNumber,
         bio: player.bio,
         stats: player.stats,
@@ -106,6 +109,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       reset({
         name: "",
         position: "Forward",
+        status: "Active",
         jerseyNumber: 99,
         bio: "",
         stats: { appearances: 0, goals: 0, assists: 0 },
@@ -249,26 +253,49 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                       {errors.jerseyNumber && <p className="text-sm text-destructive">{errors.jerseyNumber.message}</p>}
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="position">Position</Label>
-                  <Controller
-                    name="position"
-                    control={control}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a position" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Goalkeeper">Goalkeeper</SelectItem>
-                          <SelectItem value="Defender">Defender</SelectItem>
-                          <SelectItem value="Midfielder">Midfielder</SelectItem>
-                          <SelectItem value="Forward">Forward</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="position">Position</Label>
+                    <Controller
+                      name="position"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a position" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Goalkeeper">Goalkeeper</SelectItem>
+                            <SelectItem value="Defender">Defender</SelectItem>
+                            <SelectItem value="Midfielder">Midfielder</SelectItem>
+                            <SelectItem value="Forward">Forward</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                     <Controller
+                        name="status"
+                        control={control}
+                        render={({ field }) => (
+                          <Select onValueChange={field.onChange} value={field.value || "Active"}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Active">Active</SelectItem>
+                              <SelectItem value="Injured">Injured</SelectItem>
+                              <SelectItem value="On Loan">On Loan</SelectItem>
+                              <SelectItem value="Former Player">Former Player</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="bio">Player Bio</Label>
