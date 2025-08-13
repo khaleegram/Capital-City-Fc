@@ -7,8 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import Image from "next/image"
 
-import { addVideoWithTags, uploadThumbnailFile, uploadVideoFile } from "@/lib/videos"
-import type { Player } from "@/lib/data"
+import { addVideoWithTags, updateVideo, uploadThumbnailFile, uploadVideoFile } from "@/lib/videos"
+import type { Player, Video } from "@/lib/data"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, UploadCloud, Video, X, FileVideo } from "lucide-react"
+import { Loader2, UploadCloud, FileVideo as VideoIcon, X, FileVideo } from "lucide-react"
 
 import {
   Command,
@@ -38,7 +38,7 @@ import { Badge } from "@/components/ui/badge"
 const videoSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
-  video: z.any().refine((files) => files?.length === 1, "Video is required."),
+  video: z.any().refine((files) => files?.length > 0 || typeof files === 'string', "Video is required."),
   taggedPlayerIds: z.array(z.string()).optional(),
 })
 
@@ -48,9 +48,10 @@ interface VideoFormProps {
   isOpen: boolean
   setIsOpen: (isOpen: boolean) => void
   players: Player[]
+  videoToEdit?: Video | null
 }
 
-export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
+export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoFormProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null)
@@ -73,17 +74,32 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     },
   })
 
-  const videoFileInput = register("video");
-
-  // Effect to reset form when dialog opens/closes
   useEffect(() => {
-    if (!isOpen) {
-      reset()
-      setThumbnailPreview(null)
-      setGeneratedThumbnailFile(null)
-      setSelectedPlayers([])
+    if (isOpen) {
+        if (videoToEdit) {
+            reset({
+                title: videoToEdit.title,
+                description: videoToEdit.description,
+                video: videoToEdit.videoUrl, // Keep existing URL
+                taggedPlayerIds: videoToEdit.taggedPlayers.map(p => p.id),
+            });
+            setThumbnailPreview(videoToEdit.thumbnailUrl);
+            setSelectedPlayers(videoToEdit.taggedPlayers);
+        } else {
+            reset({
+                title: "",
+                description: "",
+                video: undefined,
+                taggedPlayerIds: [],
+            });
+            setThumbnailPreview(null);
+            setSelectedPlayers([]);
+            setGeneratedThumbnailFile(null);
+        }
     }
-  }, [isOpen, reset])
+  }, [isOpen, videoToEdit, reset]);
+
+  const videoFileInput = register("video");
   
   // Effect to sync selectedPlayers with form value
   useEffect(() => {
@@ -91,14 +107,19 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
   }, [selectedPlayers, setValue])
 
   const videoFile = watch("video");
-  const selectedVideoName = videoFile && videoFile[0] ? videoFile[0].name : null;
-
+  let selectedVideoName: string | null = null;
+  if (typeof videoFile === 'string') {
+    selectedVideoName = "Existing Video";
+  } else if (videoFile && videoFile[0]) {
+    selectedVideoName = videoFile[0].name;
+  }
 
   const handleVideoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    // Manually call the react-hook-form onChange handler
     videoFileInput.onChange(event); 
     const file = event.target.files?.[0];
     if (file) {
+      setThumbnailPreview(null);
+      setGeneratedThumbnailFile(null);
       generateThumbnail(file);
     }
   };
@@ -110,31 +131,27 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     video.style.display = "none";
     canvas.style.display = "none";
 
-    // Mute the video to prevent autoplay sounds on some browsers
     video.muted = true;
     video.src = videoUrl;
-    video.currentTime = 1; // Seek to 1 second
+    video.currentTime = 1;
 
     video.onloadeddata = () => {
-        // Set canvas size to video size
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         
-        // Draw video frame on canvas
         const ctx = canvas.getContext("2d");
         if (ctx) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            // Convert canvas to blob
             canvas.toBlob((blob) => {
                 if (blob) {
                     const thumbnailFile = new File([blob], `thumb_${file.name.split('.')[0]}.jpg`, { type: 'image/jpeg' });
                     setGeneratedThumbnailFile(thumbnailFile);
                     setThumbnailPreview(URL.createObjectURL(thumbnailFile));
                 }
-                URL.revokeObjectURL(videoUrl); // Clean up
+                URL.revokeObjectURL(videoUrl);
             }, 'image/jpeg');
         } else {
-             URL.revokeObjectURL(videoUrl); // Clean up
+             URL.revokeObjectURL(videoUrl);
         }
     };
     
@@ -147,40 +164,48 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
 
 
   const onSubmit = async (data: VideoFormData) => {
-    if (!generatedThumbnailFile) {
-        toast({ variant: "destructive", title: "Error", description: "Thumbnail has not been generated yet. Please wait a moment."})
-        return;
-    }
-    
     setIsSubmitting(true)
     try {
-      const [videoUrl, thumbnailUrl] = await Promise.all([
-          uploadVideoFile(data.video[0]),
-          uploadThumbnailFile(generatedThumbnailFile),
-      ]);
+        let videoUrl = videoToEdit?.videoUrl;
+        let thumbnailUrl = videoToEdit?.thumbnailUrl;
 
-      const videoPayload = { 
-        title: data.title,
-        description: data.description,
-        videoUrl, 
-        thumbnailUrl 
-      }
+        // If a new video file is provided, upload it and its generated thumbnail
+        if (data.video instanceof FileList && data.video.length > 0) {
+            if (!generatedThumbnailFile) {
+                toast({ variant: "destructive", title: "Error", description: "Thumbnail has not been generated yet. Please wait a moment."})
+                setIsSubmitting(false);
+                return;
+            }
+             [videoUrl, thumbnailUrl] = await Promise.all([
+                uploadVideoFile(data.video[0]),
+                uploadThumbnailFile(generatedThumbnailFile),
+            ]);
+        }
       
-      const taggedPlayers = data.taggedPlayerIds ? players.filter(p => data.taggedPlayerIds!.includes(p.id)) : [];
+        const taggedPlayersData = data.taggedPlayerIds ? players.filter(p => data.taggedPlayerIds!.includes(p.id)) : [];
+        const videoPayload = { 
+            title: data.title,
+            description: data.description,
+            videoUrl: videoUrl!,
+            thumbnailUrl: thumbnailUrl!,
+            taggedPlayers: taggedPlayersData.map(p => ({ id: p.id, name: p.name })),
+        };
 
-      await addVideoWithTags(videoPayload, taggedPlayers)
+        if (videoToEdit) {
+            await updateVideo(videoToEdit.id, videoPayload);
+            toast({ title: "Success", description: "Video updated successfully." });
+        } else {
+            await addVideoWithTags(videoPayload, taggedPlayersData);
+            toast({ title: "Success", description: "Video uploaded and tagged successfully." });
+        }
       
-      toast({
-        title: "Success",
-        description: "Video uploaded and tagged successfully.",
-      })
       setIsOpen(false)
     } catch (error) {
       console.error(error)
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to upload video.`,
+        description: `Failed to ${videoToEdit ? 'update' : 'upload'} video.`,
       })
     } finally {
       setIsSubmitting(false)
@@ -191,9 +216,9 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="font-headline">Add New Video</DialogTitle>
+          <DialogTitle className="font-headline">{videoToEdit ? 'Edit Video' : 'Add New Video'}</DialogTitle>
           <DialogDescription>
-            Upload a video file, provide details, and optionally tag players.
+            {videoToEdit ? 'Update details for this video.' : 'Upload a video file, provide details, and optionally tag players.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -209,7 +234,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
                                 </>
                             ) : (
                                 <>
-                                   <Video className="mx-auto h-10 w-10 text-muted-foreground" />
+                                   <VideoIcon className="mx-auto h-10 w-10 text-muted-foreground" />
                                    <span className="mt-2 block font-medium text-foreground">Click to upload a video</span>
                                 </>
                             )}
@@ -232,7 +257,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
                             ) : (
                                 <div className="text-center text-muted-foreground">
                                     <UploadCloud className="mx-auto h-10 w-10" />
-                                    <p className="mt-2 text-sm">Select a video to generate a thumbnail</p>
+                                    <p className="mt-2 text-sm">{videoToEdit ? 'Thumbnail will be shown' : 'Select a video to generate a thumbnail'}</p>
                                 </div>
                             )}
                         </div>
@@ -301,7 +326,7 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Video
+              {videoToEdit ? 'Save Changes' : 'Save Video'}
             </Button>
           </DialogFooter>
         </form>
@@ -309,5 +334,3 @@ export function VideoForm({ isOpen, setIsOpen, players }: VideoFormProps) {
     </Dialog>
   )
 }
-
-    

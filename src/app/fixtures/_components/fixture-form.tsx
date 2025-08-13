@@ -5,9 +5,10 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { addFixtureAndArticle, uploadOpponentLogo } from "@/lib/fixtures"
+import { addFixtureAndArticle, updateFixture, uploadOpponentLogo } from "@/lib/fixtures"
 import { generateFixturePreview } from "@/ai/flows/generate-fixture-preview"
 import type { GenerateFixturePreviewOutput } from "@/ai/flows/generate-fixture-preview"
+import type { Fixture } from "@/lib/data"
 import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
@@ -36,8 +37,13 @@ const fixtureSchema = z.object({
 
 type FixtureFormData = z.infer<typeof fixtureSchema>
 
-export function FixtureForm() {
-    const [isOpen, setIsOpen] = useState(false)
+interface FixtureFormProps {
+  isOpen: boolean
+  setIsOpen: (isOpen: boolean) => void
+  fixture?: Fixture | null
+}
+
+export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     const [isGenerating, setIsGenerating] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [generatedContent, setGeneratedContent] = useState<GenerateFixturePreviewOutput | null>(null)
@@ -49,6 +55,30 @@ export function FixtureForm() {
         resolver: zodResolver(fixtureSchema),
         defaultValues: { publishArticle: true }
     })
+    
+    useEffect(() => {
+        if (fixture) {
+            reset({
+                ...fixture,
+                date: fixture.date ? (fixture.date as any).toDate() : new Date(),
+                publishArticle: !!fixture.articleId,
+            });
+            setLogoPreview(fixture.opponentLogoUrl || null);
+        } else {
+            reset({
+                opponent: "",
+                venue: "",
+                competition: "",
+                date: new Date(),
+                notes: "",
+                publishArticle: true,
+            });
+            setLogoPreview(null);
+            setGeneratedContent(null);
+            setEditedPreview("");
+        }
+    }, [fixture, reset, isOpen]);
+
     const dateValue = watch("date")
     const opponentLogoFile = watch("opponentLogo")
 
@@ -56,8 +86,6 @@ export function FixtureForm() {
         if (opponentLogoFile && opponentLogoFile[0]) {
             const file = opponentLogoFile[0]
             setLogoPreview(URL.createObjectURL(file))
-        } else {
-            setLogoPreview(null)
         }
     }, [opponentLogoFile])
 
@@ -91,24 +119,36 @@ export function FixtureForm() {
     }
 
     const onSubmit = async (data: FixtureFormData) => {
-        if (!generatedContent || !editedPreview) {
-             toast({ variant: "destructive", title: "Error", description: "Please generate a preview before publishing."})
+        if (!fixture && (!generatedContent || !editedPreview)) {
+             toast({ variant: "destructive", title: "Error", description: "Please generate a preview before publishing a new fixture."})
              return;
         }
 
         setIsSubmitting(true);
         try {
-            let opponentLogoUrl: string | undefined = undefined;
+            let opponentLogoUrl: string | undefined = fixture?.opponentLogoUrl;
             if (data.opponentLogo && data.opponentLogo[0]) {
                 opponentLogoUrl = await uploadOpponentLogo(data.opponentLogo[0]);
             }
 
-            await addFixtureAndArticle({
-                fixtureData: { ...data, opponentLogoUrl },
-                preview: editedPreview,
-                tags: generatedContent.tags,
-            })
-            toast({ title: "Success", description: "Fixture has been created." })
+            if (fixture) {
+                // Update existing fixture
+                await updateFixture(fixture.id, {
+                    ...fixture,
+                    ...data,
+                    opponentLogoUrl,
+                });
+                toast({ title: "Success", description: "Fixture has been updated." });
+            } else {
+                // Add new fixture
+                await addFixtureAndArticle({
+                    fixtureData: { ...data, opponentLogoUrl },
+                    preview: editedPreview,
+                    tags: generatedContent!.tags,
+                })
+                toast({ title: "Success", description: "Fixture has been created." })
+            }
+            
             reset()
             setGeneratedContent(null)
             setEditedPreview("")
@@ -116,119 +156,119 @@ export function FixtureForm() {
             setIsOpen(false)
         } catch (error) {
             console.error(error)
-            toast({ variant: "destructive", title: "Error", description: "Failed to create fixture."})
+            toast({ variant: "destructive", title: "Error", description: `Failed to ${fixture ? 'update' : 'create'} fixture.`})
         } finally {
             setIsSubmitting(false)
         }
     }
 
     return (
-        <>
-            <Button onClick={() => setIsOpen(true)}>
-                <PlusCircle className="mr-2" /> Add New Fixture
-            </Button>
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle className="font-headline">Add New Fixture</DialogTitle>
-                        <DialogDescription>Enter fixture details and generate a match preview article.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                                <div>
-                                    <Label htmlFor="opponent">Opponent</Label>
-                                    <Input id="opponent" {...register("opponent")} />
-                                    {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
-                                </div>
-                                <div>
-                                    <Label htmlFor="competition">Competition</Label>
-                                    <Input id="competition" {...register("competition")} />
-                                    {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
-                                </div>
-                                <div>
-                                    <Label htmlFor="notes">Optional Notes for AI</Label>
-                                    <Textarea id="notes" {...register("notes")} placeholder="e.g., Rivalry match..." />
-                                </div>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle className="font-headline">{fixture ? 'Edit Fixture' : 'Add New Fixture'}</DialogTitle>
+                    <DialogDescription>
+                        {fixture ? 'Update the details for this fixture.' : 'Enter fixture details and generate a match preview article.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="opponent">Opponent</Label>
+                                <Input id="opponent" {...register("opponent")} />
+                                {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
                             </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <Label>Opponent Logo (Optional)</Label>
-                                    <div className="aspect-square rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50 mt-1">
-                                        {logoPreview ? (
-                                            <Image src={logoPreview} alt="Opponent logo preview" layout="fill" objectFit="contain" className="rounded-lg p-2" />
-                                        ) : (
-                                            <div className="text-center text-muted-foreground p-4">
-                                                <UploadCloud className="mx-auto h-12 w-12" />
-                                                <p className="mt-2 text-sm">Upload a logo</p>
-                                            </div>
-                                        )}
-                                        <Input
-                                            id="opponent-logo"
-                                            type="file"
-                                            accept="image/*"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            {...register("opponentLogo")}
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label htmlFor="venue">Venue</Label>
-                                    <Input id="venue" {...register("venue")} />
-                                    {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
-                                </div>
+                            <div>
+                                <Label htmlFor="competition">Competition</Label>
+                                <Input id="competition" {...register("competition")} />
+                                {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
+                            </div>
+                            <div>
+                                <Label htmlFor="notes">Optional Notes for AI</Label>
+                                <Textarea id="notes" {...register("notes")} placeholder="e.g., Rivalry match..." />
                             </div>
                         </div>
+                        <div className="space-y-4">
+                            <div>
+                                <Label>Opponent Logo (Optional)</Label>
+                                <div className="aspect-square rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50 mt-1">
+                                    {logoPreview ? (
+                                        <Image src={logoPreview} alt="Opponent logo preview" layout="fill" objectFit="contain" className="rounded-lg p-2" />
+                                    ) : (
+                                        <div className="text-center text-muted-foreground p-4">
+                                            <UploadCloud className="mx-auto h-12 w-12" />
+                                            <p className="mt-2 text-sm">Upload a logo</p>
+                                        </div>
+                                    )}
+                                    <Input
+                                        id="opponent-logo"
+                                        type="file"
+                                        accept="image/*"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        {...register("opponentLogo")}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <Label htmlFor="venue">Venue</Label>
+                                <Input id="venue" {...register("venue")} />
+                                {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
+                            </div>
+                        </div>
+                    </div>
 
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div>
-                                <Label htmlFor="date">Match Date & Time</Label>
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                        "w-full justify-start text-left font-normal",
-                                        !dateValue && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateValue ? format(dateValue, "PPP HH:mm") : <span>Pick a date and time</span>}
-                                    </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <CalendarPicker
-                                            mode="single"
-                                            selected={dateValue}
-                                            onSelect={(date) => {
-                                                if (!date) return;
-                                                const newDate = new Date(date);
-                                                if (dateValue) {
-                                                    newDate.setHours(dateValue.getHours());
-                                                    newDate.setMinutes(dateValue.getMinutes());
-                                                }
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                            <Label htmlFor="date">Match Date & Time</Label>
+                                <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dateValue && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateValue ? format(dateValue, "PPP HH:mm") : <span>Pick a date and time</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <CalendarPicker
+                                        mode="single"
+                                        selected={dateValue}
+                                        onSelect={(date) => {
+                                            if (!date) return;
+                                            const newDate = new Date(date);
+                                            if (dateValue) {
+                                                newDate.setHours(dateValue.getHours());
+                                                newDate.setMinutes(dateValue.getMinutes());
+                                            }
+                                            setValue("date", newDate);
+                                        }}
+                                        initialFocus
+                                    />
+                                    <div className="p-2 border-t">
+                                        <Input 
+                                            type="time"
+                                            onChange={(e) => {
+                                                const [hours, minutes] = e.target.value.split(':').map(Number);
+                                                const newDate = dateValue ? new Date(dateValue) : new Date();
+                                                newDate.setHours(hours, minutes);
                                                 setValue("date", newDate);
                                             }}
-                                            initialFocus
+                                            value={dateValue ? format(dateValue, "HH:mm") : ""}
                                         />
-                                        <div className="p-2 border-t">
-                                            <Input 
-                                                type="time"
-                                                onChange={(e) => {
-                                                    const [hours, minutes] = e.target.value.split(':').map(Number);
-                                                    const newDate = dateValue ? new Date(dateValue) : new Date();
-                                                    newDate.setHours(hours, minutes);
-                                                    setValue("date", newDate);
-                                                }}
-                                                value={dateValue ? format(dateValue, "HH:mm") : ""}
-                                            />
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
-                                {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
-                            </div>
-                         </div>
-                        
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
+                            {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                        </div>
+                        </div>
+                    
+                    {!fixture && (
+                        <>
                         <Button type="button" onClick={handleGeneratePreview} disabled={isGenerating}>
                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                             Generate Preview Article
@@ -251,17 +291,18 @@ export function FixtureForm() {
                                 </div>
                             </div>
                         )}
+                        </>
+                    )}
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                            <Button type="submit" disabled={isSubmitting || !generatedContent}>
-                                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                <Save className="mr-2 h-4 w-4" /> Publish Fixture
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-        </>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
+                        <Button type="submit" disabled={isSubmitting || (!fixture && !generatedContent)}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <Save className="mr-2 h-4 w-4" /> {fixture ? 'Save Changes' : 'Publish Fixture'}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     )
 }

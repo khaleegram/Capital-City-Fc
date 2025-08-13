@@ -307,7 +307,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
             </Card>
 
             {fixture.status === 'LIVE' && <LiveUpdateForm fixture={fixture} />}
-
+            
             <Separator />
             
             <LiveMatchFeed fixtureId={fixture.id} />

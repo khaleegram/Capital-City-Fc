@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, KeyboardEvent } from "react"
+import { useState, KeyboardEvent, useEffect } from "react"
 import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy, Image as ImageIcon } from "lucide-react"
 import { generateNewsArticle } from "@/ai/flows/generate-news-article"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
@@ -17,9 +17,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import type { NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageDataUri: string | null }) => void
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageDataUri: string | null }, articleId?: string) => Promise<void>;
+  articleToEdit?: NewsArticle | null;
+  onFinishEditing: () => void;
 }
 
 interface SocialPosts {
@@ -27,7 +30,8 @@ interface SocialPosts {
   instagramPost: string;
 }
 
-export function NewsEditor({ onPublish }: NewsEditorProps) {
+export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEditorProps) {
+  const [headline, setHeadline] = useState("");
   const [bulletPoints, setBulletPoints] = useState("")
   const [articleContent, setArticleContent] = useState("")
   const [isEditing, setIsEditing] = useState(false)
@@ -40,8 +44,34 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
   const [isSuggestingTags, setIsSuggestingTags] = useState(false)
   const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { toast } = useToast()
+
+  useEffect(() => {
+    if (articleToEdit) {
+      setHeadline(articleToEdit.headline);
+      setArticleContent(articleToEdit.content);
+      setSuggestedTags(articleToEdit.tags || []);
+      setGeneratedImageDataUri(articleToEdit.imageUrl);
+      setBulletPoints("");
+      setIsEditing(true);
+      setSocialPosts(null);
+    } else {
+       resetForm();
+    }
+  }, [articleToEdit])
+
+  const resetForm = () => {
+    setHeadline("");
+    setBulletPoints("");
+    setArticleContent("");
+    setSuggestedTags([]);
+    setSocialPosts(null);
+    setGeneratedImageDataUri(null);
+    setIsEditing(false);
+    onFinishEditing();
+  }
 
   const handleGenerate = async () => {
     if (!bulletPoints.trim()) return
@@ -54,7 +84,12 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     
     try {
       const result = await generateNewsArticle({ bulletPoints })
-      setArticleContent(result.article)
+      const lines = result.article.split('\n');
+      const generatedHeadline = lines.find(line => line.trim() !== '') || "Untitled Article";
+      const generatedContent = lines.slice(lines.indexOf(generatedHeadline) + 1).join('\n').trim();
+      
+      setHeadline(generatedHeadline);
+      setArticleContent(generatedContent);
       setIsEditing(true)
     } catch (error) {
       console.error("Failed to generate article:", error)
@@ -75,7 +110,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setSocialPosts(null)
     setGeneratedImageDataUri(null)
     try {
-      const result = await suggestNewsTags({ articleContent })
+      const result = await suggestNewsTags({ articleContent: `${headline}\n${articleContent}` })
       setSuggestedTags(result.tags)
     } catch (error) {
       console.error("Failed to suggest tags:", error)
@@ -90,7 +125,6 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
   }
 
   const handleGenerateImage = async () => {
-    const headline = articleContent.split('\n').find(line => line.trim() !== '') || "Untitled Article";
     if (!headline) return;
 
     setIsGeneratingImage(true);
@@ -113,7 +147,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     if (!articleContent.trim()) return
     setIsGeneratingSocial(true)
     try {
-        const result = await generateSocialPost({ articleContent, tags: suggestedTags });
+        const result = await generateSocialPost({ articleContent: `${headline}\n${articleContent}`, tags: suggestedTags });
         setSocialPosts(result);
     } catch (error) {
         console.error("Failed to generate social posts:", error);
@@ -127,20 +161,11 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     }
   };
 
-  const handlePublish = () => {
-    const lines = articleContent.split('\n');
-    const headline = lines.find(line => line.trim() !== '') || "Untitled Article"
-    const content = lines.slice(lines.indexOf(headline) + 1).join('\n').trim();
-
-    onPublish({ headline, content, tags: suggestedTags, imageDataUri: generatedImageDataUri });
-    
-    // Reset fields
-    setBulletPoints("");
-    setArticleContent("");
-    setSuggestedTags([]);
-    setSocialPosts(null);
-    setGeneratedImageDataUri(null);
-    setIsEditing(false);
+  const handlePublish = async () => {
+    setIsSubmitting(true);
+    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageDataUri: generatedImageDataUri }, articleToEdit?.id);
+    setIsSubmitting(false);
+    resetForm();
   }
   
   const copyToClipboard = (text: string) => {
@@ -169,77 +194,85 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
     setSuggestedTags(suggestedTags.filter(tag => tag !== tagToRemove));
   };
 
-  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial || isGeneratingImage;
-  const showArticleEditor = isGeneratingArticle || articleContent;
-  const showTagSection = isSuggestingTags || suggestedTags.length > 0;
-  const showImageSection = isGeneratingImage || generatedImageDataUri || (suggestedTags.length > 0 && !isSuggestingTags);
-  const showSocialSection = isGeneratingSocial || socialPosts;
+  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial || isGeneratingImage || isSubmitting;
+  const isCreatingNew = !articleToEdit;
+
+  const showStep1 = isCreatingNew;
+  const showStep2 = isGeneratingArticle || articleContent || articleToEdit;
+  const showStep3 = isSuggestingTags || suggestedTags.length > 0;
+  const showStep4 = showStep3 && !isSuggestingTags;
+  const showStep5 = isGeneratingImage || generatedImageDataUri;
+  const showStep6 = (isGeneratingSocial || socialPosts) && !isGeneratingImage;
+
 
   return (
     <div className="space-y-6">
-      <div>
-        <Label htmlFor="bullet-points" className="font-semibold text-base">
-          Step 1: Enter Bullet Points
-        </Label>
-        <Textarea
-          id="bullet-points"
-          placeholder="e.g.&#10;- Final score 2-1&#10;- Leo Rivera scored the winning goal&#10;- Match was intense"
-          value={bulletPoints}
-          onChange={(e) => setBulletPoints(e.target.value)}
-          className="mt-2 min-h-[120px]"
-          disabled={isLoading || !!articleContent}
-        />
-         <div className="mt-4">
-          <Button onClick={handleGenerate} disabled={isLoading || !bulletPoints.trim() || !!articleContent}>
-            {isGeneratingArticle ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Wand2 className="mr-2 h-4 w-4" />
-            )}
-            Generate Article
-          </Button>
+      {isCreatingNew && (
+        <div>
+          <Label htmlFor="bullet-points" className="font-semibold text-base">
+            Step 1: Enter Bullet Points
+          </Label>
+          <Textarea
+            id="bullet-points"
+            placeholder="e.g.&#10;- Final score 2-1&#10;- Leo Rivera scored the winning goal&#10;- Match was intense"
+            value={bulletPoints}
+            onChange={(e) => setBulletPoints(e.target.value)}
+            className="mt-2 min-h-[120px]"
+            disabled={isLoading || !!articleContent}
+          />
+          <div className="mt-4">
+            <Button onClick={handleGenerate} disabled={isLoading || !bulletPoints.trim() || !!articleContent}>
+              {isGeneratingArticle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+              Generate Article
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       
-      {showArticleEditor && (
+      {showStep2 && (
         <>
           <Separator />
           <div>
-            <Label htmlFor="article-content" className="font-semibold text-base mt-6 mb-2 block">
-              Step 2: Edit & Finalize Article
+            <Label className="font-semibold text-base mt-6 mb-2 block">
+              {isCreatingNew ? 'Step 2' : 'Step 1'}: Edit & Finalize Article
             </Label>
-             <Card className="mt-2 border-none shadow-none bg-muted">
-              <CardContent className="p-4">
-                 {isGeneratingArticle ? (
-                    <div className="flex items-center space-x-2 text-muted-foreground min-h-[250px]">
-                        <Loader2 className="h-4 w-4 animate-spin"/>
-                        <span>Generating article...</span>
-                    </div>
-                ) : (
-                  <Textarea
-                    id="article-content"
-                    value={articleContent}
-                    onChange={(e) => setArticleContent(e.target.value)}
-                    readOnly={!isEditing || isSuggestingTags}
-                    className="min-h-[250px] bg-background"
-                  />
-                )}
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="headline">Headline</Label>
+                <Input id="headline" value={headline} onChange={(e) => setHeadline(e.target.value)} disabled={isLoading || !isEditing}/>
+              </div>
+              <div>
+                <Label htmlFor="article-content">Content</Label>
+                <Card className="mt-2 border-none shadow-none bg-muted">
+                  <CardContent className="p-4">
+                    {isGeneratingArticle ? (
+                        <div className="flex items-center space-x-2 text-muted-foreground min-h-[250px]">
+                            <Loader2 className="h-4 w-4 animate-spin"/>
+                            <span>Generating article...</span>
+                        </div>
+                    ) : (
+                      <Textarea
+                        id="article-content"
+                        value={articleContent}
+                        onChange={(e) => setArticleContent(e.target.value)}
+                        readOnly={!isEditing || isLoading}
+                        className="min-h-[250px] bg-background"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {!isEditing && !isSuggestingTags && suggestedTags.length === 0 && (
-                <Button onClick={() => setIsEditing(true)}>
+              {!isEditing && (
+                <Button onClick={() => setIsEditing(true)} disabled={isLoading}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit Article
                 </Button>
               )}
               {isEditing && (
-                <Button onClick={handleSuggestTags} disabled={isSuggestingTags}>
-                  {isSuggestingTags ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
+                <Button onClick={handleSuggestTags} disabled={isLoading}>
+                  {isSuggestingTags ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save and Suggest Tags
                 </Button>
               )}
@@ -248,11 +281,11 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
         </>
       )}
 
-      {showTagSection && (
+      {showStep3 && (
         <>
           <Separator />
           <div>
-            <h3 className="font-semibold text-base mt-6 mb-2">Step 3: Add or Remove Tags</h3>
+            <h3 className="font-semibold text-base mt-6 mb-2">{isCreatingNew ? 'Step 3' : 'Step 2'}: Add or Remove Tags</h3>
             {isSuggestingTags ? (
               <div className="flex items-center space-x-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin"/>
@@ -286,11 +319,11 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
         </>
       )}
       
-      {showImageSection && (
+      {showStep4 && (
         <>
             <Separator />
             <div>
-                <h3 className="font-semibold text-base mt-6 mb-2">Step 4: Generate Header Image</h3>
+                <h3 className="font-semibold text-base mt-6 mb-2">{isCreatingNew ? 'Step 4' : 'Step 3'}: Generate Header Image</h3>
                 <Card className="mt-2 bg-muted aspect-video flex items-center justify-center">
                     {isGeneratingImage ? (
                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -308,11 +341,7 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
                 </Card>
                 <div className="mt-4">
                     <Button onClick={handleGenerateImage} disabled={isLoading || socialPosts !== null}>
-                        {isGeneratingImage ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <Wand2 className="mr-2 h-4 w-4" />
-                        )}
+                        {isGeneratingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                         Generate Image
                     </Button>
                 </div>
@@ -320,24 +349,20 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
         </>
       )}
 
-      {generatedImageDataUri && !isGeneratingImage && (
+      {showStep5 && !isGeneratingImage && (
          <>
           <Separator />
            <div>
-              <h3 className="font-semibold text-base mt-6 mb-2">Step 5: Review Social Posts</h3>
+              <h3 className="font-semibold text-base mt-6 mb-2">{isCreatingNew ? 'Step 5' : 'Step 4'}: Review Social Posts</h3>
               <Button onClick={handleGenerateSocial} disabled={isLoading}>
-                {isGeneratingSocial ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="mr-2 h-4 w-4" />
-                )}
+                {isGeneratingSocial ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                 Generate Social Posts
               </Button>
            </div>
          </>
       )}
 
-      {showSocialSection && (
+      {showStep6 && (
         <>
            <div className="mt-4">
               {isGeneratingSocial ? (
@@ -346,14 +371,14 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
                     <span>Generating social posts...</span>
                 </div>
               ) : (
-                <div className="space-y-4">
+                socialPosts && <div className="space-y-4">
                     {/* Twitter */}
                     <div>
                         <Label className="flex items-center gap-2 mb-2"><Twitter className="h-5 w-5 text-[#1DA1F2]" /> Twitter Post</Label>
                         <Card className="bg-muted">
                             <CardContent className="p-3 relative">
-                                <p className="text-sm whitespace-pre-wrap">{socialPosts?.twitterPost}</p>
-                                <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(socialPosts?.twitterPost || '')}>
+                                <p className="text-sm whitespace-pre-wrap">{socialPosts.twitterPost}</p>
+                                <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(socialPosts.twitterPost || '')}>
                                     <Copy className="h-4 w-4" />
                                 </Button>
                             </CardContent>
@@ -364,8 +389,8 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
                         <Label className="flex items-center gap-2 mb-2"><Instagram className="h-5 w-5 text-[#E4405F]" /> Instagram Post</Label>
                         <Card className="bg-muted">
                             <CardContent className="p-3 relative">
-                                <p className="text-sm whitespace-pre-wrap">{socialPosts?.instagramPost}</p>
-                                 <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(socialPosts?.instagramPost || '')}>
+                                <p className="text-sm whitespace-pre-wrap">{socialPosts.instagramPost}</p>
+                                 <Button size="icon" variant="ghost" className="absolute top-2 right-2 h-7 w-7" onClick={() => copyToClipboard(socialPosts.instagramPost || '')}>
                                     <Copy className="h-4 w-4" />
                                 </Button>
                             </CardContent>
@@ -377,13 +402,14 @@ export function NewsEditor({ onPublish }: NewsEditorProps) {
         </>
       )}
 
-      {socialPosts && !isLoading && (
+      {(socialPosts || articleToEdit) && !isLoading && (
         <>
           <Separator />
-          <div className="flex justify-end pt-6">
-            <Button onClick={handlePublish} size="lg">
-              <CheckCircle className="mr-2 h-5 w-5" />
-              Publish Article
+          <div className="flex justify-end pt-6 gap-2">
+            <Button onClick={resetForm} variant="outline">Cancel</Button>
+            <Button onClick={handlePublish} size="lg" disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <CheckCircle className="mr-2 h-5 w-5" />}
+              {articleToEdit ? 'Update Article' : 'Publish Article'}
             </Button>
           </div>
         </>
