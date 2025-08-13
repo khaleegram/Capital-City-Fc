@@ -4,60 +4,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny all access
-    match /{document=**} {
-      allow read, write: if false;
+    // Allow public read access to most collections
+    match /{collection}/{document} 
+      where collection in ['players', 'news', 'videos', 'fixtures', 'recaps', 'teamProfile', 'formations'] {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
 
-    // Allow public read access to content collections
-    match /players/{playerId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Admins only
-    }
-
-    match /news/{articleId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Admins only
+    // Allow public read on live events subcollection
+    match /fixtures/{fixtureId}/liveEvents/{eventId} {
+       allow read: if true;
+       allow write: if request.auth != null;
     }
     
-    match /fixtures/{fixtureId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Admins only
-      
-      // Allow public read for live events subcollection
-      match /liveEvents/{eventId} {
-        allow read: if true;
-        allow write: if request.auth != null; // Admins only
-      }
-    }
-    
-    match /recaps/{recapId} {
-        allow read: if true; // Recaps are published as news
-        allow write: if request.auth != null; // Admins only
-    }
-
-    match /videos/{videoId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Admins only
-    }
-
-    // Junction table for player/video tags
+    // Allow public read for player video tags
     match /playerVideos/{tagId} {
-      allow read: if true; // Needed to find videos for a player
-      allow write: if request.auth != null; // Admins only
-    }
-
-    // Team Profile: public can read, only admin can write
-    match /teamProfile/{profileId} {
         allow read: if true;
         allow write: if request.auth != null;
     }
 
-    // Push Tokens: Allow users to write their own token.
-    // The UID is used as the document ID.
+    // Protect user push tokens
     match /userPushTokens/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId; // User can read their own token
-      allow write: if request.auth != null && request.auth.uid == userId; // User can create/update their own token
+      allow read: if false; // No one can read other users' tokens
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
