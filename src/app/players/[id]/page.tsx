@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, use } from "react"
@@ -6,9 +7,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { doc, onSnapshot, collection, query, where, getDocs, documentId } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { Player, Video } from "@/lib/data"
+import { Player, Video, NewsArticle } from "@/lib/data"
 
-import { BarChart2, Clapperboard, Medal, User, Loader2 } from "lucide-react"
+import { BarChart2, Clapperboard, Medal, User, Loader2, Newspaper } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -17,18 +18,22 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription
+  CardDescription,
+  CardFooter
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import { Button } from "@/components/ui/button"
 
 export default function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: playerId } = use(params);
   const [player, setPlayer] = useState<Player | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
+  const [news, setNews] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isVideosLoading, setIsVideosLoading] = useState(true);
+  const [isNewsLoading, setIsNewsLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -38,7 +43,9 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
     const playerDocRef = doc(db, "players", playerId);
     const unsubscribePlayer = onSnapshot(playerDocRef, (doc) => {
       if (doc.exists()) {
-        setPlayer({ id: doc.id, ...doc.data() } as Player);
+        const playerData = { id: doc.id, ...doc.data() } as Player
+        setPlayer(playerData);
+        fetchPlayerNews(playerData.name);
       } else {
         setPlayer(null);
       }
@@ -48,6 +55,21 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
         toast({ variant: "destructive", title: "Error", description: "Could not fetch player."})
         setIsLoading(false);
     });
+
+    const fetchPlayerNews = async (playerName: string) => {
+        setIsNewsLoading(true);
+        try {
+            const newsQuery = query(collection(db, "news"), where("tags", "array-contains", playerName));
+            const newsSnapshot = await getDocs(newsQuery);
+            const newsData = newsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
+            setNews(newsData);
+        } catch (error) {
+            console.error("Error fetching player news:", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not fetch player's news."})
+        } finally {
+            setIsNewsLoading(false);
+        }
+    }
 
     // Fetch Player's Videos
     const fetchPlayerVideos = async () => {
@@ -122,9 +144,10 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="bio" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 md:w-[400px]">
+            <TabsList className="grid w-full grid-cols-4 md:w-[500px]">
               <TabsTrigger value="bio"><User className="mr-2 h-4 w-4" />Bio</TabsTrigger>
               <TabsTrigger value="stats"><BarChart2 className="mr-2 h-4 w-4" />Stats</TabsTrigger>
+              <TabsTrigger value="news"><Newspaper className="mr-2 h-4 w-4" />News ({news.length})</TabsTrigger>
               <TabsTrigger value="videos"><Clapperboard className="mr-2 h-4 w-4" />Videos ({videos.length})</TabsTrigger>
             </TabsList>
             <Separator className="my-4" />
@@ -173,6 +196,34 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
                 </Card>
               </div>
             </TabsContent>
+            <TabsContent value="news">
+                {isNewsLoading ? (
+                    <div className="flex justify-center items-center h-40">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                    </div>
+                ) : news.length > 0 ? (
+                    <div className="space-y-4">
+                    {news.map((article) => (
+                        <Card key={article.id}>
+                            <CardHeader>
+                                <CardTitle className="font-headline text-xl">{article.headline}</CardTitle>
+                                <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground line-clamp-2">{article.content}</p>
+                            </CardContent>
+                             <CardFooter>
+                                <Button asChild variant="link" className="p-0">
+                                    <Link href="/news">Read More &rarr;</Link>
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    ))}
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground text-center py-8">No news articles found mentioning this player.</p>
+                )}
+            </TabsContent>
             <TabsContent value="videos">
               {isVideosLoading ? (
                  <div className="flex justify-center items-center h-40">
@@ -203,4 +254,5 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
       </Card>
     </div>
   )
-}
+
+    
