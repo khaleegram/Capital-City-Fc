@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Trash2, ChevronDown, Save, UserPlus, Shirt } from "lucide-react";
+import { Loader2, Trash2, ChevronDown, Save, UserPlus, Shirt, Search } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ export function FormationManager() {
     const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
     const [startingXI, setStartingXI] = useState<(Player | null)[]>(Array(11).fill(null));
     const [substitutes, setSubstitutes] = useState<(Player | null)[]>(Array(7).fill(null));
+    const [searchQuery, setSearchQuery] = useState("");
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm<FormationFormData>({
         resolver: zodResolver(formationSchema),
@@ -51,19 +52,23 @@ export function FormationManager() {
         const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
             const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
             setAllPlayers(playersData.filter(p => p.status === 'Active'));
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching players:", error);
+            toast({ variant: "destructive", title: "Error", description: "Failed to fetch players." });
+            setIsLoading(false);
         });
 
         const formationsQuery = query(collection(db, "formations"), orderBy("createdAt", "desc"));
         const formationsUnsubscribe = onSnapshot(formationsQuery, (snapshot) => {
             setFormations(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Formation)));
-            setIsLoading(false);
         });
 
         return () => {
             playersUnsubscribe();
             formationsUnsubscribe();
         };
-    }, []);
+    }, [toast]);
 
     const handlePlayerSelect = (player: Player) => {
         setSelectedPlayer(player.id === selectedPlayer?.id ? null : player);
@@ -96,47 +101,55 @@ export function FormationManager() {
     }
     
     const setPresetFormation = (preset: '4-4-2' | '4-3-3') => {
-        let playersToAssign = [...allPlayers];
-        const newStarters = Array(11).fill(null);
+        let available = [...allPlayers];
+        const newStarters: (Player | null)[] = Array(11).fill(null);
         
-        const assign = (position: Player['position']) => {
-            const playerIndex = playersToAssign.findIndex(p => p.position === position);
-            if (playerIndex !== -1) {
-                const player = playersToAssign[playerIndex];
-                playersToAssign.splice(playerIndex, 1);
-                return player;
+        const assign = (position: Player['position'], count: number): (Player | null)[] => {
+            const assigned: (Player | null)[] = [];
+            for (let i = 0; i < count; i++) {
+                const playerIndex = available.findIndex(p => p.position === position);
+                if (playerIndex !== -1) {
+                    assigned.push(available[playerIndex]);
+                    available.splice(playerIndex, 1);
+                } else {
+                    assigned.push(null); // No player found for this slot
+                }
             }
-            // Fallback to any player if specific position is not found
-            return playersToAssign.shift() || null;
+            return assigned;
         }
+        
+        // Fill from remaining players if a position is empty
+        const fillGaps = (arr: (Player | null)[]) => {
+            return arr.map(slot => {
+                if (slot === null && available.length > 0) {
+                    return available.shift()!;
+                }
+                return slot;
+            });
+        }
+        
+        let gk = assign('Goalkeeper', 1);
+        let defs, mids, fwds;
 
         if (preset === '4-4-2') {
-            newStarters[0] = assign("Goalkeeper");
-            newStarters[1] = assign("Defender");
-            newStarters[2] = assign("Defender");
-            newStarters[3] = assign("Defender");
-            newStarters[4] = assign("Defender");
-            newStarters[5] = assign("Midfielder");
-            newStarters[6] = assign("Midfielder");
-            newStarters[7] = assign("Midfielder");
-            newStarters[8] = assign("Midfielder");
-            newStarters[9] = assign("Forward");
-            newStarters[10] = assign("Forward");
-        } else if (preset === '4-3-3') {
-            newStarters[0] = assign("Goalkeeper");
-            newStarters[1] = assign("Defender");
-            newStarters[2] = assign("Defender");
-            newStarters[3] = assign("Defender");
-            newStarters[4] = assign("Defender");
-            newStarters[5] = assign("Midfielder");
-            newStarters[6] = assign("Midfielder");
-            newStarters[7] = assign("Midfielder");
-            newStarters[8] = assign("Forward");
-            newStarters[9] = assign("Forward");
-            newStarters[10] = assign("Forward");
+            defs = assign("Defender", 4);
+            mids = assign("Midfielder", 4);
+            fwds = assign("Forward", 2);
+        } else { // 4-3-3
+            defs = assign("Defender", 4);
+            mids = assign("Midfielder", 3);
+            fwds = assign("Forward", 3);
         }
-        setStartingXI(newStarters);
-        setSubstitutes(Array(7).fill(null).map(() => playersToAssign.shift() || null));
+
+        const startersDraft = [
+            ...gk,
+            ...defs,
+            ...mids,
+            ...fwds
+        ];
+
+        setStartingXI(fillGaps(startersDraft));
+        setSubstitutes(Array(7).fill(null).map(() => available.shift() || null));
         toast({ title: `Loaded ${preset} preset` });
     };
 
@@ -174,15 +187,18 @@ export function FormationManager() {
         }
     };
     
-    const assignedPlayerIds = new Set([...startingXI.map(p => p?.id), ...substitutes.map(p => p?.id)]);
-    const availablePlayers = allPlayers.filter(p => !assignedPlayerIds.has(p.id));
+    const assignedPlayerIds = new Set([...startingXI.map(p => p?.id), ...substitutes.map(p => p?.id)].filter(Boolean));
+    const availablePlayers = allPlayers
+        .filter(p => !assignedPlayerIds.has(p.id))
+        .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
 
     return (
         <div className="space-y-8">
              <Card>
                 <CardHeader>
                     <CardTitle className="font-headline">Create New Formation</CardTitle>
-                    <CardDescription>Name your formation, select players, and assign them to the pitch or bench.</CardDescription>
+                    <CardDescription>Name your formation, select players from the roster, and assign them to the pitch or bench.</CardDescription>
                 </CardHeader>
                 <CardContent>
                      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -201,7 +217,7 @@ export function FormationManager() {
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                            {/* Pitch and Bench */}
                             <div className="lg:col-span-2">
-                                <div className="aspect-[4/3] bg-green-800/20 border-2 border-dashed border-green-300/20 p-2 sm:p-4 rounded-lg relative overflow-hidden">
+                                <div className="aspect-[4/3] bg-green-900/40 p-2 sm:p-4 rounded-lg relative overflow-hidden border-2 border-green-600/30">
                                      <Image src="/pitch-lines.svg" alt="Pitch" layout="fill" objectFit="contain" className="opacity-20" />
                                     {/* Starters */}
                                     <div className="relative z-10 h-full">
@@ -214,7 +230,7 @@ export function FormationManager() {
                                     </div>
                                 </div>
                                 <div className="mt-4 p-2 sm:p-4 rounded-lg bg-muted">
-                                     <h3 className="font-bold text-lg mb-2">Bench ({substitutes.filter(p=>p).length})</h3>
+                                     <h3 className="font-bold text-lg mb-2">Bench ({substitutes.filter(p=>p).length}/7)</h3>
                                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-1 sm:gap-2">
                                         {substitutes.map((player, i) => (
                                              <PlayerSlot key={`sub-${i}`} player={player} isSubstitute onRemove={handleUnassignPlayer} onAssign={() => handleAssignPlayer(i, 'sub')} />
@@ -226,12 +242,22 @@ export function FormationManager() {
                             {/* Player Roster */}
                             <div className="lg:col-span-1">
                                 <Card>
-                                    <CardHeader className="p-4">
+                                    <CardHeader className="p-4 space-y-4">
                                         <CardTitle className="text-lg">Available Players</CardTitle>
-                                        <CardDescription>Click a player to select them</CardDescription>
+                                         <div className="relative">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input 
+                                                placeholder="Search players..." 
+                                                className="pl-9"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                            />
+                                        </div>
+                                        <CardDescription>Click a player to select them, then click an empty slot to assign them.</CardDescription>
                                     </CardHeader>
                                     <CardContent className="p-0">
                                         <ScrollArea className="h-[400px] lg:h-[480px]">
+                                            {isLoading ? <Loader2 className="mx-auto my-8 animate-spin" /> :
                                             <div className="p-2 space-y-1">
                                                 {availablePlayers.length > 0 ? availablePlayers.map(p => (
                                                     <div 
@@ -249,15 +275,11 @@ export function FormationManager() {
                                                         </div>
                                                     </div>
                                                 )) : (
-                                                    <p className="p-4 text-center text-sm text-muted-foreground">No available players.</p>
+                                                    <p className="p-4 text-center text-sm text-muted-foreground">No available players found.</p>
                                                 )}
                                             </div>
+                                            }
                                         </ScrollArea>
-                                        {selectedPlayer && (
-                                            <div className="p-4 border-t space-y-2">
-                                                <p className="font-semibold text-center">Assign {selectedPlayer.name} to an empty slot on the pitch or bench.</p>
-                                            </div>
-                                        )}
                                     </CardContent>
                                 </Card>
                             </div>
