@@ -31,7 +31,6 @@ const publicMenuItems = [
   { href: "/news", label: "News", icon: Newspaper, tooltip: "News" },
   { href: "/videos", label: "Videos", icon: Video, tooltip: "Videos" },
   { href: "/fixtures", label: "Fixtures", icon: Calendar, tooltip: "Fixtures" },
-  { href: "/scouting", label: "Scouting", icon: Search, tooltip: "Scouting" },
 ];
 
 const adminMenuItems = [
