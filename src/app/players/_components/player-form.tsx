@@ -43,6 +43,7 @@ const playerSchema = z.object({
   status: z.enum(["Active", "Injured", "On Loan", "Former Player"]).optional(),
   jerseyNumber: z.coerce.number().int().min(1, "Jersey number must be at least 1."),
   bio: z.string().min(10, "Bio must be at least 10 characters."),
+  strongFoot: z.enum(["Left", "Right", "Both"]).optional(),
   stats: z.object({
     appearances: z.coerce.number().int().min(0),
     goals: z.coerce.number().int().min(0),
@@ -96,12 +97,9 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
   useEffect(() => {
     if (player) {
       reset({
-        name: player.name,
-        position: player.position,
+        ...player,
         status: player.status || "Active",
-        jerseyNumber: player.jerseyNumber,
-        bio: player.bio,
-        stats: player.stats,
+        strongFoot: player.strongFoot || undefined,
         careerHighlights: player.careerHighlights?.map(h => ({ value: h })) || [],
       })
       setImagePreview(player.imageUrl)
@@ -112,6 +110,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         status: "Active",
         jerseyNumber: 99,
         bio: "",
+        strongFoot: undefined,
         stats: { appearances: 0, goals: 0, assists: 0 },
         careerHighlights: [],
       })
@@ -276,6 +275,27 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                     {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
                   </div>
                   <div>
+                     <Label htmlFor="strongFoot">Strong Foot</Label>
+                     <Controller
+                        name="strongFoot"
+                        control={control}
+                        render={({ field }) => (
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select strong foot" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Left">Left</SelectItem>
+                              <SelectItem value="Right">Right</SelectItem>
+                              <SelectItem value="Both">Both</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.strongFoot && <p className="text-sm text-destructive">{errors.strongFoot.message}</p>}
+                  </div>
+                </div>
+                 <div>
                     <Label htmlFor="status">Status</Label>
                      <Controller
                         name="status"
@@ -296,7 +316,6 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                       />
                       {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
                   </div>
-                </div>
                 <div>
                   <Label htmlFor="bio">Player Bio</Label>
                   <Textarea id="bio" {...register("bio")} rows={3} />

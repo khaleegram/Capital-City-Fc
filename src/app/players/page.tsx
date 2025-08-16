@@ -20,7 +20,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, PlusCircle, Trash2, Edit, Loader2, UserX } from "lucide-react"
+import { Search, PlusCircle, Trash2, Edit, Loader2, UserX, Footprints } from "lucide-react"
 import { PlayerForm } from "./_components/player-form"
 import {
   AlertDialog,
@@ -169,8 +169,9 @@ export default function PlayersPage() {
                   <CardTitle className="font-headline text-xl">{player.name}</CardTitle>
                   <CardDescription>{player.position}</CardDescription>
                 </CardContent>
-                <CardFooter className="p-4 pt-0">
+                <CardFooter className="p-4 pt-0 flex-wrap gap-2">
                   <Badge variant="outline">{player.stats.appearances} Appearances</Badge>
+                  {player.strongFoot && <Badge variant="outline" className="flex items-center gap-1"><Footprints className="h-3 w-3"/>{player.strongFoot}</Badge>}
                 </CardFooter>
               </Link>
               {user && (

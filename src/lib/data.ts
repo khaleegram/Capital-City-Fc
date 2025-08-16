@@ -14,6 +14,7 @@ export type Player = {
     assists: number;
   };
   status?: "Active" | "Injured" | "On Loan" | "Former Player";
+  strongFoot?: "Left" | "Right" | "Both";
   createdAt: Timestamp;
   updatedAt: Timestamp;
   careerHighlights: string[];

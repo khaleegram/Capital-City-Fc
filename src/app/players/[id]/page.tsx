@@ -9,7 +9,7 @@ import { doc, onSnapshot, collection, query, where, getDocs, documentId } from "
 import { db } from "@/lib/firebase"
 import { Player, Video, NewsArticle } from "@/lib/data"
 
-import { BarChart2, Clapperboard, Medal, User, Loader2, Newspaper } from "lucide-react"
+import { BarChart2, Clapperboard, Medal, User, Loader2, Newspaper, Footprints } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -139,7 +139,18 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
                 <Badge variant="secondary" className="text-lg">#{player.jerseyNumber}</Badge>
               </div>
             </div>
-            <p className="text-xl text-primary font-semibold mt-1">{player.position}</p>
+            <div className="flex items-center gap-4 mt-2 text-muted-foreground">
+                <p className="text-xl text-primary font-semibold">{player.position}</p>
+                {player.strongFoot && (
+                    <>
+                    <Separator orientation="vertical" className="h-5"/>
+                    <div className="flex items-center gap-1.5 text-base">
+                        <Footprints className="h-4 w-4"/>
+                        <span>{player.strongFoot} Foot</span>
+                    </div>
+                    </>
+                )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -256,3 +267,4 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
   )
 
     
+
