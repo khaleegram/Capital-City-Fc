@@ -163,20 +163,24 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
             </TabsList>
             <Separator className="my-4" />
             <TabsContent value="bio">
-              <div className="prose prose-sm max-w-none text-foreground">
-                <p>{player.bio}</p>
+              <div className="grid md:grid-cols-3 gap-8">
+                <div className="md:col-span-2">
+                  <h3 className="font-headline text-xl font-semibold mb-2">Biography</h3>
+                  <div className="prose prose-sm max-w-none text-foreground">
+                    <p>{player.bio}</p>
+                  </div>
+                </div>
+                {player.careerHighlights && player.careerHighlights.length > 0 && (
+                  <div className="md:col-span-1">
+                    <h3 className="font-headline text-lg font-semibold mb-2 flex items-center gap-2"><Medal className="text-accent h-5 w-5" />Career Highlights</h3>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {player.careerHighlights.map((highlight, index) => (
+                        <li key={index}>{highlight}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-              
-              {player.careerHighlights && player.careerHighlights.length > 0 && (
-                <>
-                  <h3 className="font-headline text-lg font-semibold mt-6 mb-2 flex items-center gap-2"><Medal className="text-accent h-5 w-5" />Career Highlights</h3>
-                  <ul className="list-disc pl-5 space-y-1 text-sm">
-                    {player.careerHighlights.map((highlight, index) => (
-                      <li key={index}>{highlight}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
             </TabsContent>
             <TabsContent value="stats">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -267,4 +271,5 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
   )
 
     
+
 

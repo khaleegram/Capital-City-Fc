@@ -35,7 +35,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, UploadCloud, Wand2, PlusCircle, Trash2 } from "lucide-react"
+import { Loader2, UploadCloud, Wand2, PlusCircle, Trash2, Save } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
 
 const playerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -318,32 +319,40 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                   </div>
                 <div>
                   <Label htmlFor="bio">Player Bio</Label>
-                  <Textarea id="bio" {...register("bio")} rows={3} />
+                  <Textarea id="bio" {...register("bio")} rows={5} />
                   {errors.bio && <p className="text-sm text-destructive">{errors.bio.message}</p>}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                      <Label htmlFor="appearances">Appearances</Label>
-                      <Input id="appearances" type="number" {...register("stats.appearances")} />
-                      {errors.stats?.appearances && <p className="text-sm text-destructive">{errors.stats.appearances.message}</p>}
-                  </div>
-                  <div>
-                      <Label htmlFor="goals">Goals</Label>
-                      <Input id="goals" type="number" {...register("stats.goals")} />
-                      {errors.stats?.goals && <p className="text-sm text-destructive">{errors.stats.goals.message}</p>}
-                  </div>
-                  <div>
-                      <Label htmlFor="assists">Assists</Label>
-                      <Input id="assists" type="number" {...register("stats.assists")} />
-                      {errors.stats?.assists && <p className="text-sm text-destructive">{errors.stats.assists.message}</p>}
-                  </div>
                 </div>
               </div>
           </div>
+
+          <Separator />
           
+           <div className="space-y-4">
+              <h3 className="font-headline text-lg">Player Stats</h3>
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <Label htmlFor="appearances">Appearances</Label>
+                    <Input id="appearances" type="number" {...register("stats.appearances")} />
+                    {errors.stats?.appearances && <p className="text-sm text-destructive">{errors.stats.appearances.message}</p>}
+                </div>
+                <div>
+                    <Label htmlFor="goals">Goals</Label>
+                    <Input id="goals" type="number" {...register("stats.goals")} />
+                    {errors.stats?.goals && <p className="text-sm text-destructive">{errors.stats.goals.message}</p>}
+                </div>
+                <div>
+                    <Label htmlFor="assists">Assists</Label>
+                    <Input id="assists" type="number" {...register("stats.assists")} />
+                    {errors.stats?.assists && <p className="text-sm text-destructive">{errors.stats.assists.message}</p>}
+                </div>
+              </div>
+            </div>
+
+          <Separator />
+
           <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>Career Highlights</Label>
+                <h3 className="font-headline text-lg">Career Highlights</h3>
                 <Button type="button" variant="outline" size="sm" onClick={handleGenerateHighlights} disabled={isGenerating}>
                     {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                     Generate with AI
@@ -352,19 +361,20 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
               <div className="space-y-2">
                 {fields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2">
-                        <Input {...register(`careerHighlights.${index}.value`)} />
+                        <Input {...register(`careerHighlights.${index}.value`)} placeholder={`Highlight #${index + 1}`} />
                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                     </div>
                 ))}
+                {errors.careerHighlights && <p className="text-sm text-destructive">{errors.careerHighlights.message}</p>}
               </div>
                <Button type="button" variant="secondary" size="sm" onClick={() => append({ value: "" })}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Highlight
                 </Button>
           </div>
 
-          <DialogFooter className="col-span-1 md:col-span-3 pt-4">
+          <DialogFooter className="col-span-1 md:col-span-3 pt-4 border-t">
             <Button
               type="button"
               variant="outline"
@@ -374,7 +384,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               {player ? "Save Changes" : "Create Player"}
             </Button>
           </DialogFooter>
