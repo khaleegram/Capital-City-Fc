@@ -1,9 +1,10 @@
+
 "use client"
 
 import { PlayerInsights } from "./_components/player-insights";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Lock } from "lucide-react";
+import { Bot, Lock } from "lucide-react";
 
 export default function ScoutingPage() {
     const { user } = useAuth();
@@ -28,7 +29,10 @@ export default function ScoutingPage() {
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto space-y-8">
                 <div>
-                    <h1 className="text-3xl font-headline font-bold">AI Scouting Assistant</h1>
+                    <h1 className="text-3xl font-headline font-bold flex items-center gap-3">
+                        <Bot className="h-8 w-8 text-primary"/>
+                        AI Scouting Assistant
+                    </h1>
                     <p className="text-muted-foreground mt-2">Get deep insights on players by asking specific questions.</p>
                 </div>
                 <PlayerInsights />
