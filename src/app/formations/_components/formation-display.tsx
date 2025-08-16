@@ -37,6 +37,7 @@ const positionCoordinates: { [key: string]: { [key: number]: string } } = {
 };
 
 const getFormationKey = (players: Player[]) => {
+    if (!players || players.length === 0) return "";
     const counts = players.reduce((acc, player) => {
         if (player.position !== 'Goalkeeper') {
             acc[player.position] = (acc[player.position] || 0) + 1;

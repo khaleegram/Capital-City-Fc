@@ -530,14 +530,18 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                          </TabsContent>
                          <TabsContent value="lineups" className="mt-6">
                             <div className="space-y-6">
-                                <FormationDisplay
-                                    teamName={teamProfile.name}
-                                    startingXI={fixture.startingXI || []}
-                                />
-                                <SubstitutesDisplay
-                                    players={fixture.substitutes || []}
-                                    title="Substitutes"
-                                />
+                                {teamProfile && fixture.startingXI && (
+                                    <FormationDisplay
+                                        teamName={teamProfile.name}
+                                        startingXI={fixture.startingXI}
+                                    />
+                                )}
+                                {fixture.substitutes && (
+                                    <SubstitutesDisplay
+                                        players={fixture.substitutes}
+                                        title="Substitutes"
+                                    />
+                                )}
                             </div>
                          </TabsContent>
                     </Tabs>
@@ -546,7 +550,3 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         </div>
     )
 }
-
-    
-
-    
