@@ -12,7 +12,7 @@ import type { Player, Formation } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 
-import { DndContext, DragEndEvent, useDraggable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent } from "@dnd-kit/core";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -427,5 +427,3 @@ export function FormationManager() {
     </DndContext>
   );
 }
-
-    
