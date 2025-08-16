@@ -13,9 +13,9 @@ import { FormationDisplay } from "@/app/formations/_components/formation-display
 import { cn } from "@/lib/utils"
 
 
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -25,82 +25,142 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { postLiveUpdate } from "@/lib/fixtures"
-import { generateMatchSummary } from "@/ai/flows/generate-match-summary"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Wand2 } from "lucide-react"
+
+const EventTypeSchema = z.enum(["Goal", "Substitution", "Red Card", "Info"]);
+type EventType = z.infer<typeof EventTypeSchema>;
 
 const updateSchema = z.object({
   homeScore: z.coerce.number().min(0),
   awayScore: z.coerce.number().min(0),
-  status: z.enum(["UPCOMING", "LIVE", "FT"]),
-  eventText: z.string().min(5, "Event description is required."),
-  eventType: z.enum(["Goal", "Red Card", "Substitution", "Info"]),
-  playerId: z.string().optional(),
-  teamName: z.string().optional(),
-  noteForAI: z.string().optional(),
+  scorerId: z.string().optional(),
+  assistId: z.string().optional(),
+  subOffId: z.string().optional(),
+  subOnId: z.string().optional(),
+  cardPlayerId: z.string().optional(),
+  infoText: z.string().optional(),
 })
 type UpdateFormData = z.infer<typeof updateSchema>
 
 function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfile: TeamProfile }) {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [isGenerating, setIsGenerating] = useState(false)
   const [isPosting, setIsPosting] = useState(false)
-  
-  const allInvolvedPlayers = [...(fixture.startingXI || []), ...(fixture.substitutes || [])];
+  const [eventType, setEventType] = useState<EventType | null>(null);
 
-  const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<UpdateFormData>({
+  const activePlayers = fixture.activePlayers || fixture.startingXI || [];
+  const benchedPlayers = fixture.substitutes?.filter(sub => !activePlayers.some(ap => ap.id === sub.id)) || [];
+
+  const { register, handleSubmit, control, watch, setValue, reset } = useForm<UpdateFormData>({
     resolver: zodResolver(updateSchema),
     defaultValues: {
-        homeScore: fixture.score?.home ?? 0,
-        awayScore: fixture.score?.away ?? 0,
-        status: fixture.status,
-        eventType: "Info",
+      homeScore: fixture.score?.home ?? 0,
+      awayScore: fixture.score?.away ?? 0,
     }
-  })
+  });
 
   useEffect(() => {
     reset({
-        homeScore: fixture.score?.home ?? 0,
-        awayScore: fixture.score?.away ?? 0,
-        status: fixture.status,
-        eventType: "Info",
-        eventText: "",
-        noteForAI: "",
-        playerId: "",
-        teamName: "",
-    })
-  }, [fixture, reset])
+      homeScore: fixture.score?.home ?? 0,
+      awayScore: fixture.score?.away ?? 0,
+    });
+  }, [fixture, reset]);
 
-  const noteForAI = watch("noteForAI")
-
-  const handleGenerate = async () => {
-    if (!noteForAI?.trim()) return
-    setIsGenerating(true)
-    try {
-      const result = await generateMatchSummary({ note: noteForAI })
-      setValue("eventText", result.update)
-    } catch (error) {
-      console.error(error)
-      toast({ variant: "destructive", title: "Error", description: "Failed to generate update." })
-    } finally {
-      setIsGenerating(false)
-    }
-  }
+  const handleKickoff = async () => {
+      setIsPosting(true);
+      try {
+          await postLiveUpdate(fixture.id, {
+              homeScore: fixture.score?.home ?? 0,
+              awayScore: fixture.score?.away ?? 0,
+              status: 'LIVE',
+              eventType: 'Match Start',
+              eventText: 'The match has kicked off!',
+          });
+          toast({ title: "KICKOFF!", description: "The match is now live." });
+      } catch(error) {
+          console.error("Error starting match:", error);
+          toast({ variant: "destructive", title: "Error", description: "Failed to start the match."});
+      } finally {
+          setIsPosting(false);
+      }
+  };
 
   const handlePostUpdate = async (data: UpdateFormData) => {
+    if (!eventType) return;
     setIsPosting(true);
+
+    let eventText = "";
+    let submissionData: any = {};
+
+    const homeScore = data.homeScore;
+    const awayScore = data.awayScore;
+    
+    switch (eventType) {
+        case "Goal":
+            const scorer = activePlayers.find(p => p.id === data.scorerId);
+            const assister = activePlayers.find(p => p.id === data.assistId);
+            if (!scorer) {
+                toast({ variant: "destructive", title: "Error", description: "A goal scorer must be selected." });
+                setIsPosting(false);
+                return;
+            }
+            eventText = `GOAL for ${teamProfile.name}! Scored by ${scorer.name}`;
+            if (assister) {
+                eventText += ` (Assist: ${assister.name}).`;
+            }
+            eventText += ` The score is now ${homeScore}-${awayScore}.`;
+            submissionData.goal = { scorer, assist: assister };
+            break;
+
+        case "Substitution":
+            const subOff = activePlayers.find(p => p.id === data.subOffId);
+            const subOn = benchedPlayers.find(p => p.id === data.subOnId);
+            if (!subOff || !subOn) {
+                toast({ variant: "destructive", title: "Error", description: "Both players for a substitution must be selected." });
+                setIsPosting(false);
+                return;
+            }
+            eventText = `Substitution for ${teamProfile.name}: ${subOn.name} comes on for ${subOff.name}.`;
+            submissionData.substitution = { subOffPlayer: subOff, subOnPlayer: subOn };
+            break;
+
+        case "Red Card":
+            const cardedPlayer = activePlayers.find(p => p.id === data.cardPlayerId);
+             if (!cardedPlayer) {
+                toast({ variant: "destructive", title: "Error", description: "A player must be selected for the red card." });
+                setIsPosting(false);
+                return;
+            }
+            eventText = `Red card for ${cardedPlayer.name}. ${teamProfile.name} is down to 10 players.`;
+            submissionData.playerName = cardedPlayer.name;
+            break;
+        
+        case "Info":
+            if (!data.infoText?.trim()) {
+                toast({ variant: "destructive", title: "Error", description: "Please enter some info text." });
+                setIsPosting(false);
+                return;
+            }
+            eventText = data.infoText;
+            break;
+    }
+
     try {
-        await postLiveUpdate(fixture.id, data);
+        await postLiveUpdate(fixture.id, {
+            homeScore,
+            awayScore,
+            status: fixture.status,
+            eventType: eventType,
+            eventText,
+            ...submissionData,
+        });
         toast({ title: "Success", description: "Live update posted!" });
-        setValue("noteForAI", "");
-        setValue("eventText", "");
-        setValue("playerId", "");
+        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '' });
+        setEventType(null);
     } catch(error) {
         console.error("Error posting update:", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to post update."});
@@ -108,8 +168,83 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
         setIsPosting(false);
     }
   }
+
+  const renderEventForm = () => {
+      switch (eventType) {
+          case 'Goal':
+              return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label>Scorer</Label>
+                          <Controller name="scorerId" control={control} render={({ field }) => (
+                              <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select goal scorer..." /></SelectTrigger><SelectContent>{activePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                          )} />
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Assist (Optional)</Label>
+                          <Controller name="assistId" control={control} render={({ field }) => (
+                              <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select assist provider..." /></SelectTrigger><SelectContent>{activePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                          )} />
+                      </div>
+                  </div>
+              );
+          case 'Substitution':
+              return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                       <div className="space-y-2">
+                          <Label>Player Off</Label>
+                          <Controller name="subOffId" control={control} render={({ field }) => (
+                              <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select player..." /></SelectTrigger><SelectContent>{activePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                          )} />
+                      </div>
+                       <ArrowRight className="h-6 w-6 text-muted-foreground mx-auto hidden md:block" />
+                       <div className="space-y-2">
+                          <Label>Player On</Label>
+                           <Controller name="subOnId" control={control} render={({ field }) => (
+                              <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select player..." /></SelectTrigger><SelectContent>{benchedPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                          )} />
+                      </div>
+                  </div>
+              );
+          case 'Red Card':
+               return (
+                   <div className="space-y-2">
+                       <Label>Player</Label>
+                       <Controller name="cardPlayerId" control={control} render={({ field }) => (
+                           <Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select player..." /></SelectTrigger><SelectContent>{activePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                       )} />
+                   </div>
+               );
+          case 'Info':
+               return (
+                  <div className="space-y-2">
+                     <Label>Information Text</Label>
+                     <Textarea {...register('infoText')} placeholder="e.g. Added time, injury update..." />
+                  </div>
+               );
+          default:
+              return null;
+      }
+  }
   
   if (!user) return null;
+
+  if (fixture.status === 'UPCOMING') {
+      return (
+        <Card className="border-primary border-2">
+            <CardHeader>
+                <CardTitle className="font-headline text-2xl flex items-center gap-2"><PlayCircle className="text-primary"/> Start Match</CardTitle>
+                <CardDescription>Begin the match to enable live updates.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleKickoff} disabled={isPosting} className="w-full" size="lg">
+                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                    KICKOFF
+                </Button>
+            </CardContent>
+        </Card>
+      );
+  }
 
   return (
     <Card className="border-primary border-2">
@@ -119,84 +254,35 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(handlePostUpdate)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                    <div>
-                        <Label>Score</Label>
-                        <div className="flex items-center gap-4">
-                            <Input type="number" placeholder="Home" {...register("homeScore")} />
-                            <span className="font-bold">-</span>
-                            <Input type="number" placeholder="Away" {...register("awayScore")} />
-                        </div>
-                    </div>
-                    <div>
-                       <Label>Match Status</Label>
-                        <Controller name="status" control={control} render={({ field }) => (
-                            <RadioGroup value={field.value} onValueChange={field.onChange} className="flex items-center space-x-4 mt-2">
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="UPCOMING" id="upcoming" /><Label htmlFor="upcoming">Upcoming</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="LIVE" id="live" /><Label htmlFor="live">Live</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="FT" id="ft" /><Label htmlFor="ft">Full Time</Label></div>
-                            </RadioGroup>
-                        )} />
-                    </div>
-                </div>
-                 <div className="space-y-4">
-                     <div>
-                        <Label>Quick Note for AI</Label>
-                        <div className="flex items-center gap-2">
-                            <Input {...register("noteForAI")} placeholder="e.g., Rivera scores a header" />
-                            <Button type="button" onClick={handleGenerate} disabled={isGenerating || !noteForAI?.trim()} variant="outline" size="icon">
-                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </div>
-                    <div>
-                        <Label>Event Type</Label>
-                        <Controller name="eventType" control={control} render={({ field }) => (
-                            <RadioGroup value={field.value} onValueChange={field.onChange} className="flex items-center space-x-4 mt-2">
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Info" id="info" /><Label htmlFor="info">Info</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Goal" id="goal" /><Label htmlFor="goal">Goal</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Red Card" id="redcard" /><Label htmlFor="redcard">Red Card</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="Substitution" id="sub" /><Label htmlFor="sub">Sub</Label></div>
-                            </RadioGroup>
-                        )} />
-                    </div>
+            
+            <div className="space-y-2">
+                <Label>Score</Label>
+                <div className="flex items-center gap-4">
+                    <Input type="number" placeholder="Home" {...register("homeScore")} />
+                    <span className="font-bold">-</span>
+                    <Input type="number" placeholder="Away" {...register("awayScore")} />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <Label>Player Involved</Label>
-                    <Controller name="playerId" control={control} render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <SelectTrigger><SelectValue placeholder="Select a player..." /></SelectTrigger>
-                            <SelectContent>
-                                {allInvolvedPlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    )} />
-                </div>
-                <div>
-                     <Label>Team Involved</Label>
-                      <Controller name="teamName" control={control} render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <SelectTrigger><SelectValue placeholder="Select a team..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value={teamProfile.name}>{teamProfile.name}</SelectItem>
-                                <SelectItem value={fixture.opponent}>{fixture.opponent}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    )} />
+            <div className="space-y-2">
+                <Label>Event Type</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {(Object.keys(EventTypeSchema.Values) as EventType[]).map(type => (
+                        <Button key={type} type="button" variant={eventType === type ? 'default' : 'outline'} onClick={() => setEventType(type)}>
+                            {type}
+                        </Button>
+                    ))}
                 </div>
             </div>
             
-            <div>
-              <Label htmlFor="eventText">Event Text for Feed</Label>
-              <Textarea id="eventText" {...register("eventText")} placeholder="The text that will appear in the live feed. You can use the AI to generate it." rows={3} />
-              {errors.eventText && <p className="text-sm text-destructive mt-1">{errors.eventText.message}</p>}
-            </div>
+            {eventType && (
+                <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+                    <h4 className="font-semibold text-lg">{eventType} Details</h4>
+                    {renderEventForm()}
+                </div>
+            )}
 
-            <Button type="submit" disabled={isPosting}>
+            <Button type="submit" disabled={isPosting || !eventType} className="w-full">
                 {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Post Update
             </Button>
@@ -238,16 +324,18 @@ const eventIcons = {
     "Goal": <Goal className="h-4 w-4 text-white" />,
     "Red Card": <RectangleVertical className="h-4 w-4 text-white" />,
     "Substitution": <Repeat className="h-4 w-4 text-white" />,
-    "Info": <Radio className="h-4 w-4 text-white" />,
+    "Info": <Info className="h-4 w-4 text-white" />,
+    "Match Start": <PlayCircle className="h-4 w-4 text-white" />,
     "Match End": <Trophy className="h-4 w-4 text-white" />,
 }
 
 const eventColors = {
-    "Goal": "bg-green-500",
+    "Goal": "bg-yellow-500",
     "Red Card": "bg-red-600",
     "Substitution": "bg-blue-500",
     "Info": "bg-gray-500",
-    "Match End": "bg-yellow-500",
+    "Match Start": "bg-green-500",
+    "Match End": "bg-primary",
 }
 
 // --- LiveMatchFeed Component ---
@@ -276,6 +364,27 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
     if (isLoading) {
         return <div className="flex justify-center items-center h-40"><Loader2 className="h-8 w-8 animate-spin" /></div>
     }
+    
+    const renderEventText = (update: LiveEvent) => {
+        if (update.type === "Substitution" && update.subOffPlayer && update.subOnPlayer) {
+            return (
+                <span>
+                    <span className="text-red-500 font-semibold">{update.subOffPlayer.name}</span>
+                    <ArrowRight className="inline-block mx-2 h-4 w-4 text-muted-foreground" />
+                    <span className="text-green-500 font-semibold">{update.subOnPlayer.name}</span>
+                </span>
+            )
+        }
+        if (update.type === "Goal" && update.playerName) {
+             return (
+                <span>
+                    <span className="font-bold">{update.playerName}</span> scores!
+                    {update.assistPlayer && <span className="text-muted-foreground text-xs block">Assist by {update.assistPlayer.name}</span>}
+                </span>
+            )
+        }
+        return update.text;
+    }
 
     return updates.length > 0 ? (
         <div className="space-y-6 border-l-2 border-primary/20 pl-8 relative">
@@ -284,7 +393,7 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
                     <div className={cn("absolute -left-[45px] top-1 h-8 w-8 rounded-full flex items-center justify-center", eventColors[update.type as keyof typeof eventColors] || "bg-primary")}>
                        {eventIcons[update.type as keyof typeof eventIcons]}
                     </div>
-                    <p className="text-sm font-semibold">{update.text}</p>
+                    <p className="text-sm font-semibold">{renderEventText(update)}</p>
                     <p className="text-xs text-muted-foreground mt-1">{update.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
              ))}
@@ -363,7 +472,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                 </CardHeader>
                 <CardContent className="flex items-center justify-center text-center">
                     <div className="flex-1 flex items-center justify-end gap-4">
-                        <CardTitle className="font-headline text-3xl">{teamProfile.name}</CardTitle>
+                        <h2 className="font-headline text-3xl">{teamProfile.name}</h2>
                         <Avatar className="h-16 w-16">
                             <AvatarImage src={teamProfile.logoUrl} alt={teamProfile.name} data-ai-hint="team logo" />
                             <AvatarFallback>{teamProfile.name.substring(0, 2).toUpperCase()}</AvatarFallback>
@@ -371,13 +480,14 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
                     <div className="px-8">
                         <span className="text-4xl font-bold">{fixture.status === 'UPCOMING' ? "vs" : `${fixture.score?.home ?? 0} - ${fixture.score?.away ?? 0}`}</span>
+                         <Badge variant={fixture.status === 'LIVE' ? 'destructive' : 'secondary'} className="block mt-2 mx-auto">{fixture.status}</Badge>
                     </div>
                     <div className="flex-1 flex items-center justify-start gap-4">
                          <Avatar className="h-16 w-16">
                             <AvatarImage src={fixture.opponentLogoUrl} alt={fixture.opponent} data-ai-hint="team logo" />
                             <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <CardTitle className="font-headline text-3xl">{fixture.opponent}</CardTitle>
+                        <h2 className="font-headline text-3xl">{fixture.opponent}</h2>
                     </div>
                 </CardContent>
             </Card>

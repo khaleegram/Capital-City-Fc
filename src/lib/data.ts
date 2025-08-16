@@ -64,16 +64,21 @@ export type Fixture = {
   createdAt?: Timestamp;
   startingXI?: Player[];
   substitutes?: Player[];
+  // Tracks players currently on the pitch
+  activePlayers?: Player[]; 
 };
 
 export type LiveEvent = {
     id: string;
     timestamp: Timestamp;
     text: string;
-    type: "Goal" | "Red Card" | "Substitution" | "Info" | "Match End";
+    type: "Goal" | "Red Card" | "Substitution" | "Info" | "Match End" | "Match Start";
     score?: string;
     playerName?: string;
     teamName?: string;
+    assistPlayer?: { id: string, name: string };
+    subOffPlayer?: { id: string, name: string };
+    subOnPlayer?: { id: string, name: string };
 };
 
 export type Recap = {

@@ -11,6 +11,8 @@ import {
   where,
   getDocs,
   getDoc,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 import { db, storage } from "./firebase";
 import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
@@ -81,6 +83,7 @@ export const addFixtureAndArticle = async (data: {
             status: "UPCOMING",
             score: { home: 0, away: 0 },
             createdAt: serverTimestamp(),
+            activePlayers: fixtureData.startingXI || [], // Initially, active players are the starters
         } as any;
 
         batch.set(fixtureRef, newFixtureData);
@@ -101,6 +104,12 @@ export const addFixtureAndArticle = async (data: {
 export const updateFixture = async (fixtureId: string, fixtureData: Partial<Omit<Fixture, 'id'>>) => {
     try {
         const fixtureDocRef = doc(db, "fixtures", fixtureId);
+        
+        // If starting XI is being updated, also update activePlayers
+        if (fixtureData.startingXI) {
+            fixtureData.activePlayers = fixtureData.startingXI;
+        }
+
         await updateDoc(fixtureDocRef, {
             ...fixtureData,
             updatedAt: serverTimestamp(),
@@ -150,6 +159,16 @@ export const deleteFixture = async (fixture: Fixture) => {
 };
 
 
+type SubstitutionData = {
+    subOffPlayer: Player;
+    subOnPlayer: Player;
+}
+
+type GoalData = {
+    scorer: Player;
+    assist?: Player;
+}
+
 /**
  * Posts a live update to a fixture, including score, status, and a timeline event.
  * @param fixtureId The ID of the fixture to update.
@@ -162,40 +181,46 @@ export const postLiveUpdate = async (
         awayScore: number;
         status: "UPCOMING" | "LIVE" | "FT";
         eventText: string;
-        eventType: "Goal" | "Red Card" | "Substitution" | "Info";
-        playerId?: string;
+        eventType: "Goal" | "Red Card" | "Substitution" | "Info" | "Match Start" | "Match End";
         teamName?: string;
+        substitution?: SubstitutionData;
+        goal?: GoalData;
     }
 ) => {
-    const { homeScore, awayScore, status, eventText, eventType, playerId, teamName } = updateData;
+    const { homeScore, awayScore, status, eventText, eventType, teamName, substitution, goal } = updateData;
     const fixtureDocRef = doc(db, "fixtures", fixtureId);
     const liveEventsColRef = collection(db, "fixtures", fixtureId, "liveEvents");
 
     const batch = writeBatch(db);
 
-    // 1. Update the score and status on the main fixture document
-    batch.update(fixtureDocRef, {
+    const fixtureUpdate: any = {
         "score.home": homeScore,
         "score.away": awayScore,
         "status": status,
-    });
+    };
 
-    let playerName: string | undefined;
-    if (playerId) {
-        const playerSnap = await getDoc(doc(db, "players", playerId));
-        if (playerSnap.exists()) {
-            playerName = playerSnap.data().name;
-        }
+    // If it's a substitution, update the activePlayers list
+    if (eventType === 'Substitution' && substitution) {
+        // Use arrayUnion and arrayRemove for atomic updates
+        fixtureUpdate.activePlayers = arrayRemove(substitution.subOffPlayer);
+        batch.update(fixtureDocRef, fixtureUpdate); // Commit this part first
+        fixtureUpdate.activePlayers = arrayUnion(substitution.subOnPlayer);
     }
+    
+    // Update the score and status on the main fixture document
+    batch.update(fixtureDocRef, fixtureUpdate);
 
-    // 2. Add a new document to the liveEvents subcollection
+    // Add a new document to the liveEvents subcollection
     const newEventRef = doc(liveEventsColRef);
     batch.set(newEventRef, {
         text: eventText,
         type: eventType,
         timestamp: serverTimestamp(),
         score: `${homeScore} - ${awayScore}`,
-        playerName: playerName || null,
+        playerName: goal?.scorer.name || null,
+        assistPlayer: goal?.assist ? { id: goal.assist.id, name: goal.assist.name } : null,
+        subOffPlayer: substitution?.subOffPlayer ? { id: substitution.subOffPlayer.id, name: substitution.subOffPlayer.name } : null,
+        subOnPlayer: substitution?.subOnPlayer ? { id: substitution.subOnPlayer.id, name: substitution.subOnPlayer.name } : null,
         teamName: teamName || null,
     });
 
