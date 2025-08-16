@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -40,7 +41,7 @@ const prompt = ai.definePrompt({
 Your task is to take structured data about a match event and turn it into a single, exciting sentence for a live feed.
 Keep it short, punchy, and professional.
 
-Here is the event data. Create a suitable `eventText` based on the `eventType`.
+Here is the event data. Create a suitable eventText based on the eventType.
 
 - Event Type: {{{eventType}}}
 - Team Name: {{{teamName}}}
