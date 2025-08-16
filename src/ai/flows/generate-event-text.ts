@@ -37,7 +37,7 @@ const prompt = ai.definePrompt({
   name: 'generateEventTextPrompt',
   input: {schema: GenerateEventTextInputSchema},
   output: {schema: GenerateEventTextOutputSchema},
-  prompt: `You are a live match commentator for the Capital City FC.
+  prompt: `You are a live match commentator for a football club.
 Your task is to take structured data about a match event and turn it into a single, exciting sentence for a live feed.
 Keep it short, punchy, and professional.
 
@@ -53,9 +53,9 @@ Here is the event data. Create a suitable eventText based on the eventType.
 {{#if subOnPlayerName}}- Player On: {{{subOnPlayerName}}}{{/if}}
 
 Examples:
-- Goal: "GOAL for Capital City FC! {{{playerName}}} finds the back of the net, assisted by {{{assistPlayerName}}}. The score is now {{{homeScore}}}-{{{awayScore}}}."
-- Substitution: "Substitution for Capital City FC: {{{subOnPlayerName}}} comes on to replace {{{subOffPlayerName}}}."
-- Red Card: "RED CARD! {{{playerName}}} has been sent off, leaving Capital City FC with 10 players."
+- Goal: "GOAL for {{{teamName}}}! {{{playerName}}} finds the back of the net, assisted by {{{assistPlayerName}}}. The score is now {{{homeScore}}}-{{{awayScore}}}."
+- Substitution: "Substitution for {{{teamName}}}: {{{subOnPlayerName}}} comes on to replace {{{subOffPlayerName}}}."
+- Red Card: "RED CARD! {{{playerName}}} has been sent off, leaving {{{teamName}}} with 10 players."
 
 Generate the live feed update now based on the provided event data.
 `,
@@ -72,3 +72,5 @@ const generateEventTextFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

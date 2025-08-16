@@ -44,6 +44,7 @@ const updateSchema = z.object({
   subOnId: z.string().optional(),
   cardPlayerId: z.string().optional(),
   infoText: z.string().optional(),
+  teamForGoal: z.string().optional(),
 })
 type UpdateFormData = z.infer<typeof updateSchema>
 
@@ -99,18 +100,19 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
     const { homeScore, awayScore } = data;
     
     try {
-        const aiPayload: any = { eventType, teamName: teamProfile.name, homeScore, awayScore };
+        let aiPayload: any = { eventType, homeScore, awayScore };
         
         switch (eventType) {
             case "Goal":
                 const scorer = activePlayers.find(p => p.id === data.scorerId);
                 const assister = activePlayers.find(p => p.id === data.assistId);
-                if (!scorer) {
-                    toast({ variant: "destructive", title: "Error", description: "A goal scorer must be selected." });
+                if (!scorer || !data.teamForGoal) {
+                    toast({ variant: "destructive", title: "Error", description: "A goal scorer and team must be selected." });
                     setIsPosting(false); return;
                 }
                 aiPayload.playerName = scorer.name;
                 aiPayload.assistPlayerName = assister?.name;
+                aiPayload.teamName = data.teamForGoal === 'home' ? teamProfile.name : fixture.opponent;
                 submissionData.goal = { scorer, assist: assister };
                 break;
 
@@ -123,6 +125,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
                 }
                 aiPayload.subOffPlayerName = subOff.name;
                 aiPayload.subOnPlayerName = subOn.name;
+                aiPayload.teamName = teamProfile.name;
                 submissionData.substitution = { subOffPlayer: subOff, subOnPlayer: subOn };
                 break;
 
@@ -133,6 +136,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
                     setIsPosting(false); return;
                 }
                 aiPayload.playerName = cardedPlayer.name;
+                aiPayload.teamName = teamProfile.name;
                 submissionData.playerName = cardedPlayer.name;
                 break;
             
@@ -161,7 +165,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
         });
 
         toast({ title: "Success", description: "Live update posted!" });
-        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '' });
+        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '', teamForGoal: '' });
         setEventType(null);
 
     } catch(error) {
@@ -177,6 +181,18 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
           case 'Goal':
               return (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                           <Label>Team</Label>
+                           <Controller name="teamForGoal" control={control} render={({ field }) => (
+                               <Select onValueChange={field.onChange} value={field.value}>
+                                   <SelectTrigger><SelectValue placeholder="Select team..." /></SelectTrigger>
+                                   <SelectContent>
+                                       <SelectItem value="home">{teamProfile.name}</SelectItem>
+                                       <SelectItem value="away">{fixture.opponent}</SelectItem>
+                                   </SelectContent>
+                               </Select>
+                           )} />
+                      </div>
                       <div className="space-y-2">
                           <Label>Scorer</Label>
                           <Controller name="scorerId" control={control} render={({ field }) => (
@@ -530,5 +546,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         </div>
     )
 }
+
+    
 
     
