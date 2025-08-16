@@ -185,9 +185,10 @@ export const postLiveUpdate = async (
         teamName?: string;
         substitution?: SubstitutionData;
         goal?: GoalData;
+        playerName?: string;
     }
 ) => {
-    const { homeScore, awayScore, status, eventText, eventType, teamName, substitution, goal } = updateData;
+    const { homeScore, awayScore, status, eventText, eventType, teamName, substitution, goal, playerName } = updateData;
     const fixtureDocRef = doc(db, "fixtures", fixtureId);
     const liveEventsColRef = collection(db, "fixtures", fixtureId, "liveEvents");
 
@@ -202,9 +203,8 @@ export const postLiveUpdate = async (
     // If it's a substitution, update the activePlayers list
     if (eventType === 'Substitution' && substitution) {
         // Use arrayUnion and arrayRemove for atomic updates
-        fixtureUpdate.activePlayers = arrayRemove(substitution.subOffPlayer);
-        batch.update(fixtureDocRef, fixtureUpdate); // Commit this part first
-        fixtureUpdate.activePlayers = arrayUnion(substitution.subOnPlayer);
+        batch.update(fixtureDocRef, { activePlayers: arrayRemove(substitution.subOffPlayer) });
+        batch.update(fixtureDocRef, { activePlayers: arrayUnion(substitution.subOnPlayer) });
     }
     
     // Update the score and status on the main fixture document
@@ -217,7 +217,7 @@ export const postLiveUpdate = async (
         type: eventType,
         timestamp: serverTimestamp(),
         score: `${homeScore} - ${awayScore}`,
-        playerName: goal?.scorer.name || null,
+        playerName: playerName || goal?.scorer.name || null,
         assistPlayer: goal?.assist ? { id: goal.assist.id, name: goal.assist.name } : null,
         subOffPlayer: substitution?.subOffPlayer ? { id: substitution.subOffPlayer.id, name: substitution.subOffPlayer.name } : null,
         subOnPlayer: substitution?.subOnPlayer ? { id: substitution.subOnPlayer.id, name: substitution.subOnPlayer.name } : null,
