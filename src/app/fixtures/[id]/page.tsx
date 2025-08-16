@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight, Wand2 } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -25,7 +25,7 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { postLiveUpdate } from "@/lib/fixtures"
-import { generateMatchSummary } from "@/ai/flows/generate-match-summary"
+import { generateEventText } from "@/ai/flows/generate-event-text"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -44,7 +44,6 @@ const updateSchema = z.object({
   subOnId: z.string().optional(),
   cardPlayerId: z.string().optional(),
   infoText: z.string().optional(),
-  quickNote: z.string().optional(),
 })
 type UpdateFormData = z.infer<typeof updateSchema>
 
@@ -52,7 +51,6 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
   const { user } = useAuth()
   const { toast } = useToast()
   const [isPosting, setIsPosting] = useState(false)
-  const [isGenerating, setIsGenerating] = useState(false);
   const [eventType, setEventType] = useState<EventType | null>(null);
 
   const activePlayers = fixture.activePlayers || fixture.startingXI || [];
@@ -72,26 +70,6 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
       awayScore: fixture.score?.away ?? 0,
     });
   }, [fixture, reset]);
-  
-  const handleGenerateSummary = async () => {
-    const quickNote = getValues("quickNote");
-    if (!quickNote?.trim()) {
-        toast({ variant: "destructive", title: "Error", description: "Please enter a note to generate a summary." });
-        return;
-    }
-    setIsGenerating(true);
-    try {
-        const result = await generateMatchSummary({ note: quickNote });
-        setValue("infoText", result.update);
-        toast({ title: "Summary Generated", description: "The info text has been populated with the AI summary." });
-    } catch(error) {
-        console.error("Error generating summary:", error);
-        toast({ variant: "destructive", title: "Error", description: "Failed to generate summary."});
-    } finally {
-        setIsGenerating(false);
-    }
-  };
-
 
   const handleKickoff = async () => {
       setIsPosting(true);
@@ -118,61 +96,61 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
 
     let eventText = "";
     let submissionData: any = {};
-
-    const homeScore = data.homeScore;
-    const awayScore = data.awayScore;
+    const { homeScore, awayScore } = data;
     
-    switch (eventType) {
-        case "Goal":
-            const scorer = activePlayers.find(p => p.id === data.scorerId);
-            const assister = activePlayers.find(p => p.id === data.assistId);
-            if (!scorer) {
-                toast({ variant: "destructive", title: "Error", description: "A goal scorer must be selected." });
-                setIsPosting(false);
-                return;
-            }
-            eventText = `GOAL for ${teamProfile.name}! Scored by ${scorer.name}`;
-            if (assister) {
-                eventText += ` (Assist: ${assister.name}).`;
-            }
-            eventText += ` The score is now ${homeScore}-${awayScore}.`;
-            submissionData.goal = { scorer, assist: assister };
-            break;
-
-        case "Substitution":
-            const subOff = activePlayers.find(p => p.id === data.subOffId);
-            const subOn = benchedPlayers.find(p => p.id === data.subOnId);
-            if (!subOff || !subOn) {
-                toast({ variant: "destructive", title: "Error", description: "Both players for a substitution must be selected." });
-                setIsPosting(false);
-                return;
-            }
-            eventText = `Substitution for ${teamProfile.name}: ${subOn.name} comes on for ${subOff.name}.`;
-            submissionData.substitution = { subOffPlayer: subOff, subOnPlayer: subOn };
-            break;
-
-        case "Red Card":
-            const cardedPlayer = activePlayers.find(p => p.id === data.cardPlayerId);
-             if (!cardedPlayer) {
-                toast({ variant: "destructive", title: "Error", description: "A player must be selected for the red card." });
-                setIsPosting(false);
-                return;
-            }
-            eventText = `Red card for ${cardedPlayer.name}. ${teamProfile.name} is down to 10 players.`;
-            submissionData.playerName = cardedPlayer.name;
-            break;
-        
-        case "Info":
-            if (!data.infoText?.trim()) {
-                toast({ variant: "destructive", title: "Error", description: "Please enter some info text." });
-                setIsPosting(false);
-                return;
-            }
-            eventText = data.infoText;
-            break;
-    }
-
     try {
+        const aiPayload: any = { eventType, teamName: teamProfile.name, homeScore, awayScore };
+        
+        switch (eventType) {
+            case "Goal":
+                const scorer = activePlayers.find(p => p.id === data.scorerId);
+                const assister = activePlayers.find(p => p.id === data.assistId);
+                if (!scorer) {
+                    toast({ variant: "destructive", title: "Error", description: "A goal scorer must be selected." });
+                    setIsPosting(false); return;
+                }
+                aiPayload.playerName = scorer.name;
+                aiPayload.assistPlayerName = assister?.name;
+                submissionData.goal = { scorer, assist: assister };
+                break;
+
+            case "Substitution":
+                const subOff = activePlayers.find(p => p.id === data.subOffId);
+                const subOn = benchedPlayers.find(p => p.id === data.subOnId);
+                if (!subOff || !subOn) {
+                    toast({ variant: "destructive", title: "Error", description: "Both players for a substitution must be selected." });
+                    setIsPosting(false); return;
+                }
+                aiPayload.subOffPlayerName = subOff.name;
+                aiPayload.subOnPlayerName = subOn.name;
+                submissionData.substitution = { subOffPlayer: subOff, subOnPlayer: subOn };
+                break;
+
+            case "Red Card":
+                const cardedPlayer = activePlayers.find(p => p.id === data.cardPlayerId);
+                if (!cardedPlayer) {
+                    toast({ variant: "destructive", title: "Error", description: "A player must be selected for the red card." });
+                    setIsPosting(false); return;
+                }
+                aiPayload.playerName = cardedPlayer.name;
+                submissionData.playerName = cardedPlayer.name;
+                break;
+            
+            case "Info":
+                if (!data.infoText?.trim()) {
+                    toast({ variant: "destructive", title: "Error", description: "Please enter some info text." });
+                    setIsPosting(false); return;
+                }
+                eventText = data.infoText;
+                break;
+        }
+
+        // Generate text via AI for structured events
+        if (eventType !== 'Info') {
+            const result = await generateEventText(aiPayload);
+            eventText = result.eventText;
+        }
+
         await postLiveUpdate(fixture.id, {
             homeScore,
             awayScore,
@@ -181,9 +159,11 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
             eventText,
             ...submissionData,
         });
+
         toast({ title: "Success", description: "Live update posted!" });
-        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '', quickNote: '' });
+        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '' });
         setEventType(null);
+
     } catch(error) {
         console.error("Error posting update:", error);
         toast({ variant: "destructive", title: "Error", description: "Failed to post update."});
@@ -240,21 +220,9 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
                );
           case 'Info':
                return (
-                  <div className="space-y-4">
-                     <div className="space-y-2">
-                        <Label>Quick Note for AI</Label>
-                        <div className="flex gap-2">
-                            <Textarea {...register('quickNote')} placeholder="e.g. Rivera great chance 33 min" rows={2} />
-                            <Button type="button" variant="outline" onClick={handleGenerateSummary} disabled={isGenerating}>
-                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                                <span className="sr-only">Generate</span>
-                            </Button>
-                        </div>
-                     </div>
-                     <div className="space-y-2">
-                        <Label>Information Text</Label>
-                        <Textarea {...register('infoText')} placeholder="e.g. Added time, injury update... or AI generated text" rows={3}/>
-                     </div>
+                  <div className="space-y-2">
+                    <Label>Information Text</Label>
+                    <Textarea {...register('infoText')} placeholder="e.g. Added time, injury update..." rows={3}/>
                   </div>
                );
           default:
