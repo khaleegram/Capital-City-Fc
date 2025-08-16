@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight, Wand2 } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -25,6 +25,7 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { postLiveUpdate } from "@/lib/fixtures"
+import { generateMatchSummary } from "@/ai/flows/generate-match-summary"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -43,6 +44,7 @@ const updateSchema = z.object({
   subOnId: z.string().optional(),
   cardPlayerId: z.string().optional(),
   infoText: z.string().optional(),
+  quickNote: z.string().optional(),
 })
 type UpdateFormData = z.infer<typeof updateSchema>
 
@@ -50,12 +52,13 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
   const { user } = useAuth()
   const { toast } = useToast()
   const [isPosting, setIsPosting] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false);
   const [eventType, setEventType] = useState<EventType | null>(null);
 
   const activePlayers = fixture.activePlayers || fixture.startingXI || [];
   const benchedPlayers = fixture.substitutes?.filter(sub => !activePlayers.some(ap => ap.id === sub.id)) || [];
 
-  const { register, handleSubmit, control, watch, setValue, reset } = useForm<UpdateFormData>({
+  const { register, handleSubmit, control, watch, setValue, reset, getValues } = useForm<UpdateFormData>({
     resolver: zodResolver(updateSchema),
     defaultValues: {
       homeScore: fixture.score?.home ?? 0,
@@ -69,6 +72,26 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
       awayScore: fixture.score?.away ?? 0,
     });
   }, [fixture, reset]);
+  
+  const handleGenerateSummary = async () => {
+    const quickNote = getValues("quickNote");
+    if (!quickNote?.trim()) {
+        toast({ variant: "destructive", title: "Error", description: "Please enter a note to generate a summary." });
+        return;
+    }
+    setIsGenerating(true);
+    try {
+        const result = await generateMatchSummary({ note: quickNote });
+        setValue("infoText", result.update);
+        toast({ title: "Summary Generated", description: "The info text has been populated with the AI summary." });
+    } catch(error) {
+        console.error("Error generating summary:", error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to generate summary."});
+    } finally {
+        setIsGenerating(false);
+    }
+  };
+
 
   const handleKickoff = async () => {
       setIsPosting(true);
@@ -159,7 +182,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
             ...submissionData,
         });
         toast({ title: "Success", description: "Live update posted!" });
-        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '' });
+        reset({ homeScore, awayScore, infoText: '', scorerId: '', assistId: '', subOffId: '', subOnId: '', cardPlayerId: '', quickNote: '' });
         setEventType(null);
     } catch(error) {
         console.error("Error posting update:", error);
@@ -217,9 +240,21 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
                );
           case 'Info':
                return (
-                  <div className="space-y-2">
-                     <Label>Information Text</Label>
-                     <Textarea {...register('infoText')} placeholder="e.g. Added time, injury update..." />
+                  <div className="space-y-4">
+                     <div className="space-y-2">
+                        <Label>Quick Note for AI</Label>
+                        <div className="flex gap-2">
+                            <Textarea {...register('quickNote')} placeholder="e.g. Rivera great chance 33 min" rows={2} />
+                            <Button type="button" variant="outline" onClick={handleGenerateSummary} disabled={isGenerating}>
+                                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                                <span className="sr-only">Generate</span>
+                            </Button>
+                        </div>
+                     </div>
+                     <div className="space-y-2">
+                        <Label>Information Text</Label>
+                        <Textarea {...register('infoText')} placeholder="e.g. Added time, injury update... or AI generated text" rows={3}/>
+                     </div>
                   </div>
                );
           default:
@@ -527,3 +562,5 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         </div>
     )
 }
+
+    

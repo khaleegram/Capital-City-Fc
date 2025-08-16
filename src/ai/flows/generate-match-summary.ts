@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -31,7 +32,7 @@ const prompt = ai.definePrompt({
   output: {schema: GenerateMatchSummaryOutputSchema},
   prompt: `You are a live match commentator for Capital City FC.
 Your task is to take a very brief note about a match event and expand it into a single, exciting sentence for a live feed.
-Keep it short and punchy.
+Keep it short and punchy. Make it sound exciting and professional.
 
 Note: {{{note}}}
 
@@ -49,3 +50,5 @@ const generateMatchSummaryFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    
