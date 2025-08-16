@@ -48,7 +48,7 @@ export type PlayerVideoTag = {
 };
 
 export type Fixture = {
-  id: string;
+  id:string;
   opponent: string;
   opponentLogoUrl?: string;
   venue: string;
@@ -81,14 +81,27 @@ export type LiveEvent = {
     subOnPlayer?: { id: string, name: string };
 };
 
+export type MatchEvent = {
+    minute: string;
+    type: "Goal" | "Assist" | "Yellow Card" | "Red Card" | "Substitution" | "Penalty Saved" | "Penalty Missed" | "Info";
+    player: string;
+    description: string;
+}
+
+export type StructuredData = {
+    finalScore: string;
+    goalScorers: string[];
+    assists: string[];
+}
+
 export type Recap = {
     id: string;
     fixtureId: string;
     headline: string;
     shortSummary: string;
     fullRecap: string;
-    timeline: any[]; // Consider a stricter type
-    structuredData: any;
+    timeline: MatchEvent[];
+    structuredData: StructuredData;
     createdAt: Timestamp;
     audioUrl?: string | null;
 };

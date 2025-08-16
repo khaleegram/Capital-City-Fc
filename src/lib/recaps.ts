@@ -7,7 +7,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import { Recap, Fixture } from "./data";
+import { Recap, Fixture, MatchEvent, StructuredData } from "./data";
 
 const recapsCollectionRef = collection(db, "recaps");
 const newsCollectionRef = collection(db, "news");
