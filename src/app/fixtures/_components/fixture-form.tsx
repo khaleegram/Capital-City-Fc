@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm, Controller } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { addFixtureAndArticle, updateFixture, uploadOpponentLogo } from "@/lib/fixtures"
@@ -51,41 +51,68 @@ interface FixtureFormProps {
   fixture?: Fixture | null
 }
 
-const PlayerPicker = ({ title, allPlayers, selectedPlayers, onTogglePlayer, maxPlayers }: { title: string, allPlayers: Player[], selectedPlayers: Player[], onTogglePlayer: (player: Player) => void, maxPlayers?: number }) => {
-    const availablePlayers = allPlayers.filter(p => !selectedPlayers.some(sp => sp.id === p.id));
-    const canAddMore = !maxPlayers || selectedPlayers.length < maxPlayers;
+const PlayerPicker = ({
+  title, allPlayers, selectedPlayers, onTogglePlayer, maxPlayers,
+}: {
+  title: string
+  allPlayers: Player[]
+  selectedPlayers: Player[]
+  onTogglePlayer: (player: Player) => void
+  maxPlayers?: number
+}) => {
+  const availablePlayers = allPlayers.filter(p => !selectedPlayers.some(sp => sp.id === p.id))
+  const canAddMore = !maxPlayers || selectedPlayers.length < maxPlayers
 
-    return (
-        <div className="border rounded-lg">
-            <div className="p-3 border-b">
-                <h4 className="font-semibold">{title} ({selectedPlayers.length}{maxPlayers ? `/${maxPlayers}` : ''})</h4>
+  return (
+    <div className="rounded-xl border shadow-sm">
+      <div className="p-3 border-b flex items-center justify-between bg-muted/50 rounded-t-xl">
+        <h4 className="font-semibold">{title}</h4>
+        <span className="text-xs text-muted-foreground">
+          {selectedPlayers.length}{maxPlayers ? `/${maxPlayers}` : ""}
+        </span>
+      </div>
+      <ScrollArea className="h-40">
+        <div className="p-2 space-y-1">
+          {selectedPlayers.length > 0 ? selectedPlayers.map(player => (
+            <div
+              key={player.id}
+              className="flex items-center justify-between px-2 py-1.5 rounded-md bg-primary/10 text-sm"
+            >
+              <span>{player.name}</span>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6"
+                onClick={() => onTogglePlayer(player)}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-destructive" />
+              </Button>
             </div>
-            <ScrollArea className="h-40">
-                <div className="p-2 space-y-1">
-                    {selectedPlayers.length > 0 ? selectedPlayers.map(player => (
-                        <div key={player.id} className="flex items-center justify-between p-1.5 rounded-md bg-muted text-sm">
-                            <span>{player.name}</span>
-                            <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onTogglePlayer(player)}>
-                                <Trash2 className="h-3.5 w-3.5 text-destructive"/>
-                            </Button>
-                        </div>
-                    )) : <p className="text-xs text-muted-foreground text-center p-4">No players selected.</p>}
-                </div>
-            </ScrollArea>
-            <Separator />
-            <ScrollArea className="h-40">
-                <div className="p-2 space-y-1">
-                    {availablePlayers.map(player => (
-                        <div key={player.id} className="flex items-center justify-between p-1.5 rounded-md hover:bg-muted cursor-pointer text-sm" onClick={() => canAddMore && onTogglePlayer(player)}>
-                           <span>{player.name}</span>
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
+          )) : (
+            <p className="text-xs text-muted-foreground text-center p-4">No players selected.</p>
+          )}
         </div>
-    );
-};
-
+      </ScrollArea>
+      <Separator />
+      <ScrollArea className="h-40">
+        <div className="p-2 space-y-1">
+          {availablePlayers.map(player => (
+            <div
+              key={player.id}
+              className={cn(
+                "flex items-center justify-between px-2 py-1.5 rounded-md cursor-pointer text-sm",
+                canAddMore ? "hover:bg-muted" : "opacity-50"
+              )}
+              onClick={() => canAddMore && onTogglePlayer(player)}
+            >
+              <span>{player.name}</span>
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
 
 export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     const [isGenerating, setIsGenerating] = useState(false)
@@ -99,7 +126,7 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     const [substitutes, setSubstitutes] = useState<Player[]>([])
 
     const { toast } = useToast()
-    const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<FixtureFormData>({
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FixtureFormData>({
         resolver: zodResolver(fixtureSchema),
         defaultValues: { publishArticle: true }
     })
@@ -254,171 +281,161 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
 
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle className="font-headline">{fixture ? 'Edit Fixture' : 'Add New Fixture'}</DialogTitle>
-                    <DialogDescription>
-                        {fixture ? 'Update the details for this fixture.' : 'Enter fixture details and generate a match preview article.'}
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                            <div>
-                                <Label htmlFor="opponent">Opponent</Label>
-                                <Input id="opponent" {...register("opponent")} />
-                                {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
-                            </div>
-                            <div>
-                                <Label htmlFor="competition">Competition</Label>
-                                <Input id="competition" {...register("competition")} />
-                                {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
-                            </div>
-                            <div>
-                                <Label htmlFor="notes">Optional Notes for AI</Label>
-                                <Textarea id="notes" {...register("notes")} placeholder="e.g., Rivalry match..." />
-                            </div>
+          <DialogContent className="max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>{fixture ? "Edit Fixture" : "Create New Fixture"}</DialogTitle>
+              <DialogDescription>
+                {fixture ? "Update fixture details and lineup." : "Fill details to publish fixture and auto-generate a match preview."}
+              </DialogDescription>
+            </DialogHeader>
+    
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+              {/* 🔹 Section 1: Details */}
+              <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Opponent</Label>
+                    <Input {...register("opponent")} placeholder="e.g. City FC" />
+                    {errors.opponent && <p className="text-sm text-destructive">{errors.opponent.message}</p>}
+                  </div>
+                  <div>
+                    <Label>Competition</Label>
+                    <Input {...register("competition")} placeholder="e.g. Premier League" />
+                    {errors.competition && <p className="text-sm text-destructive">{errors.competition.message}</p>}
+                  </div>
+                  <div>
+                    <Label>AI Notes (optional)</Label>
+                    <Textarea {...register("notes")} placeholder="Derby, rivalry, must-win context..." />
+                  </div>
+                </div>
+    
+                <div className="space-y-4">
+                  {/* Drag & Drop Upload */}
+                  <div>
+                    <Label>Opponent Logo</Label>
+                    <div className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center relative bg-muted/30 mt-1">
+                      {logoPreview ? (
+                        <Image src={logoPreview} alt="Logo preview" fill className="object-contain p-3" />
+                      ) : (
+                        <div className="text-center text-muted-foreground p-4">
+                          <UploadCloud className="mx-auto h-10 w-10" />
+                          <p className="mt-2 text-xs">Click or drag logo here</p>
                         </div>
-                        <div className="space-y-4">
-                            <div>
-                                <Label>Opponent Logo (Optional)</Label>
-                                <div className="aspect-square rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50 mt-1">
-                                    {logoPreview ? (
-                                        <Image src={logoPreview} alt="Opponent logo preview" layout="fill" objectFit="contain" className="rounded-lg p-2" />
-                                    ) : (
-                                        <div className="text-center text-muted-foreground p-4">
-                                            <UploadCloud className="mx-auto h-12 w-12" />
-                                            <p className="mt-2 text-sm">Upload a logo</p>
-                                        </div>
-                                    )}
-                                    <Input
-                                        id="opponent-logo"
-                                        type="file"
-                                        accept="image/*"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        {...register("opponentLogo")}
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <Label htmlFor="venue">Venue</Label>
-                                <Input id="venue" {...register("venue")} />
-                                {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
-                            </div>
-                        </div>
+                      )}
+                      <Input type="file" accept="image/*" {...register("opponentLogo")} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                        <Label htmlFor="date">Match Date & Time</Label>
-                            <Popover>
-                            <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !dateValue && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateValue ? format(dateValue, "PPP HH:mm") : <span>Pick a date and time</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <CalendarPicker
-                                    mode="single"
-                                    selected={dateValue}
-                                    onSelect={(date) => {
-                                        if (!date) return;
-                                        const newDate = new Date(date);
-                                        if (dateValue) {
-                                            newDate.setHours(dateValue.getHours());
-                                            newDate.setMinutes(dateValue.getMinutes());
-                                        }
-                                        setValue("date", newDate);
-                                    }}
-                                    initialFocus
-                                />
-                                <div className="p-2 border-t">
-                                    <Input 
-                                        type="time"
-                                        onChange={(e) => {
-                                            const [hours, minutes] = e.target.value.split(':').map(Number);
-                                            const newDate = dateValue ? new Date(dateValue) : new Date();
-                                            newDate.setHours(hours, minutes);
-                                            setValue("date", newDate);
-                                        }}
-                                        value={dateValue ? format(dateValue, "HH:mm") : ""}
-                                    />
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                        {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                  </div>
+                  <div>
+                    <Label>Venue</Label>
+                    <Input {...register("venue")} placeholder="e.g. Home Stadium" />
+                    {errors.venue && <p className="text-sm text-destructive">{errors.venue.message}</p>}
+                  </div>
+                </div>
+              </section>
+    
+              {/* 🔹 Section 2: Date & Time */}
+              <section>
+                <Label>Match Date & Time</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateValue ? format(dateValue, "PPP HH:mm") : "Pick a date & time"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <CalendarPicker
+                      mode="single"
+                      selected={dateValue}
+                      onSelect={(date) => {
+                        if (!date) return
+                        const newDate = new Date(date)
+                        if (dateValue) {
+                          newDate.setHours(dateValue.getHours())
+                          newDate.setMinutes(dateValue.getMinutes())
+                        }
+                        setValue("date", newDate)
+                      }}
+                    />
+                    <div className="p-2 border-t">
+                      <Input
+                        type="time"
+                        onChange={(e) => {
+                          const [h, m] = e.target.value.split(":").map(Number)
+                          const newDate = dateValue ? new Date(dateValue) : new Date()
+                          newDate.setHours(h, m)
+                          setValue("date", newDate)
+                        }}
+                        value={dateValue ? format(dateValue, "HH:mm") : ""}
+                      />
                     </div>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-lg font-headline">Match Lineup</h3>
-                            <div className="w-64">
-                                <Select onValueChange={handleSelectFormation}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Load from saved formation..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {formations.map(f => (
-                                            <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <PlayerPicker title="Starting XI" allPlayers={allPlayers} selectedPlayers={startingXI} onTogglePlayer={handleToggleStartingXI} maxPlayers={11} />
-                            <PlayerPicker title="Substitutes" allPlayers={allPlayers} selectedPlayers={substitutes} onTogglePlayer={handleToggleSubstitute} />
-                        </div>
-                    </div>
-
-                    
-                    {!fixture && (
-                        <>
-                        <Separator />
-                        <Button type="button" onClick={handleGeneratePreview} disabled={isGenerating}>
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            Generate Preview Article
-                        </Button>
-                        
-                        {generatedContent && (
-                            <div className="space-y-4 pt-4 border-t">
-                                <h3 className="font-semibold text-lg font-headline">Review & Publish Preview</h3>
-                                <div>
-                                    <Label htmlFor="preview">Generated Preview</Label>
-                                    <Textarea id="preview" value={editedPreview} onChange={(e) => setEditedPreview(e.target.value)} rows={5} />
-                                </div>
-                                <div>
-                                    <Label>Suggested Tags</Label>
-                                    <p className="text-sm text-muted-foreground">{generatedContent.tags.join(', ')}</p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <Checkbox id="publishArticle" defaultChecked={true} onCheckedChange={(checked) => setValue("publishArticle", !!checked)} />
-                                    <Label htmlFor="publishArticle">Publish preview as a news article</Label>
-                                </div>
-                            </div>
-                        )}
-                        </>
-                    )}
-
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
-                        <Button type="submit" disabled={isSubmitting || (!fixture && !generatedContent)}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <Save className="mr-2 h-4 w-4" /> {fixture ? 'Save Changes' : 'Publish Fixture'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
+                  </PopoverContent>
+                </Popover>
+                {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+              </section>
+    
+              <Separator />
+    
+              {/* 🔹 Section 3: Lineup */}
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Match Lineup</h3>
+                  <Select onValueChange={handleSelectFormation}>
+                    <SelectTrigger className="w-64">
+                      <SelectValue placeholder="Load saved formation..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {formations.map(f => (
+                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <PlayerPicker title="Starting XI" allPlayers={allPlayers} selectedPlayers={startingXI} onTogglePlayer={handleToggleStartingXI} maxPlayers={11} />
+                  <PlayerPicker title="Substitutes" allPlayers={allPlayers} selectedPlayers={substitutes} onTogglePlayer={handleToggleSubstitute} />
+                </div>
+              </section>
+    
+              {/* 🔹 Section 4: AI Preview (only for new fixtures) */}
+              {!fixture && (
+                <section className="space-y-4 border rounded-xl p-4 bg-muted/20">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Wand2 className="h-5 w-5" /> AI Generated Match Preview
+                  </h3>
+                  <Button type="button" onClick={handleGeneratePreview} disabled={isGenerating}>
+                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                    Generate Preview
+                  </Button>
+                  {generatedContent && (
+                    <>
+                      <Textarea value={editedPreview} onChange={(e) => setEditedPreview(e.target.value)} rows={5} />
+                      <div>
+                        <Label>Suggested Tags</Label>
+                        <p className="text-sm text-muted-foreground">{generatedContent.tags.join(", ")}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="publishArticle" defaultChecked onCheckedChange={(c) => setValue("publishArticle", !!c)} />
+                        <Label htmlFor="publishArticle">Publish preview as news article</Label>
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
+    
+              {/* 🔹 Footer */}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting || (!fixture && !generatedContent)}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Save className="mr-2 h-4 w-4" />
+                  {fixture ? "Save Changes" : "Publish Fixture"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
         </Dialog>
-    )
+      )
 }
