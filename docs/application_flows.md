@@ -1,6 +1,6 @@
-# Developer Guide: Application Workflows
+# Developer Guide: Application Workflows & Implementation
 
-This document provides a high-level overview of the core application flows, detailing the interaction between the user interface, backend services, and AI agents.
+This document provides a comprehensive overview of the core application flows, detailing the interaction between the user interface, backend services, and AI agents.
 
 ---
 
@@ -31,11 +31,87 @@ This suite of features enables administrators to rapidly create engaging content
     *   `generate-social-post.ts`: Takes the final article content and tags, and returns formatted post text suitable for Twitter and Instagram, complete with appropriate hashtags.
 *   **Outcome**: The admin has a ready-to-publish article, relevant tags for SEO, and pre-written social media copy, dramatically speeding up the content lifecycle.
 
+
 ---
 
-## 2. Live Match Management
+## 2. Fixture Creation & AI Preview Flow
 
-This flow describes how an admin manages a match in real-time.
+### User Story
+
+As an admin, I want to create a new match fixture by providing details like the opponent, venue, and date. I also want the system to use AI to automatically generate a short, engaging news preview for the match, which I can then publish.
+
+### Frontend UI Components & Logic
+
+1.  **Fixture Form (`FixtureForm.tsx`)**:
+    *   A dialog-based form for creating or editing a fixture.
+    *   **Input Fields**:
+        *   `opponent`: Text input.
+        *   `competition`: Text input.
+        *   `venue`: Text input.
+        *   `notes`: Textarea (for optional AI context, e.g., "Rivalry match, must-win").
+        *   `date`: A date and time picker.
+        *   `opponentLogo`: A file input for the opponent's logo.
+    *   **AI Interaction**:
+        *   A "**Generate Preview**" button. When clicked, it calls the `generateFixturePreview` AI flow.
+        *   Once the AI responds, the generated `preview` text is displayed in an editable `Textarea`, and the `tags` are shown.
+    *   **Lineup Selection**: Includes a `<PlayerPicker>` component to select Starting XI and Substitutes.
+    *   **Submission**: A "**Publish Fixture**" button that sends all the data to the backend.
+
+### AI Flow: `generateFixturePreview`
+
+*   **File**: `src/ai/flows/generate-fixture-preview.ts`
+*   **Goal**: To take basic fixture details and produce a short, engaging preview paragraph and relevant tags.
+
+*   **Input Schema (`GenerateFixturePreviewInput`)**:
+    ```json
+    {
+      "opponent": "string",
+      "venue": "string",
+      "competition": "string",
+      "notes": "string (optional)",
+      "history": "string (optional)"
+    }
+    ```
+
+*   **Output Schema (`GenerateFixturePreviewOutput`)**:
+    ```json
+    {
+      "preview": "string",
+      "tags": "string[]"
+    }
+    ```
+
+*   **Core Prompt Logic**:
+    > You are a sports journalist for Capital City FC. Your task is to generate a short, engaging match preview and suggest relevant tags based on fixture details.
+    >
+    > IMPORTANT RULES:
+    > - Keep the preview concise (around 50-70 words, max 100).
+    > - Be engaging but realistic. Do not overhype unless specified in the notes.
+    > - ONLY use the provided historical data. DO NOT invent or fabricate past results or statistics. If no history is provided, do not mention it.
+    >
+    > Fixture Details:
+    > - Opponent: {{{opponent}}}
+    > - Venue: {{{venue}}}
+    > - Competition: {{{competition}}}
+    > {{#if notes}}- Admin Notes: {{{notes}}}{{/if}}
+    > {{#if history}}- Head-to-Head History: {{{history}}}{{/if}}
+    >
+    > Generate the preview and suggest a few relevant tags (like opponent and competition).
+
+### Backend Logic: `addFixtureAndArticle`
+
+*   **File**: `src/lib/fixtures.ts`
+*   **Goal**: To create the fixture document and, if requested, the associated news article in a single, atomic transaction.
+*   **Process**:
+    1.  Receives the user's form data and the AI-generated `preview` and `tags`.
+    2.  Initializes a Firestore `writeBatch`.
+    3.  If `publishArticle` is true, it creates a new document in the `news` collection. The headline is templatized (e.g., "Upcoming Match: ..."), and the content is the AI-generated preview.
+    4.  It then creates the new document in the `fixtures` collection, storing all the match details, the selected lineups, and the ID of the news article if one was created.
+    5.  Commits the batch.
+
+---
+
+## 3. Live Match Management
 
 *   **User Story**: During a live match, an admin needs to update the score, log key events like goals and substitutions, and keep fans informed via the live feed and push notifications.
 *   **UI (`fixtures/[id]/page.tsx`)**:
@@ -55,8 +131,7 @@ This flow describes how an admin manages a match in real-time.
     3.  The creation of a document in `liveEvents` triggers the `sendLiveUpdateNotification` Cloud Function, which then sends a push notification to all subscribed users.
 
 ---
-
-## 3. Post-Match Recap & Analytics
+## 4. Post-Match Recap & Analytics
 
 This flow automates the creation of detailed match reports after a game has concluded.
 
@@ -81,11 +156,58 @@ This flow automates the creation of detailed match reports after a game has conc
 
 ---
 
-## 4. RAG-Based AI Assistants
+## 5. Formation Management Flow
+
+### User Story
+
+As an admin, I want to create, save, and manage reusable team formations. I need a visual, drag-and-drop interface to place players in a starting XI and on a substitutes' bench, and then save this lineup with a name for later use in fixture creation.
+
+### Frontend UI Components & Logic
+
+1.  **Formation Manager (`FormationManager.tsx`)**: This is the main component for this feature.
+    *   **Layout**: A two-column layout.
+        *   **Left/Main Column**: A visual representation of a football pitch with 11 "starter" slots and a "bench" area with 7 "substitute" slots.
+        *   **Right Column**: A searchable list of all available players on the team roster.
+    *   **Data Fetching**: On component mount, it fetches all players from the `players` collection in Firestore.
+    *   **Drag-and-Drop**:
+        *   The component is wrapped in a `DndContext` provider from `@dnd-kit/core`.
+        *   Each player in the roster list is a draggable item (`PlayerDraggableCard`).
+        *   Each slot on the pitch and bench is a droppable area (`DroppablePlayerSlot`).
+    *   **State Management**:
+        *   `allPlayers`: Holds the full team roster.
+        *   `startingXI`: An array of 11 `Player` objects (or `null`).
+        *   `substitutes`: An array of 7 `Player` objects (or `null`).
+    *   **Interaction Logic**:
+        *   When a player is dragged from the roster and dropped onto a slot, the `handleDragEnd` function fires.
+        *   It identifies the player and the target slot.
+        *   It updates either the `startingXI` or `substitutes` state array at the correct index.
+        *   The player is then removed from the "Available Players" list to prevent duplicates.
+        *   Players can be removed from a slot, which returns them to the available list.
+    *   **Form Input**:
+        *   A text input for the `name` of the formation (e.g., "4-4-2 Attacking").
+        *   An optional `Textarea` for `notes`.
+    *   **Submission**: A "**Save Formation**" button calls the `addFormation` backend function.
+
+2.  **Saved Formations List**:
+    *   Below the manager, a list of previously saved formations is displayed.
+    *   Each item can be clicked to "load" it back into the manager for editing or can be deleted.
+
+### Backend Logic: `addFormation`
+
+*   **File**: `src/lib/formations.ts`
+*   **Goal**: To save a new formation document to Firestore.
+*   **Process**:
+    1.  Receives the `name`, arrays of `startingXI` and `substitutes` players, and optional `notes`.
+    2.  To keep documents lightweight, it maps over the player arrays, storing only essential data (`id`, `name`, `position`, `jerseyNumber`, `imageUrl`) for each player, rather than the entire player object.
+    3.  Adds a new document to the `formations` collection with the provided data and a server timestamp.
+
+---
+
+## 6. RAG-Based AI Assistants
 
 The application uses Retrieval-Augmented Generation (RAG) to provide accurate, context-aware answers to user questions.
 
-### 4.1. Scouting Assistant
+### 6.1. Scouting Assistant
 
 *   **User Story**: A scout wants to know about a specific player's strengths, weaknesses, or performance in certain situations.
 *   **UI (`PlayerInsights.tsx`)**: The scout selects a player from a dropdown and types a natural language question.
@@ -95,7 +217,7 @@ The application uses Retrieval-Augmented Generation (RAG) to provide accurate, c
     *   **Process**: The AI is prompted to act as an expert scout. It is instructed to synthesize an answer *only* using the provided data (the "retrieved" context). This prevents the AI from fabricating information and grounds its answer in facts from the app's database.
     *   **Output**: A well-reasoned, analytical answer to the scout's question.
 
-### 4.2. Fan Chatbot
+### 6.2. Fan Chatbot
 
 *   **This flow follows the same RAG pattern as the Scouting Assistant but is tuned for a different audience.**
 *   **Data Fetching**: It fetches *all* player profiles and *all* news articles to provide a broad knowledge base.
