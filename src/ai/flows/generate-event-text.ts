@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const GenerateEventTextInputSchema = z.object({
+const GenerateEventTextInputSchema = z.object({
   eventType: z.enum(["Goal", "Red Card", "Substitution"]),
   teamName: z.string().describe("The name of the team the event relates to."),
   homeScore: z.number().optional().describe("The new score for the home team (if applicable)."),
@@ -24,7 +24,7 @@ export const GenerateEventTextInputSchema = z.object({
 });
 export type GenerateEventTextInput = z.infer<typeof GenerateEventTextInputSchema>;
 
-export const GenerateEventTextOutputSchema = z.object({
+const GenerateEventTextOutputSchema = z.object({
   eventText: z.string().describe('A single, engaging sentence describing the event for a live match feed.'),
 });
 export type GenerateEventTextOutput = z.infer<typeof GenerateEventTextOutputSchema>;
