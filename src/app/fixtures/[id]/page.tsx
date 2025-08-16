@@ -10,11 +10,12 @@ import { useToast } from "@/hooks/use-toast"
 import { getTeamProfile } from "@/lib/team"
 import { useAuth } from "@/hooks/use-auth"
 import { FormationDisplay } from "@/app/formations/_components/formation-display"
+import { cn } from "@/lib/utils"
 
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
