@@ -3,7 +3,7 @@
 
 import { useState, useEffect, use } from "react"
 import { notFound } from "next/navigation"
-import { doc, onSnapshot, collection, query, orderBy } from "firebase/firestore"
+import { doc, onSnapshot, collection, query, orderBy, getDocs, where, documentId } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import type { Fixture, TeamProfile, LiveEvent, Player } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
@@ -445,9 +445,29 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         fetchProfile();
 
         const docRef = doc(db, "fixtures", fixtureId);
-        const unsubscribe = onSnapshot(docRef, (doc) => {
-            if (doc.exists()) {
-                setFixture({ id: doc.id, ...doc.data() } as Fixture);
+        const unsubscribe = onSnapshot(docRef, async (docSnap) => {
+            if (docSnap.exists()) {
+                const fixtureData = { id: docSnap.id, ...docSnap.data() } as Fixture;
+
+                // Now fetch full player objects
+                const starterIds = fixtureData.startingXI?.map(p => p.id) || [];
+                const substituteIds = fixtureData.substitutes?.map(p => p.id) || [];
+                const activePlayerIds = fixtureData.activePlayers?.map(p => p.id) || [];
+                const allPlayerIds = [...new Set([...starterIds, ...substituteIds, ...activePlayerIds])];
+
+                if (allPlayerIds.length > 0) {
+                    const playersQuery = query(collection(db, "players"), where(documentId(), "in", allPlayerIds));
+                    const playersSnapshot = await getDocs(playersQuery);
+                    const playersMap = new Map(playersSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Player]));
+
+                    const getPlayersByIds = (ids: string[]) => ids.map(id => playersMap.get(id)).filter(Boolean) as Player[];
+
+                    fixtureData.startingXI = getPlayersByIds(starterIds);
+                    fixtureData.substitutes = getPlayersByIds(substituteIds);
+                    fixtureData.activePlayers = getPlayersByIds(activePlayerIds);
+                }
+                
+                setFixture(fixtureData);
             } else {
                 setFixture(null);
             }
@@ -510,8 +530,8 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                     </div>
                 </CardContent>
             </Card>
-
-            <LiveUpdateForm fixture={fixture} teamProfile={teamProfile} />
+            
+            {user && <LiveUpdateForm fixture={fixture} teamProfile={teamProfile} />}
             
             <Separator />
             
