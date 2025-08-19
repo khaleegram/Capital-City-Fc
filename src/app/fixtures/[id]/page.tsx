@@ -426,6 +426,7 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
 export default function FixtureDetailsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id: fixtureId } = use(params);
     const { toast } = useToast()
+    const { user } = useAuth()
     const [fixture, setFixture] = useState<Fixture | null>(null)
     const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true)
