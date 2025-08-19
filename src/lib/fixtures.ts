@@ -202,7 +202,7 @@ export const postLiveUpdate = async (
 
     // If it's a substitution, update the activePlayers list
     if (eventType === 'Substitution' && substitution) {
-        // Use arrayUnion and arrayRemove for atomic updates
+        // Use arrayUnion and arrayRemove for atomic updates with the FULL player objects
         batch.update(fixtureDocRef, { activePlayers: arrayRemove(substitution.subOffPlayer) });
         batch.update(fixtureDocRef, { activePlayers: arrayUnion(substitution.subOnPlayer) });
     }
