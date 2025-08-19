@@ -16,13 +16,14 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, FileText, Edit, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function NewsPage() {
   const [publishedArticles, setPublishedArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [articleToEdit, setArticleToEdit] = useState<NewsArticle | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     const q = query(collection(db, "news"), orderBy("date", "desc"));
@@ -70,36 +71,37 @@ export default function NewsPage() {
 
   const handleEdit = (article: NewsArticle) => {
     setArticleToEdit(article);
-    setIsEditorOpen(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleFinishEditing = () => {
     setArticleToEdit(null);
-    setIsEditorOpen(false);
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-headline font-bold">News & Content Creation</h1>
-        <p className="text-muted-foreground mt-2">Use AI-powered tools to generate articles, suggest tags, and publish content.</p>
+        <p className="text-muted-foreground mt-2">Browse the latest club news or use AI-powered tools to publish new articles.</p>
       </div>
       
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-headline">{articleToEdit ? 'Edit Article' : 'Content Workflow'}</CardTitle>
-          <CardDescription>
-            {articleToEdit ? `You are now editing: "${articleToEdit.headline}"` : 'Follow the steps to generate, edit, and publish your news article.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <NewsEditor
-            onPublish={handlePublish}
-            articleToEdit={articleToEdit}
-            onFinishEditing={handleFinishEditing}
-          />
-        </CardContent>
-      </Card>
+      {user && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-headline">{articleToEdit ? 'Edit Article' : 'Content Workflow'}</CardTitle>
+              <CardDescription>
+                {articleToEdit ? `You are now editing: "${articleToEdit.headline}"` : 'Follow the steps to generate, edit, and publish your news article.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NewsEditor
+                onPublish={handlePublish}
+                articleToEdit={articleToEdit}
+                onFinishEditing={handleFinishEditing}
+              />
+            </CardContent>
+          </Card>
+      )}
       
       <Separator />
        <div>
@@ -141,32 +143,34 @@ export default function NewsPage() {
                     </div>
                   )}
                 </CardFooter>
-                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover/article:opacity-100 transition-opacity">
-                    <Button size="icon" variant="outline" className="h-8 w-8 bg-background/80" onClick={() => handleEdit(article)}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit</span>
-                    </Button>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="destructive" className="h-8 w-8">
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Delete</span>
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete this news article.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(article)}>Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                 </div>
+                 {user && (
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover/article:opacity-100 transition-opacity">
+                        <Button size="icon" variant="outline" className="h-8 w-8 bg-background/80" onClick={() => handleEdit(article)}>
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                        </Button>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="destructive" className="h-8 w-8">
+                                    <Trash2 className="h-4 w-4" />
+                                    <span className="sr-only">Delete</span>
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        This action cannot be undone. This will permanently delete this news article.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDelete(article)}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                 )}
               </Card>
             ))
           ) : (
