@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Lock, Loader2 } from "lucide-react";
 import { TeamProfileForm } from "./_components/team-profile-form";
 
-export default function TeamProfilePage() {
+export default function TeamSettingsPage() {
     const { user } = useAuth();
     const [profile, setProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -57,7 +58,7 @@ export default function TeamProfilePage() {
         <div className="p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto">
                 <div className="mb-8">
-                    <h1 className="text-3xl font-headline font-bold">Team Profile</h1>
+                    <h1 className="text-3xl font-headline font-bold">Team Profile Settings</h1>
                     <p className="text-muted-foreground mt-2">Manage your club's official name, logo, and other details.</p>
                 </div>
                 {profile && <TeamProfileForm profile={profile} />}

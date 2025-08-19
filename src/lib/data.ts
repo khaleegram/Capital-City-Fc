@@ -4,7 +4,8 @@ import { Timestamp } from "firebase/firestore";
 export type Player = {
   id: string;
   name: string;
-  position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward";
+  position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward" | "Coach" | "Staff";
+  role: "Player" | "Coach" | "Staff";
   jerseyNumber: number;
   imageUrl: string;
   bio: string;

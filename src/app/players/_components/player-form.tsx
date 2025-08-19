@@ -40,9 +40,10 @@ import { Separator } from "@/components/ui/separator"
 
 const playerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
-  position: z.enum(["Goalkeeper", "Defender", "Midfielder", "Forward"]),
+  position: z.enum(["Goalkeeper", "Defender", "Midfielder", "Forward", "Coach", "Staff"]),
+  role: z.enum(["Player", "Coach", "Staff"]),
   status: z.enum(["Active", "Injured", "On Loan", "Former Player"]).optional(),
-  jerseyNumber: z.coerce.number().int().min(1, "Jersey number must be at least 1."),
+  jerseyNumber: z.coerce.number().int().min(0, "Jersey number must be 0 or greater."),
   bio: z.string().min(10, "Bio must be at least 10 characters."),
   strongFoot: z.enum(["Left", "Right", "Both"]).optional(),
   stats: z.object({
@@ -82,6 +83,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
     defaultValues: {
       name: "",
       position: "Forward",
+      role: "Player",
       status: "Active",
       jerseyNumber: 99,
       bio: "",
@@ -108,6 +110,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       reset({
         name: "",
         position: "Forward",
+        role: "Player",
         status: "Active",
         jerseyNumber: 99,
         bio: "",
@@ -201,27 +204,29 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       setIsSubmitting(false)
     }
   }
+  
+  const role = watch("role");
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle className="font-headline">
-            {player ? "Edit Player Profile" : "Create New Player"}
+            {player ? "Edit Member Profile" : "Create New Club Member"}
           </DialogTitle>
           <DialogDescription>
             {player
-              ? "Update the details for this player."
-              : "Enter the details for the new player."}
+              ? "Update the details for this person."
+              : "Enter the details for the new player, coach, or staff member."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-1 space-y-2">
-                  <Label>Player Photo</Label>
+                  <Label>Photo</Label>
                   <div className="aspect-square rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50">
                       {imagePreview ? (
-                          <Image src={imagePreview} alt="Player preview" layout="fill" objectFit="cover" className="rounded-lg" />
+                          <Image src={imagePreview} alt="Member preview" layout="fill" objectFit="cover" className="rounded-lg" />
                       ) : (
                           <div className="text-center text-muted-foreground">
                               <UploadCloud className="mx-auto h-12 w-12" />
@@ -241,138 +246,145 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                   )}
               </div>
               <div className="md:col-span-2 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" {...register("name")} />
-                      {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-                  </div>
-                  <div>
-                      <Label htmlFor="jerseyNumber">Jersey Number</Label>
-                      <Input id="jerseyNumber" type="number" {...register("jerseyNumber")} />
-                      {errors.jerseyNumber && <p className="text-sm text-destructive">{errors.jerseyNumber.message}</p>}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="position">Position</Label>
-                    <Controller
-                      name="position"
-                      control={control}
-                      render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a position" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Goalkeeper">Goalkeeper</SelectItem>
-                            <SelectItem value="Defender">Defender</SelectItem>
-                            <SelectItem value="Midfielder">Midfielder</SelectItem>
-                            <SelectItem value="Forward">Forward</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                    {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
-                  </div>
-                  <div>
-                     <Label htmlFor="strongFoot">Strong Foot</Label>
-                     <Controller
-                        name="strongFoot"
-                        control={control}
-                        render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select strong foot" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Left">Left</SelectItem>
-                              <SelectItem value="Right">Right</SelectItem>
-                              <SelectItem value="Both">Both</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {errors.strongFoot && <p className="text-sm text-destructive">{errors.strongFoot.message}</p>}
-                  </div>
-                </div>
-                 <div>
-                    <Label htmlFor="status">Status</Label>
-                     <Controller
-                        name="status"
-                        control={control}
-                        render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value || "Active"}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Active">Active</SelectItem>
-                              <SelectItem value="Injured">Injured</SelectItem>
-                              <SelectItem value="On Loan">On Loan</SelectItem>
-                              <SelectItem value="Former Player">Former Player</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
-                  </div>
                 <div>
-                  <Label htmlFor="bio">Player Bio</Label>
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input id="name" {...register("name")} />
+                    {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                </div>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="role">Role</Label>
+                        <Controller
+                          name="role"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a role" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Player">Player</SelectItem>
+                                <SelectItem value="Coach">Coach</SelectItem>
+                                <SelectItem value="Staff">Staff</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                    </div>
+                    <div>
+                        <Label htmlFor="status">Status</Label>
+                         <Controller
+                            name="status"
+                            control={control}
+                            render={({ field }) => (
+                              <Select onValueChange={field.onChange} value={field.value || "Active"}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="Active">Active</SelectItem>
+                                  <SelectItem value="Injured">Injured</SelectItem>
+                                  <SelectItem value="On Loan">On Loan</SelectItem>
+                                  <SelectItem value="Former Player">Former Player</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                          {errors.status && <p className="text-sm text-destructive">{errors.status.message}</p>}
+                    </div>
+                 </div>
+
+                {role === 'Player' && (
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                          <Label htmlFor="jerseyNumber">Jersey Number</Label>
+                          <Input id="jerseyNumber" type="number" {...register("jerseyNumber")} />
+                          {errors.jerseyNumber && <p className="text-sm text-destructive">{errors.jerseyNumber.message}</p>}
+                      </div>
+                      <div className="col-span-2">
+                        <Label htmlFor="position">Position</Label>
+                        <Controller
+                          name="position"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a position" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Goalkeeper">Goalkeeper</SelectItem>
+                                <SelectItem value="Defender">Defender</SelectItem>
+                                <SelectItem value="Midfielder">Midfielder</SelectItem>
+                                <SelectItem value="Forward">Forward</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                        {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
+                      </div>
+                    </div>
+                )}
+               
+                <div>
+                  <Label htmlFor="bio">Bio</Label>
                   <Textarea id="bio" {...register("bio")} rows={5} />
                   {errors.bio && <p className="text-sm text-destructive">{errors.bio.message}</p>}
                 </div>
               </div>
           </div>
 
-          <Separator />
-          
-           <div className="space-y-4">
-              <h3 className="font-headline text-lg">Player Stats</h3>
-               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                    <Label htmlFor="appearances">Appearances</Label>
-                    <Input id="appearances" type="number" {...register("stats.appearances")} />
-                    {errors.stats?.appearances && <p className="text-sm text-destructive">{errors.stats.appearances.message}</p>}
-                </div>
-                <div>
-                    <Label htmlFor="goals">Goals</Label>
-                    <Input id="goals" type="number" {...register("stats.goals")} />
-                    {errors.stats?.goals && <p className="text-sm text-destructive">{errors.stats.goals.message}</p>}
-                </div>
-                <div>
-                    <Label htmlFor="assists">Assists</Label>
-                    <Input id="assists" type="number" {...register("stats.assists")} />
-                    {errors.stats?.assists && <p className="text-sm text-destructive">{errors.stats.assists.message}</p>}
-                </div>
-              </div>
-            </div>
-
-          <Separator />
-
-          <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-headline text-lg">Career Highlights</h3>
-                <Button type="button" variant="outline" size="sm" onClick={handleGenerateHighlights} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                    Generate with AI
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-center gap-2">
-                        <Input {...register(`careerHighlights.${index}.value`)} placeholder={`Highlight #${index + 1}`} />
-                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+          {role === 'Player' && (
+            <>
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="font-headline text-lg">Player Stats</h3>
+                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <Label htmlFor="appearances">Appearances</Label>
+                        <Input id="appearances" type="number" {...register("stats.appearances")} />
+                        {errors.stats?.appearances && <p className="text-sm text-destructive">{errors.stats.appearances.message}</p>}
                     </div>
-                ))}
-                {errors.careerHighlights && <p className="text-sm text-destructive">{errors.careerHighlights.message}</p>}
+                    <div>
+                        <Label htmlFor="goals">Goals</Label>
+                        <Input id="goals" type="number" {...register("stats.goals")} />
+                        {errors.stats?.goals && <p className="text-sm text-destructive">{errors.stats.goals.message}</p>}
+                    </div>
+                    <div>
+                        <Label htmlFor="assists">Assists</Label>
+                        <Input id="assists" type="number" {...register("stats.assists")} />
+                        {errors.stats?.assists && <p className="text-sm text-destructive">{errors.stats.assists.message}</p>}
+                    </div>
+                  </div>
+                </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-headline text-lg">Career Highlights</h3>
+                    <Button type="button" variant="outline" size="sm" onClick={handleGenerateHighlights} disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                        Generate with AI
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {fields.map((field, index) => (
+                        <div key={field.id} className="flex items-center gap-2">
+                            <Input {...register(`careerHighlights.${index}.value`)} placeholder={`Highlight #${index + 1}`} />
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </div>
+                    ))}
+                    {errors.careerHighlights && <p className="text-sm text-destructive">{errors.careerHighlights.message}</p>}
+                  </div>
+                   <Button type="button" variant="secondary" size="sm" onClick={() => append({ value: "" })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Highlight
+                    </Button>
               </div>
-               <Button type="button" variant="secondary" size="sm" onClick={() => append({ value: "" })}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Highlight
-                </Button>
-          </div>
+            </>
+          )}
+
 
           <DialogFooter className="col-span-1 md:col-span-3 pt-4 border-t">
             <Button
@@ -385,7 +397,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              {player ? "Save Changes" : "Create Player"}
+              {player ? "Save Changes" : "Create Member"}
             </Button>
           </DialogFooter>
         </form>

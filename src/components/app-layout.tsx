@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, Search, LayoutDashboard } from "lucide-react"
+import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, Search, LayoutDashboard, Building } from "lucide-react"
 import Image from "next/image"
 
 import {
@@ -28,6 +28,7 @@ import { TeamProfile } from "@/lib/data"
 const publicMenuItems = [
   { href: "/", label: "Home", icon: Home, tooltip: "Home" },
   { href: "/players", label: "Players", icon: Users, tooltip: "Players" },
+  { href: "/club", label: "Club", icon: Building, tooltip: "The Club" },
   { href: "/news", label: "News", icon: Newspaper, tooltip: "News" },
   { href: "/videos", label: "Videos", icon: Video, tooltip: "Videos" },
   { href: "/fixtures", label: "Fixtures", icon: Calendar, tooltip: "Fixtures" },
@@ -42,7 +43,7 @@ const adminMenuItems = [
   { href: "/recaps", label: "Recaps", icon: Trophy, tooltip: "Recaps" },
   { href: "/formations", label: "Formations", icon: LayoutDashboard, tooltip: "Formations" },
   { href: "/scouting", label: "Scouting", icon: Bot, tooltip: "Scouting" },
-  { href: "/team", label: "Team", icon: Shield, tooltip: "Team Profile" },
+  { href: "/team-settings", label: "Team Settings", icon: Shield, tooltip: "Team Profile" },
 ];
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
