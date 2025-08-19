@@ -239,9 +239,19 @@ function PublicLandingPage() {
   )
 }
 
-
+/**
+ * The main page component that decides whether to show the
+ * admin dashboard or the public-facing landing page based on
+ * the user's authentication status.
+ */
 export default function HomePage() {
   const { user } = useAuth()
 
-  return user ? <AdminDashboard /> : <PublicLandingPage />;
+  // If a user object exists, they are logged in as an admin.
+  if (user) {
+    return <AdminDashboard />;
+  }
+
+  // Otherwise, show the public landing page.
+  return <PublicLandingPage />;
 }
