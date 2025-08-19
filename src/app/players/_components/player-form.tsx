@@ -178,9 +178,15 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         return
       }
 
-      // Omit the 'image' field from the data payload before sending to Firestore
       const { image, ...restOfData } = data;
-      const playerPayload = { ...restOfData, imageUrl, careerHighlights: data.careerHighlights?.map(h => h.value) || [] }
+      
+      const playerPayload: Partial<Player> = { 
+        ...restOfData, 
+        imageUrl, 
+        careerHighlights: data.careerHighlights?.map(h => h.value) || [],
+        status: data.status || "Active",
+        strongFoot: data.strongFoot || undefined,
+      };
 
       if (player) {
         await updatePlayer(player.id, playerPayload)
