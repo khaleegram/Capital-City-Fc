@@ -54,7 +54,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
   const [isPosting, setIsPosting] = useState(false)
   const [eventType, setEventType] = useState<EventType | null>(null);
 
-  const activePlayers = fixture.activePlayers || fixture.startingXI || [];
+  const activePlayers = fixture.activePlayers || [];
   const benchedPlayers = fixture.substitutes?.filter(sub => !activePlayers.some(ap => ap.id === sub.id)) || [];
 
   const { register, handleSubmit, control, watch, setValue, reset, getValues } = useForm<UpdateFormData>({
@@ -450,22 +450,36 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
             if (docSnap.exists()) {
                 const fixtureData = { id: docSnap.id, ...docSnap.data() } as Fixture;
 
-                // Now fetch full player objects
-                const starterIds = fixtureData.startingXI?.map(p => p.id) || [];
-                const substituteIds = fixtureData.substitutes?.map(p => p.id) || [];
-                const activePlayerIds = fixtureData.activePlayers?.map(p => p.id) || [];
-                const allPlayerIds = [...new Set([...starterIds, ...substituteIds, ...activePlayerIds])];
+                // Helper to get unique player IDs from an array of partial player objects
+                const getPlayerIds = (players: Partial<Player>[]) => players?.map(p => p.id).filter(Boolean) as string[] || [];
+
+                // Gather all unique player IDs from all relevant fields
+                const allPlayerIds = [
+                    ...new Set([
+                        ...getPlayerIds(fixtureData.startingXI || []),
+                        ...getPlayerIds(fixtureData.substitutes || []),
+                        ...getPlayerIds(fixtureData.activePlayers || [])
+                    ])
+                ];
+
 
                 if (allPlayerIds.length > 0) {
-                    const playersQuery = query(collection(db, "players"), where(documentId(), "in", allPlayerIds));
-                    const playersSnapshot = await getDocs(playersQuery);
-                    const playersMap = new Map(playersSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Player]));
+                    try {
+                        const playersQuery = query(collection(db, "players"), where(documentId(), "in", allPlayerIds));
+                        const playersSnapshot = await getDocs(playersQuery);
+                        const playersMap = new Map(playersSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as Player]));
 
-                    const getPlayersByIds = (ids: string[]) => ids.map(id => playersMap.get(id)).filter(Boolean) as Player[];
+                        // Helper to replace partial player data with full player objects
+                        const hydratePlayers = (players: Partial<Player>[]) => players?.map(p => playersMap.get(p.id!)).filter(Boolean) as Player[] || [];
 
-                    fixtureData.startingXI = getPlayersByIds(starterIds);
-                    fixtureData.substitutes = getPlayersByIds(substituteIds);
-                    fixtureData.activePlayers = getPlayersByIds(activePlayerIds);
+                        fixtureData.startingXI = hydratePlayers(fixtureData.startingXI || []);
+                        fixtureData.substitutes = hydratePlayers(fixtureData.substitutes || []);
+                        fixtureData.activePlayers = hydratePlayers(fixtureData.activePlayers || []);
+
+                    } catch(e) {
+                        console.error("Failed to fetch player details for fixture", e);
+                        toast({ variant: "destructive", title: "Player Data Error", description: "Could not load full player data for the lineup." });
+                    }
                 }
                 
                 setFixture(fixtureData);
