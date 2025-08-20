@@ -172,12 +172,12 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
   const onSubmit = async (data: PlayerFormData) => {
     setIsSubmitting(true)
     try {
-      let imageUrl = player?.imageUrl || ""
+      let imageUrl = player?.imageUrl
       if (data.image && data.image[0]) {
         imageUrl = await uploadPlayerImage(data.image[0], player?.id)
       }
 
-      if (!imageUrl && !player?.imageUrl) {
+      if (!imageUrl) {
         toast({
           variant: "destructive",
           title: "Error",
@@ -189,7 +189,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
 
       const { image, ...restOfData } = data;
       
-      const playerPayload: Omit<Player, 'id' | 'createdAt' | 'updatedAt'> = {
+      const playerPayload: Partial<Player> = {
         name: restOfData.name,
         position: restOfData.position,
         role: restOfData.role,
@@ -198,7 +198,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         imageUrl,
         stats: restOfData.stats,
         careerHighlights: restOfData.careerHighlights?.map(h => h.value) || [],
-        status: restOfData.status || "Active",
+        status: restOfData.status,
         strongFoot: restOfData.strongFoot,
       };
       
@@ -206,7 +206,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       Object.keys(playerPayload).forEach(key => {
         const K = key as keyof typeof playerPayload;
         if (playerPayload[K] === undefined) {
-          delete playerPayload[K];
+          delete (playerPayload as any)[K];
         }
       });
 
@@ -324,13 +324,13 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                  </div>
 
                 {role === 'Player' && (
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                           <Label htmlFor="jerseyNumber">Jersey Number</Label>
                           <Input id="jerseyNumber" type="number" {...register("jerseyNumber")} />
                           {errors.jerseyNumber && <p className="text-sm text-destructive">{errors.jerseyNumber.message}</p>}
                       </div>
-                      <div className="col-span-2">
+                      <div>
                         <Label htmlFor="position">Position</Label>
                         <Controller
                           name="position"
@@ -350,6 +350,25 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                           )}
                         />
                         {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
+                      </div>
+                       <div>
+                        <Label htmlFor="strongFoot">Strong Foot</Label>
+                        <Controller
+                          name="strongFoot"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select foot" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Left">Left</SelectItem>
+                                <SelectItem value="Right">Right</SelectItem>
+                                <SelectItem value="Both">Both</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
                       </div>
                     </div>
                 )}
