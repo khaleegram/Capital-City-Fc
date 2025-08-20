@@ -269,7 +269,4 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
       </Card>
     </div>
   )
-
-    
-
-
+}
