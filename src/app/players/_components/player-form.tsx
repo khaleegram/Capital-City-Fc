@@ -14,6 +14,8 @@ import {
 } from "@/lib/players"
 import type { Player } from "@/lib/data"
 import { generatePlayerHighlights } from "@/ai/flows/generate-player-highlights"
+import { refinePlayerBio } from "@/ai/flows/refine-player-bio"
+
 
 import { Button } from "@/components/ui/button"
 import {
@@ -131,7 +133,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
   }, [imageField])
 
 
-  const handleGenerateHighlights = async () => {
+  const handleAiAssist = async () => {
     const { name, bio, stats } = getValues();
     if (!name || !bio) {
         toast({
@@ -144,17 +146,24 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
 
     setIsGenerating(true);
     try {
-        const result = await generatePlayerHighlights({
-            playerName: name,
-            playerBio: bio,
-            playerStats: JSON.stringify(stats),
-        });
-        const newHighlights = result.highlights.map(h => ({ value: h }));
-        replace(newHighlights); // Using replace to overwrite existing highlights
-        toast({ title: "Success", description: "Highlights generated!" });
+        const [highlightsResult, bioResult] = await Promise.all([
+            generatePlayerHighlights({
+                playerName: name,
+                playerBio: bio,
+                playerStats: JSON.stringify(stats),
+            }),
+            refinePlayerBio({ originalBio: bio })
+        ]);
+
+        const newHighlights = highlightsResult.highlights.map(h => ({ value: h }));
+        replace(newHighlights); 
+
+        setValue("bio", bioResult.refinedBio);
+
+        toast({ title: "Success", description: "Bio and highlights have been refined!" });
     } catch (error) {
-        console.error("Failed to generate highlights:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not generate highlights." });
+        console.error("Failed to generate AI content:", error);
+        toast({ variant: "destructive", title: "Error", description: "Could not generate AI content." });
     } finally {
         setIsGenerating(false);
     }
@@ -367,10 +376,10 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
 
               <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-headline text-lg">Career Highlights</h3>
-                    <Button type="button" variant="outline" size="sm" onClick={handleGenerateHighlights} disabled={isGenerating}>
+                    <h3 className="font-headline text-lg">Career Highlights & Bio</h3>
+                    <Button type="button" variant="outline" size="sm" onClick={handleAiAssist} disabled={isGenerating}>
                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        Generate with AI
+                        Refine with AI
                     </Button>
                   </div>
                   <div className="space-y-2">
