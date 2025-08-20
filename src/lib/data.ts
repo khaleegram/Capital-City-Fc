@@ -55,7 +55,7 @@ export type Fixture = {
   venue: string;
   competition: string;
   date: Timestamp | Date;
-  status: "UPCOMING" | "LIVE" | "FT";
+  status: "UPCOMING" | "LIVE" | "FT" | "HT";
   score?: {
       home: number;
       away: number;
@@ -73,7 +73,7 @@ export type LiveEvent = {
     id: string;
     timestamp: Timestamp;
     text: string;
-    type: "Goal" | "Red Card" | "Substitution" | "Info" | "Match End" | "Match Start";
+    type: "Goal" | "Red Card" | "Substitution" | "Info" | "Match Start" | "Half Time" | "Second Half Start" | "Match End";
     score?: string;
     playerName?: string;
     teamName?: string;

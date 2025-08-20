@@ -179,9 +179,9 @@ export const postLiveUpdate = async (
     updateData: {
         homeScore: number;
         awayScore: number;
-        status: "UPCOMING" | "LIVE" | "FT";
+        status: "UPCOMING" | "LIVE" | "FT" | "HT";
         eventText: string;
-        eventType: "Goal" | "Red Card" | "Substitution" | "Info" | "Match Start" | "Match End";
+        eventType: "Goal" | "Red Card" | "Substitution" | "Info" | "Match Start" | "Half Time" | "Second Half Start" | "Match End";
         teamName?: string;
         substitution?: SubstitutionData;
         goal?: GoalData;

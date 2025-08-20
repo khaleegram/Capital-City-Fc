@@ -13,8 +13,9 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateEventTextInputSchema = z.object({
-  eventType: z.enum(["Goal", "Red Card", "Substitution"]),
-  teamName: z.string().describe("The name of the team the event relates to."),
+  eventType: z.enum(["Goal", "Red Card", "Substitution", "Match Start", "Half Time", "Second Half Start", "Match End"]),
+  teamName: z.string().optional().describe("The name of the team the event relates to."),
+  opponentName: z.string().optional().describe("The name of the opponent team."),
   homeScore: z.number().optional().describe("The new score for the home team (if applicable)."),
   awayScore: z.number().optional().describe("The new score for the away team (if applicable)."),
   playerName: z.string().optional().describe("The primary player involved (e.g., scorer, player carded)."),
@@ -44,7 +45,8 @@ Keep it short, punchy, and professional.
 Here is the event data. Create a suitable eventText based on the eventType.
 
 - Event Type: {{{eventType}}}
-- Team Name: {{{teamName}}}
+{{#if teamName}}- Team Name: {{{teamName}}}{{/if}}
+{{#if opponentName}}- Opponent Name: {{{opponentName}}}{{/if}}
 {{#if homeScore}}- Home Score: {{{homeScore}}}{{/if}}
 {{#if awayScore}}- Away Score: {{{awayScore}}}{{/if}}
 {{#if playerName}}- Player Name: {{{playerName}}}{{/if}}
@@ -56,6 +58,10 @@ Examples:
 - Goal: "GOAL for {{{teamName}}}! {{{playerName}}} finds the back of the net, assisted by {{{assistPlayerName}}}. The score is now {{{homeScore}}}-{{{awayScore}}}."
 - Substitution: "Substitution for {{{teamName}}}: {{{subOnPlayerName}}} comes on to replace {{{subOffPlayerName}}}."
 - Red Card: "RED CARD! {{{playerName}}} has been sent off, leaving {{{teamName}}} with 10 players."
+- Match Start: "The match between {{{teamName}}} and {{{opponentName}}} has kicked off!"
+- Half Time: "The referee blows for half-time. Score is {{{teamName}}} {{{homeScore}}} - {{{awayScore}}} {{{opponentName}}}."
+- Second Half Start: "The second half is underway!"
+- Match End: "The final whistle has blown! Full time score: {{{teamName}}} {{{homeScore}}} - {{{awayScore}}} {{{opponentName}}}."
 
 Generate the live feed update now based on the provided event data.
 `,
@@ -72,5 +78,3 @@ const generateEventTextFlow = ai.defineFlow(
     return output!;
   }
 );
-
-    

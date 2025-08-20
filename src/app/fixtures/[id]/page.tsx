@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight, Flag, ChevronsRight, TimerOff, CircleCheck } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -72,24 +72,37 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
     });
   }, [fixture, reset]);
 
-  const handleKickoff = async () => {
+  const handleMatchLifecycleAction = async (
+      actionType: 'Match Start' | 'Half Time' | 'Second Half Start' | 'Match End',
+      newStatus: Fixture['status']
+  ) => {
       setIsPosting(true);
       try {
-          await postLiveUpdate(fixture.id, {
-              homeScore: fixture.score?.home ?? 0,
-              awayScore: fixture.score?.away ?? 0,
-              status: 'LIVE',
-              eventType: 'Match Start',
-              eventText: 'The match has kicked off!',
+          const { homeScore, awayScore } = getValues();
+          const result = await generateEventText({ 
+              eventType: actionType,
+              homeScore,
+              awayScore,
+              teamName: teamProfile.name,
+              opponentName: fixture.opponent
           });
-          toast({ title: "KICKOFF!", description: "The match is now live." });
+
+          await postLiveUpdate(fixture.id, {
+              homeScore,
+              awayScore,
+              status: newStatus,
+              eventType: actionType,
+              eventText: result.eventText,
+          });
+          toast({ title: actionType, description: `The match status is now ${newStatus}.` });
       } catch(error) {
-          console.error("Error starting match:", error);
-          toast({ variant: "destructive", title: "Error", description: "Failed to start the match."});
+          console.error(`Error performing ${actionType}:`, error);
+          toast({ variant: "destructive", title: "Error", description: `Failed to ${actionType.toLowerCase()}.`});
       } finally {
           setIsPosting(false);
       }
   };
+
 
   const handlePostUpdate = async (data: UpdateFormData) => {
     if (!eventType) return;
@@ -100,7 +113,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
     const { homeScore, awayScore } = data;
     
     try {
-        let aiPayload: any = { eventType, homeScore, awayScore };
+        let aiPayload: any = { eventType, homeScore, awayScore, opponentName: fixture.opponent, teamName: teamProfile.name };
         
         switch (eventType) {
             case "Goal":
@@ -248,64 +261,92 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
   
   if (!user) return null;
 
-  if (fixture.status === 'UPCOMING') {
-      return (
-        <Card className="border-primary border-2">
-            <CardHeader>
-                <CardTitle className="font-headline text-2xl flex items-center gap-2"><PlayCircle className="text-primary"/> Start Match</CardTitle>
-                <CardDescription>Begin the match to enable live updates.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button onClick={handleKickoff} disabled={isPosting} className="w-full" size="lg">
-                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-                    KICKOFF
-                </Button>
-            </CardContent>
-        </Card>
-      );
+  const renderMatchControls = () => {
+    switch(fixture.status) {
+        case 'UPCOMING':
+            return <Button onClick={() => handleMatchLifecycleAction('Match Start', 'LIVE')} disabled={isPosting} className="w-full" size="lg">
+                {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                KICKOFF
+            </Button>
+        case 'LIVE':
+             return (
+                <div className="grid grid-cols-2 gap-2">
+                    <Button onClick={() => handleMatchLifecycleAction('Half Time', 'HT')} disabled={isPosting} variant="outline" size="lg">
+                        {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <TimerOff className="mr-2 h-4 w-4" />}
+                        Half-Time
+                    </Button>
+                     <Button onClick={() => handleMatchLifecycleAction('Match End', 'FT')} disabled={isPosting} variant="destructive" size="lg">
+                        {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Flag className="mr-2 h-4 w-4" />}
+                        End Match
+                    </Button>
+                </div>
+             );
+        case 'HT':
+            return <Button onClick={() => handleMatchLifecycleAction('Second Half Start', 'LIVE')} disabled={isPosting} className="w-full" size="lg">
+                {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronsRight className="mr-2 h-4 w-4" />}
+                Start 2nd Half
+            </Button>
+        case 'FT':
+             return <div className="flex items-center justify-center gap-2 p-4 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-lg">
+                <CircleCheck className="h-5 w-5" />
+                <span className="font-semibold">Match Finished</span>
+            </div>
+        default:
+            return null;
+    }
   }
+
 
   return (
     <Card className="border-primary border-2">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl flex items-center gap-2"><Mic className="text-primary"/> Admin: Post Live Update</CardTitle>
-        <CardDescription>Update score, status, and post an event to the live feed for this match.</CardDescription>
+        <CardTitle className="font-headline text-2xl flex items-center gap-2"><Mic className="text-primary"/> Admin Controls</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit(handlePostUpdate)} className="space-y-6">
-            
-            <div className="space-y-2">
-                <Label>Score</Label>
-                <div className="flex items-center gap-4">
-                    <Input type="number" placeholder="Home" {...register("homeScore")} />
-                    <span className="font-bold">-</span>
-                    <Input type="number" placeholder="Away" {...register("awayScore")} />
-                </div>
-            </div>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+            <Label>Match Controls</Label>
+            {renderMatchControls()}
+        </div>
 
-            <div className="space-y-2">
-                <Label>Event Type</Label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {(Object.keys(EventTypeSchema.Values) as EventType[]).map(type => (
-                        <Button key={type} type="button" variant={eventType === type ? 'default' : 'outline'} onClick={() => setEventType(type)}>
-                            {type}
-                        </Button>
-                    ))}
+        { (fixture.status === 'LIVE' || fixture.status === 'HT') && (
+            <>
+            <Separator />
+            <form onSubmit={handleSubmit(handlePostUpdate)} className="space-y-6">
+                
+                <div className="space-y-2">
+                    <Label>Score</Label>
+                    <div className="flex items-center gap-4">
+                        <Input type="number" placeholder="Home" {...register("homeScore")} />
+                        <span className="font-bold">-</span>
+                        <Input type="number" placeholder="Away" {...register("awayScore")} />
+                    </div>
                 </div>
-            </div>
-            
-            {eventType && (
-                <div className="p-4 bg-muted/50 rounded-lg space-y-4">
-                    <h4 className="font-semibold text-lg">{eventType} Details</h4>
-                    {renderEventForm()}
-                </div>
-            )}
 
-            <Button type="submit" disabled={isPosting || !eventType} className="w-full">
-                {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Post Update
-            </Button>
-        </form>
+                <div className="space-y-2">
+                    <Label>Log Event</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        {(Object.keys(EventTypeSchema.Values) as EventType[]).map(type => (
+                            <Button key={type} type="button" variant={eventType === type ? 'default' : 'outline'} onClick={() => setEventType(type)}>
+                                {type}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+                
+                {eventType && (
+                    <div className="p-4 bg-muted/50 rounded-lg space-y-4">
+                        <h4 className="font-semibold text-lg">{eventType} Details</h4>
+                        {renderEventForm()}
+                    </div>
+                )}
+
+                <Button type="submit" disabled={isPosting || !eventType} className="w-full">
+                    {isPosting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Post Event
+                </Button>
+            </form>
+            </>
+        )}
       </CardContent>
     </Card>
   )
@@ -345,6 +386,8 @@ const eventIcons = {
     "Substitution": <Repeat className="h-4 w-4 text-white" />,
     "Info": <Info className="h-4 w-4 text-white" />,
     "Match Start": <PlayCircle className="h-4 w-4 text-white" />,
+    "Half Time": <TimerOff className="h-4 w-4 text-white" />,
+    "Second Half Start": <ChevronsRight className="h-4 w-4 text-white" />,
     "Match End": <Trophy className="h-4 w-4 text-white" />,
 }
 
@@ -354,6 +397,8 @@ const eventColors = {
     "Substitution": "bg-blue-500",
     "Info": "bg-gray-500",
     "Match Start": "bg-green-500",
+    "Half Time": "bg-orange-500",
+    "Second Half Start": "bg-green-500",
     "Match End": "bg-primary",
 }
 
@@ -585,5 +630,3 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
         </div>
     )
 }
-
-    
