@@ -67,6 +67,10 @@ export type Fixture = {
   substitutes?: Player[];
   // Tracks players currently on the pitch
   activePlayers?: Player[]; 
+  // Timestamps for match clock
+  kickoffTime?: Timestamp;
+  firstHalfEndTime?: Timestamp;
+  secondHalfStartTime?: Timestamp;
 };
 
 export type LiveEvent = {
@@ -80,6 +84,7 @@ export type LiveEvent = {
     assistPlayer?: { id: string, name: string };
     subOffPlayer?: { id: string, name: string };
     subOnPlayer?: { id: string, name: string };
+    minute?: number;
 };
 
 export type MatchEvent = {

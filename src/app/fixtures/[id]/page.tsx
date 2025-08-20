@@ -3,7 +3,7 @@
 
 import { useState, useEffect, use } from "react"
 import { notFound } from "next/navigation"
-import { doc, onSnapshot, collection, query, orderBy, getDocs, where, documentId } from "firebase/firestore"
+import { doc, onSnapshot, collection, query, orderBy, getDocs, where, documentId, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import type { Fixture, TeamProfile, LiveEvent, Player } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight, Flag, ChevronsRight, TimerOff, CircleCheck } from "lucide-react"
+import { Loader2, Calendar, Radio, Mic, Send, Users, Shield, Goal, RectangleVertical, Repeat, Trophy, Info, PlayCircle, ArrowRight, Flag, ChevronsRight, TimerOff, CircleCheck, Timer } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -48,7 +48,7 @@ const updateSchema = z.object({
 })
 type UpdateFormData = z.infer<typeof updateSchema>
 
-function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfile: TeamProfile }) {
+function LiveUpdateForm({ fixture, teamProfile, matchMinute }: { fixture: Fixture, teamProfile: TeamProfile, matchMinute: number }) {
   const { user } = useAuth()
   const { toast } = useToast()
   const [isPosting, setIsPosting] = useState(false)
@@ -93,6 +93,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
               status: newStatus,
               eventType: actionType,
               eventText: result.eventText,
+              minute: matchMinute,
           });
           toast({ title: actionType, description: `The match status is now ${newStatus}.` });
       } catch(error) {
@@ -174,6 +175,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
             status: fixture.status,
             eventType: eventType,
             eventText,
+            minute: matchMinute,
             ...submissionData,
         });
 
@@ -323,7 +325,7 @@ function LiveUpdateForm({ fixture, teamProfile }: { fixture: Fixture, teamProfil
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Log Event</Label>
+                    <Label>Log Event (Minute: {matchMinute})</Label>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                         {(Object.keys(EventTypeSchema.Values) as EventType[]).map(type => (
                             <Button key={type} type="button" variant={eventType === type ? 'default' : 'outline'} onClick={() => setEventType(type)}>
@@ -457,7 +459,7 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
                     <div className={cn("absolute -left-[45px] top-1 h-8 w-8 rounded-full flex items-center justify-center", eventColors[update.type as keyof typeof eventColors] || "bg-primary")}>
                        {eventIcons[update.type as keyof typeof eventIcons]}
                     </div>
-                    <p className="text-sm font-semibold">{renderEventText(update)}</p>
+                    <p className="text-sm font-semibold">{update.minute}&apos; - {renderEventText(update)}</p>
                     <p className="text-xs text-muted-foreground mt-1">{update.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
              ))}
@@ -465,6 +467,62 @@ function LiveMatchFeed({ fixtureId }: { fixtureId: string }) {
     ) : (
         <div className="text-center py-10"><p className="text-muted-foreground">Waiting for the match to begin...</p></div>
     );
+}
+
+function MatchTimer({ fixture, onMinuteChange }: { fixture: Fixture | null, onMinuteChange: (minute: number) => void }) {
+    const [elapsedTime, setElapsedTime] = useState(0);
+
+    useEffect(() => {
+        if (!fixture || !fixture.kickoffTime || fixture.status === 'FT' || fixture.status === 'UPCOMING') {
+            onMinuteChange(0);
+            return;
+        }
+
+        const kickoffTime = (fixture.kickoffTime as Timestamp).toDate().getTime();
+
+        const interval = setInterval(() => {
+            const now = Date.now();
+            let elapsed = 0;
+
+            if (fixture.status === 'LIVE' || fixture.status === 'HT') {
+                 if (fixture.secondHalfStartTime) {
+                    const secondHalfStartTime = (fixture.secondHalfStartTime as Timestamp).toDate().getTime();
+                    const firstHalfDuration = (fixture.firstHalfEndTime as Timestamp).toDate().getTime() - kickoffTime;
+                    const secondHalfElapsed = now - secondHalfStartTime;
+                    elapsed = firstHalfDuration + secondHalfElapsed;
+                 } else if (fixture.firstHalfEndTime) {
+                    elapsed = (fixture.firstHalfEndTime as Timestamp).toDate().getTime() - kickoffTime;
+                 } else {
+                    elapsed = now - kickoffTime;
+                 }
+            }
+
+            setElapsedTime(elapsed);
+            const currentMinute = Math.floor(elapsed / 60000);
+            onMinuteChange(currentMinute);
+
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [fixture, onMinuteChange]);
+
+    const formatTime = (ms: number) => {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    };
+
+    if (fixture?.status === 'UPCOMING' || !fixture?.kickoffTime) {
+        return null;
+    }
+    
+    return (
+        <div className="flex items-center justify-center gap-2 text-xl font-mono bg-muted p-2 rounded-lg">
+            <Timer className="h-5 w-5" />
+            <span>{formatTime(elapsedTime)}</span>
+        </div>
+    )
 }
 
 // --- FixtureDetailsPage Component ---
@@ -475,6 +533,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
     const [fixture, setFixture] = useState<Fixture | null>(null)
     const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true)
+    const [matchMinute, setMatchMinute] = useState(0);
 
     useEffect(() => {
         if (!fixtureId) return;
@@ -580,6 +639,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                     <div className="px-8">
                         <span className="text-4xl font-bold">{fixture.status === 'UPCOMING' ? "vs" : `${fixture.score?.home ?? 0} - ${fixture.score?.away ?? 0}`}</span>
                          <Badge variant={fixture.status === 'LIVE' ? 'destructive' : 'secondary'} className="block mt-2 mx-auto">{fixture.status}</Badge>
+                         <MatchTimer fixture={fixture} onMinuteChange={setMatchMinute} />
                     </div>
                     <div className="flex-1 flex items-center justify-start gap-4">
                          <Avatar className="h-16 w-16">
@@ -591,7 +651,7 @@ export default function FixtureDetailsPage({ params }: { params: Promise<{ id: s
                 </CardContent>
             </Card>
             
-            {user && <LiveUpdateForm fixture={fixture} teamProfile={teamProfile} />}
+            {user && <LiveUpdateForm fixture={fixture} teamProfile={teamProfile} matchMinute={matchMinute} />}
             
             <Separator />
             

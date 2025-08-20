@@ -186,9 +186,10 @@ export const postLiveUpdate = async (
         substitution?: SubstitutionData;
         goal?: GoalData;
         playerName?: string;
+        minute: number;
     }
 ) => {
-    const { homeScore, awayScore, status, eventText, eventType, teamName, substitution, goal, playerName } = updateData;
+    const { homeScore, awayScore, status, eventText, eventType, teamName, substitution, goal, playerName, minute } = updateData;
     const fixtureDocRef = doc(db, "fixtures", fixtureId);
     const liveEventsColRef = collection(db, "fixtures", fixtureId, "liveEvents");
 
@@ -199,6 +200,18 @@ export const postLiveUpdate = async (
         "score.away": awayScore,
         "status": status,
     };
+    
+    // Handle match clock timestamps
+    if (eventType === 'Match Start') {
+        fixtureUpdate.kickoffTime = serverTimestamp();
+    }
+    if (eventType === 'Half Time') {
+        fixtureUpdate.firstHalfEndTime = serverTimestamp();
+    }
+    if (eventType === 'Second Half Start') {
+        fixtureUpdate.secondHalfStartTime = serverTimestamp();
+    }
+
 
     // If it's a substitution, update the activePlayers list
     if (eventType === 'Substitution' && substitution) {
@@ -222,6 +235,7 @@ export const postLiveUpdate = async (
         subOffPlayer: substitution?.subOffPlayer ? { id: substitution.subOffPlayer.id, name: substitution.subOffPlayer.name } : null,
         subOnPlayer: substitution?.subOnPlayer ? { id: substitution.subOnPlayer.id, name: substitution.subOnPlayer.name } : null,
         teamName: teamName || null,
+        minute: minute,
     });
 
     await batch.commit();
