@@ -189,13 +189,27 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
 
       const { image, ...restOfData } = data;
       
-      const playerPayload: Partial<Player> = { 
-        ...restOfData, 
-        imageUrl, 
-        careerHighlights: data.careerHighlights?.map(h => h.value) || [],
-        status: data.status || "Active",
-        strongFoot: data.strongFoot || undefined,
+      const playerPayload: Omit<Player, 'id' | 'createdAt' | 'updatedAt'> = {
+        name: restOfData.name,
+        position: restOfData.position,
+        role: restOfData.role,
+        jerseyNumber: restOfData.jerseyNumber,
+        bio: restOfData.bio,
+        imageUrl,
+        stats: restOfData.stats,
+        careerHighlights: restOfData.careerHighlights?.map(h => h.value) || [],
+        status: restOfData.status || "Active",
+        strongFoot: restOfData.strongFoot,
       };
+      
+      // Clean undefined keys before sending to Firestore
+      Object.keys(playerPayload).forEach(key => {
+        const K = key as keyof typeof playerPayload;
+        if (playerPayload[K] === undefined) {
+          delete playerPayload[K];
+        }
+      });
+
 
       if (player) {
         await updatePlayer(player.id, playerPayload)
@@ -420,3 +434,5 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
     </Dialog>
   )
 }
+
+    
