@@ -42,6 +42,7 @@ import { Separator } from "@/components/ui/separator"
 
 const playerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
+  nickname: z.string().optional(),
   position: z.enum(["Goalkeeper", "Defender", "Midfielder", "Forward", "Coach", "Staff"]),
   role: z.enum(["Player", "Coach", "Staff"]),
   status: z.enum(["Active", "Injured", "On Loan", "Former Player"]).optional(),
@@ -111,6 +112,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
     } else {
       reset({
         name: "",
+        nickname: "",
         position: "Forward",
         role: "Player",
         status: "Active",
@@ -191,6 +193,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       
       const playerPayload: Partial<Player> = {
         name: restOfData.name,
+        nickname: restOfData.nickname,
         position: restOfData.position,
         role: restOfData.role,
         jerseyNumber: restOfData.jerseyNumber,
@@ -218,7 +221,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
           description: "Player profile updated.",
         })
       } else {
-        await addPlayer(playerPayload)
+        await addPlayer(playerPayload as Player)
         toast({ title: "Success", description: "Player created." })
       }
       setIsOpen(false)
@@ -275,11 +278,18 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                   )}
               </div>
               <div className="md:col-span-2 space-y-4">
-                <div>
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" {...register("name")} />
-                    {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input id="name" {...register("name")} />
+                        {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                    </div>
+                    <div>
+                        <Label htmlFor="nickname">Nickname (optional)</Label>
+                        <Input id="nickname" {...register("nickname")} />
+                        {errors.nickname && <p className="text-sm text-destructive">{errors.nickname.message}</p>}
+                    </div>
+                 </div>
                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <Label htmlFor="role">Role</Label>
@@ -324,7 +334,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                  </div>
 
                 {role === 'Player' && (
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                           <Label htmlFor="jerseyNumber">Jersey Number</Label>
                           <Input id="jerseyNumber" type="number" {...register("jerseyNumber")} />
@@ -453,5 +463,3 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
     </Dialog>
   )
 }
-
-    

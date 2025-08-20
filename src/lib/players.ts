@@ -38,7 +38,7 @@ export const uploadPlayerImage = async (imageFile: File, playerId?: string): Pro
  * Adds a new player to Firestore.
  * @param playerData The data for the new player.
  */
-export const addPlayer = async (playerData: Omit<Player, 'id' | 'createdAt' | 'updatedAt'>) => {
+export const addPlayer = async (playerData: Player) => {
   try {
     await addDoc(playersCollectionRef, {
       ...playerData,
@@ -56,7 +56,7 @@ export const addPlayer = async (playerData: Omit<Player, 'id' | 'createdAt' | 'u
  * @param playerId The ID of the player to update.
  * @param playerData The data to update.
  */
-export const updatePlayer = async (playerId: string, playerData: Partial<Omit<Player, 'id' | 'createdAt' | 'updatedAt'>>) => {
+export const updatePlayer = async (playerId: string, playerData: Partial<Player>) => {
   try {
     const playerDocRef = doc(db, "players", playerId);
     await updateDoc(playerDocRef, {
