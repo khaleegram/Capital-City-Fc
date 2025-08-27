@@ -2,17 +2,19 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { BarChart, FileText, Newspaper, Users } from "lucide-react"
+import { BarChart, FileText, Newspaper, Users, Calendar } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { MonthlyGoalChart } from "./_components/monthly-goal-chart"
 import { useAuth } from "@/hooks/use-auth"
-import { NewsArticle, Player } from "@/lib/data"
+import { NewsArticle, Player, Fixture, TeamProfile } from "@/lib/data"
 import { useState, useEffect } from "react"
-import { collection, onSnapshot, query, orderBy, limit, getCountFromServer } from "firebase/firestore"
+import { collection, onSnapshot, query, orderBy, limit, getCountFromServer, where } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { getTeamProfile } from "@/lib/team"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 
 function AdminDashboard() {
   const [playerCount, setPlayerCount] = useState(0);
@@ -122,13 +124,59 @@ function AdminDashboard() {
   )
 }
 
+function UpcomingFixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamProfile: TeamProfile }) {
+    const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
+
+    return (
+        <Card className="w-full max-w-4xl mx-auto shadow-lg -mt-20 relative z-20 border-primary/20 border-2">
+            <CardHeader className="text-center">
+                 <p className="font-semibold text-primary">{fixture.competition}</p>
+                <p className="text-sm text-muted-foreground">
+                    {new Intl.DateTimeFormat('en-US', { dateStyle: 'full', timeStyle: 'short' }).format(fixtureDate)}
+                </p>
+            </CardHeader>
+             <CardContent className="flex items-center justify-center text-center">
+                <div className="flex-1 flex items-center justify-end gap-4">
+                    <h2 className="font-headline text-3xl hidden sm:block">{teamProfile.name}</h2>
+                     <Avatar className="h-16 w-16">
+                        <AvatarImage src={teamProfile.logoUrl} alt={teamProfile.name} data-ai-hint="team logo" />
+                        <AvatarFallback>{teamProfile.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                </div>
+                <div className="px-8">
+                    <span className="text-4xl font-bold text-muted-foreground">vs</span>
+                </div>
+                <div className="flex-1 flex items-center justify-start gap-4">
+                     <Avatar className="h-16 w-16">
+                        <AvatarImage src={fixture.opponentLogoUrl} alt={fixture.opponent} data-ai-hint="team logo" />
+                        <AvatarFallback>{fixture.opponent.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <h2 className="font-headline text-3xl hidden sm:block">{fixture.opponent}</h2>
+                </div>
+            </CardContent>
+            <CardFooter className="flex-col gap-2">
+                <p className="text-sm text-muted-foreground">{fixture.venue}</p>
+                 <Button asChild>
+                    <Link href={`/fixtures/${fixture.id}`}>Match Center</Link>
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
+
 function PublicLandingPage() {
+  const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null);
   const [featuredPlayers, setFeaturedPlayers] = useState<Player[]>([]);
   const [recentNews, setRecentNews] = useState<NewsArticle[]>([]);
+  const [nextFixture, setNextFixture] = useState<Fixture | null>(null);
 
   useEffect(() => {
+    // Fetch Team Profile
+    getTeamProfile().then(setTeamProfile);
+
     // Fetch a few players to feature
-    const playersQuery = query(collection(db, "players"), orderBy("createdAt", "desc"), limit(3));
+    const playersQuery = query(collection(db, "players"), where("role", "==", "Player"), orderBy("createdAt", "desc"), limit(3));
     const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
       const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
       setFeaturedPlayers(playersData);
@@ -141,58 +189,82 @@ function PublicLandingPage() {
       setRecentNews(newsData);
     });
 
+    // Fetch next fixture
+    const fixtureQuery = query(collection(db, "fixtures"), where("status", "==", "UPCOMING"), orderBy("date", "asc"), limit(1));
+    const fixtureUnsubscribe = onSnapshot(fixtureQuery, (snapshot) => {
+        if (!snapshot.empty) {
+            setNextFixture({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Fixture);
+        } else {
+            setNextFixture(null);
+        }
+    });
+
 
     return () => {
       playersUnsubscribe();
       newsUnsubscribe();
+      fixtureUnsubscribe();
     }
   }, []);
 
   return (
-    <div>
+    <div className="bg-background">
       {/* Hero Section */}
-      <section className="relative h-[60vh] bg-cover bg-center text-white flex items-center justify-center">
+      <section className="relative h-[60vh] bg-gray-800 text-white flex items-center justify-center">
         <Image 
-          src="https://placehold.co/1600x900.png" 
+          src="https://picsum.photos/1600/900" 
           alt="Capital City FC Stadium" 
           layout="fill" 
           objectFit="cover" 
-          className="z-0 opacity-40" 
-          data-ai-hint="stadium lights"
+          className="z-0 opacity-30" 
+          data-ai-hint="stadium lights soccer"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent z-0"></div>
         <div className="relative z-10 text-center p-4">
-          <h1 className="text-5xl md:text-7xl font-headline font-bold drop-shadow-lg">Capital City FC</h1>
+          <h1 className="text-5xl md:text-7xl font-headline font-bold drop-shadow-lg">{teamProfile?.name || 'Capital City FC'}</h1>
           <p className="mt-4 text-xl md:text-2xl font-light drop-shadow-md">Pride of the Capital</p>
           <Button asChild size="lg" className="mt-8">
-            <Link href="/players">Meet the Team</Link>
+            <Link href="/club">The Club</Link>
           </Button>
         </div>
       </section>
+
+      {/* Upcoming Fixture Section */}
+      {nextFixture && teamProfile && (
+        <section className="py-12 bg-background">
+           <UpcomingFixtureCard fixture={nextFixture} teamProfile={teamProfile} />
+        </section>
+      )}
       
       {/* Recent News Section */}
       {recentNews.length > 0 && (
-        <section className="py-12 bg-background">
+        <section className="py-12 lg:py-24 bg-muted">
           <div className="container mx-auto px-4">
             <h2 className="text-3xl font-headline font-bold text-center mb-8">Latest News</h2>
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
               {recentNews.map(article => (
-                <Card key={article.id} className="hover:shadow-xl transition-shadow">
-                  <CardHeader>
-                    <CardTitle className="font-headline text-2xl">{article.headline}</CardTitle>
-                    <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground line-clamp-3">{article.content}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild variant="link" className="p-0">
-                      <Link href="/news">Read More &rarr;</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
+                <Link key={article.id} href="/news" className="block group">
+                  <Card className="hover:shadow-xl transition-shadow h-full flex flex-col">
+                    {article.imageUrl && (
+                        <div className="aspect-video relative overflow-hidden rounded-t-lg">
+                           <Image src={article.imageUrl} alt={article.headline} layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300" data-ai-hint="news header" />
+                        </div>
+                    )}
+                    <CardHeader>
+                      <CardTitle className="font-headline text-2xl group-hover:text-primary transition-colors">{article.headline}</CardTitle>
+                      <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex-grow">
+                      <p className="text-muted-foreground line-clamp-3">{article.content}</p>
+                    </CardContent>
+                    <CardFooter>
+                      <span className="text-sm font-semibold text-primary">Read More &rarr;</span>
+                    </CardFooter>
+                  </Card>
+                </Link>
               ))}
             </div>
-            <div className="text-center mt-8">
+            <div className="text-center mt-12">
               <Button asChild>
                   <Link href="/news">View All News</Link>
               </Button>
@@ -203,13 +275,13 @@ function PublicLandingPage() {
 
       {/* Featured Players Section */}
       {featuredPlayers.length > 0 && (
-        <section className="py-12 bg-muted">
+        <section className="py-12 lg:py-24 bg-background">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-headline font-bold text-center mb-8">Meet the Players</h2>
+            <h2 className="text-3xl font-headline font-bold text-center mb-8">Meet the Stars</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
               {featuredPlayers.map(player => (
-                <Link href={`/players/${player.id}`} key={player.id} className="block">
-                  <Card className="text-center overflow-hidden transform hover:-translate-y-2 transition-transform">
+                <Link href={`/players/${player.id}`} key={player.id} className="block group">
+                  <Card className="text-center overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
                     <div className="aspect-square relative">
                       <Image 
                         src={player.imageUrl} 
@@ -217,17 +289,19 @@ function PublicLandingPage() {
                         layout="fill" 
                         objectFit="cover" 
                         data-ai-hint="player portrait"
+                        className="group-hover:scale-105 transition-transform duration-300"
                       />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                       <div className="absolute bottom-0 left-0 p-4 text-white">
+                         <h3 className="font-headline text-2xl drop-shadow-md">{player.name}</h3>
+                         <p className="text-lg opacity-90 drop-shadow-md">{player.position}</p>
+                       </div>
                     </div>
-                    <CardHeader>
-                      <CardTitle className="font-headline text-2xl">{player.name}</CardTitle>
-                      <CardDescription>{player.position}</CardDescription>
-                    </CardHeader>
                   </Card>
                 </Link>
               ))}
             </div>
-            <div className="text-center mt-8">
+            <div className="text-center mt-12">
               <Button asChild variant="secondary">
                 <Link href="/players">View Full Roster</Link>
               </Button>
@@ -255,3 +329,5 @@ export default function HomePage() {
   // Otherwise, show the public landing page.
   return <PublicLandingPage />;
 }
+
+    
