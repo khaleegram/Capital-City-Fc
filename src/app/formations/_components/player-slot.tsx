@@ -106,5 +106,4 @@ export function PlayerSlot({ player, isSubstitute = false }: { player: Player | 
     </div>
   );
 }
-
     
