@@ -13,7 +13,7 @@ import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, User, Users, MapPin } from "lucide-react";
+import { Loader2, User, Users, MapPin, Shield } from "lucide-react";
 
 function PlayerCard({ player }: { player: Player }) {
     return (
@@ -123,7 +123,7 @@ export default function ClubPage() {
              {staff.length > 0 && (
                 <section>
                     <h2 className="text-3xl font-headline font-bold mb-6 flex items-center gap-3">
-                        <User className="h-8 w-8 text-primary" />
+                        <Shield className="h-8 w-8 text-primary" />
                         Coaching & Staff
                     </h2>
                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
