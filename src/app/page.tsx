@@ -28,7 +28,7 @@ function AdminDashboard() {
       const newsColl = collection(db, "news");
       const recapsColl = collection(db, "recaps");
       
-      const playersSnapshot = await getCountFromServer(playersColl);
+      const playersSnapshot = await getCountFromServer(query(playersColl, where("role", "==", "Player")));
       const newsSnapshot = await getCountFromServer(newsColl);
       const recapsSnapshot = await getCountFromServer(recapsColl);
 
@@ -214,7 +214,7 @@ function PublicLandingPage() {
         <Image 
           src="https://picsum.photos/1600/900" 
           alt="Capital City FC Stadium" 
-          layout="fill" 
+          fill
           objectFit="cover" 
           className="z-0 opacity-30" 
           data-ai-hint="stadium lights soccer"
@@ -247,7 +247,7 @@ function PublicLandingPage() {
                   <Card className="hover:shadow-xl transition-shadow h-full flex flex-col">
                     {article.imageUrl && (
                         <div className="aspect-video relative overflow-hidden rounded-t-lg">
-                           <Image src={article.imageUrl} alt={article.headline} layout="fill" objectFit="cover" className="group-hover:scale-105 transition-transform duration-300" data-ai-hint="news header" />
+                           <Image src={article.imageUrl} alt={article.headline} fill objectFit="cover" className="group-hover:scale-105 transition-transform duration-300" data-ai-hint="news header" />
                         </div>
                     )}
                     <CardHeader>
@@ -286,7 +286,7 @@ function PublicLandingPage() {
                       <Image 
                         src={player.imageUrl} 
                         alt={player.name} 
-                        layout="fill" 
+                        fill
                         objectFit="cover" 
                         data-ai-hint="player portrait"
                         className="group-hover:scale-105 transition-transform duration-300"
@@ -329,5 +329,3 @@ export default function HomePage() {
   // Otherwise, show the public landing page.
   return <PublicLandingPage />;
 }
-
-    
