@@ -3,7 +3,7 @@
 
 import { useState, useEffect, use } from "react"
 import { notFound } from "next/navigation"
-import { doc, onSnapshot, collection, query, orderBy, getDocs, where, documentId, Timestamp } from "firebase/firestore"
+import { doc, onSnapshot, collection, query, orderBy, getDocs, where, documentId, Timestamp, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import type { Fixture, TeamProfile, LiveEvent, Player } from "@/lib/data"
 import { useToast } from "@/hooks/use-toast"
@@ -31,6 +31,28 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import type { Metadata } from 'next'
+ 
+export async function generateMetadata(
+  { params }: { params: { id: string } }
+): Promise<Metadata> {
+  const fixtureId = params.id
+  const fixtureDoc = await getDoc(doc(db, 'fixtures', fixtureId))
+ 
+  if (!fixtureDoc.exists()) {
+    return {
+      title: 'Fixture Not Found',
+    }
+  }
+ 
+  const fixture = fixtureDoc.data() as Fixture;
+  const teamProfile = await getTeamProfile();
+
+  return {
+    title: `${teamProfile.name} vs ${fixture.opponent}`,
+    description: `Live match details for ${fixture.competition}: ${teamProfile.name} vs ${fixture.opponent}`,
+  }
+}
 
 const EventTypeSchema = z.enum(["Goal", "Substitution", "Red Card", "Info"]);
 type EventType = z.infer<typeof EventTypeSchema>;

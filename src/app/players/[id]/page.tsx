@@ -25,6 +25,26 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
+import type { Metadata } from 'next'
+
+export async function generateMetadata(
+  { params }: { params: { id: string } }
+): Promise<Metadata> {
+  const playerId = params.id
+  const playerDoc = await getDoc(doc(db, 'players', playerId))
+ 
+  if (!playerDoc.exists()) {
+    return {
+      title: 'Player Not Found',
+    }
+  }
+ 
+  const player = playerDoc.data() as Player;
+  return {
+    title: player.name,
+    description: `Profile and stats for ${player.name}, a ${player.position} for Capital City FC.`,
+  }
+}
 
 export default function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: playerId } = use(params);
