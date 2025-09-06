@@ -225,3 +225,27 @@ The application uses Retrieval-Augmented Generation (RAG) to provide accurate, c
     *   **Input**: A fan's question, plus all player and news data.
     *   **Process**: The prompt instructs the AI to be a friendly, conversational "Club Assistant". It answers questions based on the provided data and is explicitly told to state when it doesn't have the information, rather than guessing.
     *   **Output**: A helpful, conversational response suitable for a public-facing chatbot.
+
+---
+## 7. AI Player Highlight Generation
+
+This feature allows admins to automatically create short, dynamic video clips for players using a single profile image.
+
+*   **User Story**: An admin wants to create a quick, engaging highlight video for a player for social media or their profile page, but doesn't have time to edit match footage.
+*   **UI (`PlayerHighlightsTab` in `players/[id]/page.tsx`)**:
+    1.  On a player's profile page, the admin navigates to the "Highlights" tab.
+    2.  They click a "**Generate AI Highlight Reel**" button.
+*   **AI Flow (`generate-player-highlights-video.ts`)**:
+    *   **Input**: The player's image URL and their name.
+    *   **Process**: The flow uses the Google **Veo** video generation model.
+        *   It fetches the image data from the provided URL.
+        *   It sends the image and a text prompt (e.g., "Animate the person in this photo. Create a professional-style sports highlight clip...") to the Veo model.
+        *   The model generates a new, ~6-second MP4 video file. The flow waits for the generation to complete.
+        *   It downloads the generated video data.
+    *   **Output**: A data URI string of the generated video (`data:video/mp4;base64,...`).
+*   **Backend (`videos.ts`)**:
+    *   The `addVideoWithTags` function is called with the video data.
+    *   It converts the data URI to a `File` object.
+    *   It uploads the video to Firebase Storage.
+    *   It automatically creates a thumbnail from the video's first frame and uploads that as well.
+    *   Finally, it creates a new document in the `videos` collection and a corresponding tag in the `playerVideos` collection, making the highlight immediately available in the player's profile and the main video library.
