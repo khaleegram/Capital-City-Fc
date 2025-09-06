@@ -12,7 +12,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { media, MediaPart } from 'genkit';
-import { dataUriToBlob } from '@/lib/videos';
 
 const GeneratePlayerHighlightsVideoInputSchema = z.object({
   playerImageUri: z
@@ -66,12 +65,7 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
         config: {
             durationSeconds: 6,
             aspectRatio: '16:9',
-            safetySettings: [
-              {
-                category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-                threshold: 'BLOCK_ONLY_HIGH',
-              },
-            ],
+            personGeneration: 'allow_adult',
         }
     });
 
@@ -107,4 +101,5 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     return { videoUrl: `data:video/mp4;base64,${videoBase64}` };
   }
 );
+
 
