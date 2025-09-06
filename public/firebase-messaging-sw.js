@@ -1,9 +1,8 @@
-
-// This file needs to be in the public folder.
+// This file needs to be in the public directory
 
 // Scripts for firebase and firebase messaging
-importScripts("https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -17,35 +16,20 @@ const firebaseConfig = {
 };
 
 
-firebase.initializeApp(firebaseConfig);
-
+// Initialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+
+// Optional: Background message handling
 messaging.onBackgroundMessage((payload) => {
-  console.log(
-    "[firebase-messaging-sw.js] Received background message ",
-    payload
-  );
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: "/icon.png",
-    data: {
-      url: payload.data.url || '/',
-    }
+    icon: payload.notification.icon || '/icon.png'
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
-});
-
-
-// When a user clicks on the notification, open the URL specified in the data payload.
-self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-    const urlToOpen = event.notification.data.url || '/';
-
-    event.waitUntil(
-        clients.openWindow(urlToOpen)
-    );
 });
