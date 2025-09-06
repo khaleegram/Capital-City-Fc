@@ -141,3 +141,25 @@ exports.sendVideoNotification = functions.firestore
     console.log(`Video notification sent for video ${videoId}`);
     return null;
 });
+
+// --- Callable function for custom notifications ---
+exports.sendCustomNotification = functions.https.onCall(async (data, context) => {
+    // Check if the user is authenticated (optional, but recommended)
+    // if (!context.auth) {
+    //     throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    // }
+
+    const { title, body } = data;
+
+    if (!title || !body) {
+        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with two arguments "title" and "body".');
+    }
+
+    try {
+        await sendPushNotificationToAll(title, body, { url: '/' });
+        return { success: true, message: 'Notifications sent successfully.' };
+    } catch (error) {
+        console.error('Error sending custom notification:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to send notifications.');
+    }
+});

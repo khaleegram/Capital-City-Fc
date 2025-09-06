@@ -9,9 +9,10 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "firebase/storage";
-import { db, storage } from "./firebase";
+import { db, storage, app } from "./firebase";
 import type { TeamProfile } from "./data";
 import { v4 as uuidv4 } from "uuid";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 const TEAM_PROFILE_DOC_ID = "main_profile";
 
@@ -66,5 +67,22 @@ export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, '
   } catch (error) {
     console.error("Error updating team profile: ", error);
     throw new Error("Failed to update team profile.");
+  }
+};
+
+/**
+ * Sends a custom push notification to all users via a callable function.
+ * @param title The title of the notification.
+ * @param body The body message of the notification.
+ */
+export const sendCustomNotification = async (title: string, body: string) => {
+  try {
+    const functions = getFunctions(app);
+    const sendNotification = httpsCallable(functions, 'sendCustomNotification');
+    const result = await sendNotification({ title, body });
+    return result.data;
+  } catch (error) {
+    console.error("Error calling sendCustomNotification function:", error);
+    throw new Error("Failed to send custom notification.");
   }
 };

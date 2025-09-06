@@ -9,6 +9,8 @@ import type { TeamProfile } from "@/lib/data";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Lock, Loader2 } from "lucide-react";
 import { TeamProfileForm } from "./_components/team-profile-form";
+import { NotificationComposer } from "./_components/notification-composer";
+import { Separator } from "@/components/ui/separator";
 
 export default function TeamSettingsPage() {
     const { user } = useAuth();
@@ -56,12 +58,16 @@ export default function TeamSettingsPage() {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto space-y-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-headline font-bold">Team Profile Settings</h1>
                     <p className="text-muted-foreground mt-2">Manage your club's official name, logo, and other details.</p>
                 </div>
                 {profile && <TeamProfileForm profile={profile} />}
+                
+                <Separator />
+                
+                <NotificationComposer />
             </div>
         </div>
     )
