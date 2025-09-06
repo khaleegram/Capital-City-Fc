@@ -8,8 +8,11 @@ import { notFound } from "next/navigation"
 import { doc, onSnapshot, collection, query, where, getDocs, documentId } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Player, Video, NewsArticle } from "@/lib/data"
+import { generatePlayerHighlightsVideo } from "@/ai/flows/generate-player-highlights-video"
+import { addVideoWithTags, dataUriToBlob } from "@/lib/videos"
 
-import { BarChart2, Clapperboard, Medal, User, Loader2, Newspaper, Footprints } from "lucide-react"
+
+import { BarChart2, Clapperboard, Medal, User, Loader2, Newspaper, Footprints, Wand2 } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import type { Metadata } from 'next'
+import { useAuth } from "@/hooks/use-auth"
 
 export async function generateMetadata(
   { params }: { params: { id: string } }
@@ -44,6 +48,93 @@ export async function generateMetadata(
     title: player.name,
     description: `Profile and stats for ${player.name}, a ${player.position} for Capital City FC.`,
   }
+}
+
+function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, videos: Video[], isLoading: boolean }) {
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerateHighlightVideo = async () => {
+        setIsGenerating(true);
+        try {
+            // Fetch image and convert to data URI
+            const response = await fetch(player.imageUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64data = reader.result as string;
+                
+                const result = await generatePlayerHighlightsVideo({
+                    playerImageUri: base64data,
+                    playerName: player.name,
+                });
+                
+                const videoBlob = dataUriToBlob(result.videoUrl);
+                const videoFile = new File([videoBlob], `${player.name}_highlight.mp4`, { type: 'video/mp4' });
+
+                await addVideoWithTags({
+                    title: `${player.name} - AI Highlight Reel`,
+                    description: `An AI-generated highlight video for ${player.name}.`,
+                    video: videoFile
+                }, [player]);
+
+                toast({ title: "Success!", description: "AI highlight reel generated and added to videos." });
+            };
+
+        } catch (error) {
+            console.error("Error generating highlight video:", error);
+            toast({ variant: "destructive", title: "Generation Failed", description: "Could not create the highlight video." });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+
+    return (
+        <div>
+            {user && (
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="font-headline text-xl">AI Video Generation</CardTitle>
+                        <CardDescription>Create a short, dynamic highlight reel for this player using their profile picture.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={handleGenerateHighlightVideo} disabled={isGenerating}>
+                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                            {isGenerating ? 'Generating Video...' : 'Generate AI Highlight Reel'}
+                        </Button>
+                        {isGenerating && <p className="text-sm text-muted-foreground mt-2">This may take a minute or two. The page will update when complete.</p>}
+                    </CardContent>
+                </Card>
+            )}
+
+            {isLoading ? (
+                <div className="flex justify-center items-center h-40">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+            ) : videos.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {videos.map((video) => (
+                        <Link href={`/videos/${video.id}`} key={video.id}>
+                            <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                                <div className="relative aspect-video">
+                                    <Image src={video.thumbnailUrl || 'https://placehold.co/400x225.png'} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
+                                </div>
+                                <CardHeader className="p-3">
+                                    <CardTitle className="text-base font-semibold truncate">{video.title}</CardTitle>
+                                    <CardDescription className="text-xs">{new Date((video.uploadDate as any).seconds * 1000).toLocaleDateString()}</CardDescription>
+                                </CardHeader>
+                            </Card>
+                        </Link>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-muted-foreground text-center py-8">No highlight videos available for this player yet.</p>
+            )}
+        </div>
+    );
 }
 
 export default function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -96,28 +187,33 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
       setIsVideosLoading(true);
       try {
         const playerVideosQuery = query(collection(db, "playerVideos"), where("playerId", "==", playerId));
-        const playerVideosSnapshot = await getDocs(playerVideosQuery);
-        const videoIds = playerVideosSnapshot.docs.map(doc => doc.data().videoId);
+        const unsubscribe = onSnapshot(playerVideosQuery, async (playerVideosSnapshot) => {
+            const videoIds = playerVideosSnapshot.docs.map(doc => doc.data().videoId);
 
-        if (videoIds.length > 0) {
-          const videosQuery = query(collection(db, "videos"), where(documentId(), "in", videoIds));
-          const videosSnapshot = await getDocs(videosQuery);
-          const videosData = videosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
-          setVideos(videosData);
-        } else {
-          setVideos([]);
-        }
+            if (videoIds.length > 0) {
+              const videosQuery = query(collection(db, "videos"), where(documentId(), "in", videoIds));
+              const videosSnapshot = await getDocs(videosQuery);
+              const videosData = videosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Video));
+              setVideos(videosData);
+            } else {
+              setVideos([]);
+            }
+            setIsVideosLoading(false);
+        });
+        return unsubscribe;
       } catch (error) {
           console.error("Error fetching player videos:", error);
           toast({ variant: "destructive", title: "Error", description: "Could not fetch player videos."})
-      } finally {
-        setIsVideosLoading(false);
+          setIsVideosLoading(false);
       }
     };
 
-    fetchPlayerVideos();
+    const unsubscribeVideos = fetchPlayerVideos();
 
-    return () => unsubscribePlayer();
+    return () => {
+      unsubscribePlayer();
+      unsubscribeVideos?.then(unsub => unsub());
+    }
   }, [playerId, toast]);
 
 
@@ -175,11 +271,11 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="bio" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 md:w-[500px]">
+            <TabsList className="grid w-full grid-cols-4 md:w-[600px]">
               <TabsTrigger value="bio"><User className="mr-2 h-4 w-4" />Bio</TabsTrigger>
               <TabsTrigger value="stats"><BarChart2 className="mr-2 h-4 w-4" />Stats</TabsTrigger>
+              <TabsTrigger value="highlights"><Clapperboard className="mr-2 h-4 w-4" />Highlights ({videos.length})</TabsTrigger>
               <TabsTrigger value="news"><Newspaper className="mr-2 h-4 w-4" />News ({news.length})</TabsTrigger>
-              <TabsTrigger value="videos"><Clapperboard className="mr-2 h-4 w-4" />Videos ({videos.length})</TabsTrigger>
             </TabsList>
             <Separator className="my-4" />
             <TabsContent value="bio">
@@ -231,6 +327,9 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
                 </Card>
               </div>
             </TabsContent>
+            <TabsContent value="highlights">
+              <PlayerHighlightsTab player={player} videos={videos} isLoading={isVideosLoading} />
+            </TabsContent>
             <TabsContent value="news">
                 {isNewsLoading ? (
                     <div className="flex justify-center items-center h-40">
@@ -258,31 +357,6 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
                 ) : (
                     <p className="text-muted-foreground text-center py-8">No news articles found mentioning this player.</p>
                 )}
-            </TabsContent>
-            <TabsContent value="videos">
-              {isVideosLoading ? (
-                 <div className="flex justify-center items-center h-40">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                 </div>
-              ) : videos.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {videos.map((video) => (
-                     <Link href={`/videos/${video.id}`} key={video.id}>
-                      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                        <div className="relative aspect-video">
-                           <Image src={video.thumbnailUrl || 'https://placehold.co/400x225.png'} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
-                        </div>
-                        <CardHeader className="p-3">
-                          <CardTitle className="text-base font-semibold truncate">{video.title}</CardTitle>
-                          <CardDescription className="text-xs">{new Date((video.uploadDate as any).seconds * 1000).toLocaleDateString()}</CardDescription>
-                        </CardHeader>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-8">No videos available for this player.</p>
-              )}
             </TabsContent>
           </Tabs>
         </CardContent>

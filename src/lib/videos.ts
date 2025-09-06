@@ -16,6 +16,7 @@ import {
   uploadBytes,
   getDownloadURL,
   deleteObject,
+  uploadString,
 } from "firebase/storage";
 import { db, storage } from "./firebase";
 import { v4 as uuidv4 } from 'uuid';
@@ -39,21 +40,49 @@ export const uploadVideoFile = (file: File) => uploadFile(file, 'videos/raw');
 export const uploadThumbnailFile = (file: File) => uploadFile(file, 'videos/thumbnails');
 
 /**
+ * Converts a data URI to a Blob object.
+ * @param dataURI The data URI string.
+ * @returns A Blob object.
+ */
+export const dataUriToBlob = (dataURI: string): Blob => {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+};
+
+/**
  * Adds a new video and associated player tags to Firestore.
  * @param videoData The metadata for the new video.
  * @param taggedPlayers An array of Player objects that are tagged in the video.
  */
-export const addVideoWithTags = async (videoData: any, taggedPlayers: Player[]) => {
+export const addVideoWithTags = async (
+    videoData: { title: string; description: string; video: File },
+    taggedPlayers: Player[]
+) => {
   const batch = writeBatch(db);
   try {
-    // 1. Create the main video document
+    // 1. Upload video and create a thumbnail
+    const videoFile = videoData.video;
+    const thumbnailUrl = await uploadFile(await createThumbnail(videoFile), 'videos/thumbnails');
+    const videoUrl = await uploadVideoFile(videoFile);
+
+    // 2. Create the main video document
     const videoRef = doc(collection(db, "videos"));
     batch.set(videoRef, {
-        ...videoData,
+        title: videoData.title,
+        description: videoData.description,
+        videoUrl,
+        thumbnailUrl,
         uploadDate: serverTimestamp(),
+        taggedPlayers: taggedPlayers.map(p => ({ id: p.id, name: p.name })),
     });
 
-    // 2. Create a document in the junction collection for each tagged player
+    // 3. Create a document in the junction collection for each tagged player
     if (taggedPlayers.length > 0) {
       taggedPlayers.forEach(player => {
           const playerVideoRef = doc(collection(db, "playerVideos"));
@@ -65,7 +94,7 @@ export const addVideoWithTags = async (videoData: any, taggedPlayers: Player[]) 
       });
     }
 
-    // 3. Commit the batch
+    // 4. Commit the batch
     await batch.commit();
 
   } catch (error) {
@@ -143,4 +172,51 @@ export const deleteVideo = async (video: Video) => {
         console.error("Error deleting video:", error);
         throw new Error("Failed to delete video.");
     }
+};
+
+
+/**
+ * Generates a thumbnail from a video file.
+ * @param file The video file.
+ * @returns A Promise that resolves to the thumbnail File object.
+ */
+const createThumbnail = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        const videoUrl = URL.createObjectURL(file);
+        const video = document.createElement("video");
+        const canvas = document.createElement("canvas");
+        video.style.display = "none";
+        canvas.style.display = "none";
+
+        video.muted = true;
+        video.src = videoUrl;
+        video.currentTime = 1; // Capture frame at 1 second
+
+        video.onloadeddata = () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const thumbnailFile = new File([blob], `thumb_${file.name.split('.')[0]}.jpg`, { type: 'image/jpeg' });
+                        resolve(thumbnailFile);
+                    } else {
+                        reject(new Error("Canvas to Blob conversion failed"));
+                    }
+                    URL.revokeObjectURL(videoUrl);
+                }, 'image/jpeg');
+            } else {
+                reject(new Error("Failed to get canvas context"));
+                URL.revokeObjectURL(videoUrl);
+            }
+        };
+        
+        video.onerror = (err) => {
+            reject(err);
+            URL.revokeObjectURL(videoUrl);
+        };
+    });
 };

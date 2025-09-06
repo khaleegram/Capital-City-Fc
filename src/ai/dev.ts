@@ -16,3 +16,4 @@ import '@/ai/flows/generate-news-image.ts';
 import '@/ai/flows/answer-scout-questions.ts';
 import '@/ai/flows/generate-event-text.ts';
 import '@/ai/flows/refine-player-bio.ts';
+import '@/ai/flows/generate-player-highlights-video.ts';

@@ -182,34 +182,25 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
     try {
         let videoUrl = videoToEdit?.videoUrl;
         let thumbnailUrl = videoToEdit?.thumbnailUrl;
+        let videoFile: File | undefined;
 
-        // If a new video file is provided, upload it and its generated thumbnail
         if (data.video instanceof FileList && data.video.length > 0) {
-            if (!generatedThumbnailFile) {
-                toast({ variant: "destructive", title: "Error", description: "Thumbnail has not been generated yet. Please wait a moment."})
-                setIsSubmitting(false);
-                return;
-            }
-             [videoUrl, thumbnailUrl] = await Promise.all([
-                uploadVideoFile(data.video[0]),
-                uploadThumbnailFile(generatedThumbnailFile),
-            ]);
+            videoFile = data.video[0];
         }
-      
+
         const taggedPlayersData = data.taggedPlayerIds ? players.filter(p => data.taggedPlayerIds!.includes(p.id)) : [];
-        const videoPayload = { 
+        
+        const videoPayload = {
             title: data.title,
             description: data.description,
-            videoUrl: videoUrl!,
-            thumbnailUrl: thumbnailUrl!,
             taggedPlayers: taggedPlayersData.map(p => ({ id: p.id, name: p.name })),
         };
-
+        
         if (videoToEdit) {
             await updateVideo(videoToEdit.id, videoPayload);
             toast({ title: "Success", description: "Video updated successfully." });
-        } else {
-            await addVideoWithTags(videoPayload, taggedPlayersData);
+        } else if(videoFile) {
+            await addVideoWithTags({ ...videoPayload, video: videoFile }, taggedPlayersData);
             toast({ title: "Success", description: "Video uploaded and tagged successfully." });
         }
       
