@@ -59,7 +59,7 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     const { operation } = await ai.generate({
         model: 'googleai/veo-2.0-generate-001',
         prompt: [
-            { text: `Create a short, energetic sports highlight video of the player in this photo, ${playerName}. Include dynamic motion, lens flares, and a cheering crowd sound effect. The video should feel exciting and professional.` },
+            { text: `Animate the person in this photo, ${playerName}. Create a professional-style sports highlight clip with dynamic motion and high-quality cinematic visuals.` },
             imagePart,
         ],
         config: {
@@ -101,5 +101,6 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     return { videoUrl: `data:video/mp4;base64,${videoBase64}` };
   }
 );
+
 
 
