@@ -50,13 +50,9 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
         if (!response.ok) {
             throw new Error(`Failed to fetch image from URL: ${playerImageUri}`);
         }
-        const blob = await response.blob();
-        const reader = new FileReader();
-        imageDataUri = await new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
+        const imageBuffer = Buffer.from(await response.arrayBuffer());
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+        imageDataUri = `data:${contentType};base64,${imageBuffer.toString('base64')}`;
     }
 
     const imagePart: MediaPart = { media: { url: imageDataUri, contentType: 'image/jpeg' } };
@@ -99,18 +95,9 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     if (!videoResponse.ok) {
         throw new Error('Failed to download the generated video file.');
     }
-    const videoBlob = await videoResponse.blob();
-    const reader = new FileReader();
-
-    return new Promise((resolve, reject) => {
-      reader.onerror = () => {
-        reader.abort();
-        reject(new DOMException("Problem parsing input file."));
-      };
-      reader.onload = () => {
-        resolve({ videoUrl: reader.result as string });
-      };
-      reader.readAsDataURL(videoBlob);
-    });
+    const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+    const videoBase64 = videoBuffer.toString('base64');
+    
+    return { videoUrl: `data:video/mp4;base64,${videoBase64}` };
   }
 );

@@ -108,8 +108,8 @@ function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, vi
     );
 }
 
-export default function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: playerId } = use(params);
+export default function PlayerProfilePage({ params }: { params: { id: string } }) {
+  const { id: playerId } = params;
   const [player, setPlayer] = useState<Player | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const [news, setNews] = useState<NewsArticle[]>([]);
