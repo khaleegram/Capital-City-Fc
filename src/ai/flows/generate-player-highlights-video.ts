@@ -84,7 +84,7 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
         throw new Error(`Video generation failed: ${result.error.message}`);
     }
 
-    const videoPart = result.output?.message?.content.find(p => !!p.media && p.media.contentType === 'video/mp4');
+    const videoPart = result.output?.message?.content.find(p => !!p.media);
     
     if (!videoPart || !videoPart.media) {
       throw new Error('No video was returned from the AI model.');
@@ -101,6 +101,7 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     return { videoUrl: `data:video/mp4;base64,${videoBase64}` };
   }
 );
+
 
 
 
