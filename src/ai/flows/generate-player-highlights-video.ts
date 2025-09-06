@@ -91,7 +91,7 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     }
     
     // The URL from VEO is temporary, so we need to fetch the data and return it as a data URI
-    const videoResponse = await fetch(videoPart.media.url);
+    const videoResponse = await fetch(`${videoPart.media.url}&key=${process.env.GEMINI_API_KEY}`);
     if (!videoResponse.ok) {
         throw new Error('Failed to download the generated video file.');
     }
@@ -101,6 +101,7 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     return { videoUrl: `data:video/mp4;base64,${videoBase64}` };
   }
 );
+
 
 
 
