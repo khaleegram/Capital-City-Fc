@@ -28,7 +28,6 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
-import type { Metadata } from 'next'
 import { useAuth } from "@/hooks/use-auth"
 
 function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, videos: Video[], isLoading: boolean }) {
@@ -39,30 +38,21 @@ function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, vi
     const handleGenerateHighlightVideo = async () => {
         setIsGenerating(true);
         try {
-            // Fetch image and convert to data URI
-            const response = await fetch(player.imageUrl);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = async () => {
-                const base64data = reader.result as string;
-                
-                const result = await generatePlayerHighlightsVideo({
-                    playerImageUri: base64data,
-                    playerName: player.name,
-                });
-                
-                const videoBlob = dataUriToBlob(result.videoUrl);
-                const videoFile = new File([videoBlob], `${player.name}_highlight.mp4`, { type: 'video/mp4' });
+            const result = await generatePlayerHighlightsVideo({
+                playerImageUri: player.imageUrl, // Pass the URL directly
+                playerName: player.name,
+            });
+            
+            const videoBlob = dataUriToBlob(result.videoUrl);
+            const videoFile = new File([videoBlob], `${player.name.replace(/\s/g, '_')}_highlight.mp4`, { type: 'video/mp4' });
 
-                await addVideoWithTags({
-                    title: `${player.name} - AI Highlight Reel`,
-                    description: `An AI-generated highlight video for ${player.name}.`,
-                    video: videoFile
-                }, [player]);
+            await addVideoWithTags({
+                title: `${player.name} - AI Highlight Reel`,
+                description: `An AI-generated highlight video for ${player.name}.`,
+                video: videoFile
+            }, [player]);
 
-                toast({ title: "Success!", description: "AI highlight reel generated and added to videos." });
-            };
+            toast({ title: "Success!", description: "AI highlight reel generated and added to videos." });
 
         } catch (error) {
             console.error("Error generating highlight video:", error);

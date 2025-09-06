@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -10,12 +11,14 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { media, MediaPart } from 'genkit';
+import { dataUriToBlob } from '@/lib/videos';
 
 const GeneratePlayerHighlightsVideoInputSchema = z.object({
   playerImageUri: z
     .string()
     .describe(
-      "The player's profile image as a data URI. Format: 'data:image/jpeg;base64,<encoded_data>'."
+      "The player's profile image as a public URL or data URI."
     ),
   playerName: z.string().describe('The name of the player.'),
 });
@@ -38,12 +41,26 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     outputSchema: GeneratePlayerHighlightsVideoOutputSchema,
   },
   async ({ playerImageUri, playerName }) => {
+    
+    let imagePart: MediaPart;
+
+    // Handle both data URIs and public URLs
+    if (playerImageUri.startsWith('data:')) {
+        imagePart = { media: { url: playerImageUri, contentType: 'image/jpeg' } };
+    } else {
+        const response = await fetch(playerImageUri);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image from URL: ${playerImageUri}`);
+        }
+        const blob = await response.blob();
+        imagePart = { media: { blob, contentType: blob.type || 'image/jpeg' } };
+    }
 
     const { operation } = await ai.generate({
         model: 'googleai/veo-2.0-generate-001',
         prompt: [
             { text: `Create a short, energetic sports highlight video of the player in this photo, ${playerName}. Include dynamic motion, lens flares, and a cheering crowd sound effect. The video should feel exciting and professional.` },
-            { media: { url: playerImageUri, contentType: 'image/jpeg' } },
+            imagePart,
         ],
         config: {
             durationSeconds: 6,
@@ -71,7 +88,24 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     if (!videoPart || !videoPart.media) {
       throw new Error('No video was returned from the AI model.');
     }
+    
+    // The URL from VEO is temporary, so we need to fetch the data and return it as a data URI
+    const videoResponse = await fetch(videoPart.media.url);
+    if (!videoResponse.ok) {
+        throw new Error('Failed to download the generated video file.');
+    }
+    const videoBlob = await videoResponse.blob();
+    const reader = new FileReader();
 
-    return { videoUrl: videoPart.media.url };
+    return new Promise((resolve, reject) => {
+      reader.onerror = () => {
+        reader.abort();
+        reject(new DOMException("Problem parsing input file."));
+      };
+      reader.onload = () => {
+        resolve({ videoUrl: reader.result as string });
+      };
+      reader.readAsDataURL(videoBlob);
+    });
   }
 );
