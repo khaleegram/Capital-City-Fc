@@ -66,6 +66,12 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
         config: {
             durationSeconds: 6,
             aspectRatio: '16:9',
+            safetySettings: [
+              {
+                category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                threshold: 'BLOCK_ONLY_HIGH',
+              },
+            ],
         }
     });
 
@@ -101,3 +107,4 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
     return { videoUrl: `data:video/mp4;base64,${videoBase64}` };
   }
 );
+
