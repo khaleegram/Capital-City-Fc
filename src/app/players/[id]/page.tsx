@@ -5,7 +5,7 @@ import { useState, useEffect, use } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { doc, onSnapshot, collection, query, where, getDocs, documentId } from "firebase/firestore"
+import { doc, onSnapshot, collection, query, where, getDocs, documentId, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Player, Video, NewsArticle } from "@/lib/data"
 import { generatePlayerHighlightsVideo } from "@/ai/flows/generate-player-highlights-video"
@@ -30,25 +30,6 @@ import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import type { Metadata } from 'next'
 import { useAuth } from "@/hooks/use-auth"
-
-export async function generateMetadata(
-  { params }: { params: { id: string } }
-): Promise<Metadata> {
-  const playerId = params.id
-  const playerDoc = await getDoc(doc(db, 'players', playerId))
- 
-  if (!playerDoc.exists()) {
-    return {
-      title: 'Player Not Found',
-    }
-  }
- 
-  const player = playerDoc.data() as Player;
-  return {
-    title: player.name,
-    description: `Profile and stats for ${player.name}, a ${player.position} for Capital City FC.`,
-  }
-}
 
 function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, videos: Video[], isLoading: boolean }) {
     const { user } = useAuth();

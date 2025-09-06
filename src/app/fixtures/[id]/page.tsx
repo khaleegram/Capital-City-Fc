@@ -32,27 +32,6 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Metadata } from 'next'
- 
-export async function generateMetadata(
-  { params }: { params: { id: string } }
-): Promise<Metadata> {
-  const fixtureId = params.id
-  const fixtureDoc = await getDoc(doc(db, 'fixtures', fixtureId))
- 
-  if (!fixtureDoc.exists()) {
-    return {
-      title: 'Fixture Not Found',
-    }
-  }
- 
-  const fixture = fixtureDoc.data() as Fixture;
-  const teamProfile = await getTeamProfile();
-
-  return {
-    title: `${teamProfile.name} vs ${fixture.opponent}`,
-    description: `Live match details for ${fixture.competition}: ${teamProfile.name} vs ${fixture.opponent}`,
-  }
-}
 
 const EventTypeSchema = z.enum(["Goal", "Substitution", "Red Card", "Info"]);
 type EventType = z.infer<typeof EventTypeSchema>;
