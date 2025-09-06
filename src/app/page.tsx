@@ -2,7 +2,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { BarChart, FileText, Newspaper, Users, Calendar } from "lucide-react"
+import { BarChart, FileText, Newspaper, Users, Calendar, Shield, Trophy } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase"
 import { getTeamProfile } from "@/lib/team"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { motion } from "framer-motion"
 
 function AdminDashboard() {
   const [playerCount, setPlayerCount] = useState(0);
@@ -128,7 +129,7 @@ function UpcomingFixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamP
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
 
     return (
-        <Card className="w-full max-w-4xl mx-auto shadow-lg -mt-20 relative z-20 border-primary/20 border-2">
+        <Card className="w-full max-w-4xl mx-auto shadow-lg relative z-20 border-primary/20 border-2 bg-background/80 backdrop-blur-sm">
             <CardHeader className="text-center">
                  <p className="font-semibold text-primary">{fixture.competition}</p>
                 <p className="text-sm text-muted-foreground">
@@ -172,31 +173,21 @@ function PublicLandingPage() {
   const [nextFixture, setNextFixture] = useState<Fixture | null>(null);
 
   useEffect(() => {
-    // Fetch Team Profile
     getTeamProfile().then(setTeamProfile);
 
-    // Fetch a few players to feature
     const playersQuery = query(collection(db, "players"), where("role", "==", "Player"), orderBy("createdAt", "desc"), limit(3));
     const playersUnsubscribe = onSnapshot(playersQuery, (snapshot) => {
-      const playersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player));
-      setFeaturedPlayers(playersData);
+      setFeaturedPlayers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Player)));
     });
 
-    // Fetch recent news
     const newsQuery = query(collection(db, "news"), orderBy("date", "desc"), limit(2));
     const newsUnsubscribe = onSnapshot(newsQuery, (snapshot) => {
-      const newsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
-      setRecentNews(newsData);
+      setRecentNews(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle)));
     });
 
-    // Fetch next fixture
     const fixtureQuery = query(collection(db, "fixtures"), where("status", "==", "UPCOMING"), orderBy("date", "asc"), limit(1));
     const fixtureUnsubscribe = onSnapshot(fixtureQuery, (snapshot) => {
-        if (!snapshot.empty) {
-            setNextFixture({ id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Fixture);
-        } else {
-            setNextFixture(null);
-        }
+        setNextFixture(snapshot.empty ? null : { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Fixture);
     });
 
 
@@ -208,64 +199,108 @@ function PublicLandingPage() {
   }, []);
 
   return (
-    <div className="bg-background">
+    <div className="bg-background text-foreground">
       {/* Hero Section */}
-      <section className="relative h-[60vh] bg-gray-800 text-white flex items-center justify-center">
+      <motion.section 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="relative h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex flex-col items-center justify-center pt-20"
+      >
         <Image 
-          src="https://picsum.photos/1600/900" 
+          src="https://picsum.photos/1920/1080" 
           alt="Capital City FC Stadium" 
           fill
-          objectFit="cover" 
-          className="z-0 opacity-30" 
+          priority
+          className="z-0 object-cover opacity-20" 
           data-ai-hint="stadium lights soccer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent z-0"></div>
-        <div className="relative z-10 text-center p-4">
-          <h1 className="text-5xl md:text-7xl font-headline font-bold drop-shadow-lg">{teamProfile?.name || 'Capital City FC'}</h1>
-          <p className="mt-4 text-xl md:text-2xl font-light drop-shadow-md">Pride of the Capital</p>
-          <Button asChild size="lg" className="mt-8">
-            <Link href="/club">The Club</Link>
-          </Button>
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10"></div>
+        <div className="relative z-20 text-center p-4 flex flex-col items-center">
+          <motion.div
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2, type: "spring", stiffness: 100 }}
+          >
+            <Image src={teamProfile?.logoUrl || '/icon.png'} alt="Team Logo" width={120} height={120} data-ai-hint="team logo" />
+          </motion.div>
+          <motion.h1 
+             initial={{ y: 20, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             transition={{ duration: 0.6, delay: 0.5 }}
+             className="text-5xl md:text-8xl font-headline font-bold drop-shadow-lg mt-4"
+          >
+            {teamProfile?.name || 'Capital City FC'}
+          </motion.h1>
+          <motion.p 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.7 }}
+            className="mt-4 text-xl md:text-2xl font-light drop-shadow-md max-w-2xl"
+          >
+            Pride of the Capital. Your official source for news, fixtures, and all things Capital City.
+          </motion.p>
+          <motion.div
+             initial={{ y: 20, opacity: 0 }}
+             animate={{ y: 0, opacity: 1 }}
+             transition={{ duration: 0.6, delay: 0.9 }}
+             className="mt-10"
+          >
+            <Button asChild size="lg" className="text-lg py-7 px-8">
+              <Link href="/club">Explore The Club</Link>
+            </Button>
+          </motion.div>
         </div>
-      </section>
-
-      {/* Upcoming Fixture Section */}
-      {nextFixture && teamProfile && (
-        <section className="py-12 bg-background">
-           <UpcomingFixtureCard fixture={nextFixture} teamProfile={teamProfile} />
-        </section>
-      )}
+         {nextFixture && teamProfile && (
+            <motion.div 
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.8, delay: 1.2 }}
+              className="absolute bottom-10 w-full px-4 z-20"
+            >
+              <UpcomingFixtureCard fixture={nextFixture} teamProfile={teamProfile} />
+            </motion.div>
+        )}
+      </motion.section>
       
       {/* Recent News Section */}
       {recentNews.length > 0 && (
-        <section className="py-12 lg:py-24 bg-muted">
+        <section className="py-24 bg-muted">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-headline font-bold text-center mb-8">Latest News</h2>
+            <h2 className="text-4xl font-headline font-bold text-center mb-12">Latest News</h2>
             <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-              {recentNews.map(article => (
-                <Link key={article.id} href="/news" className="block group">
-                  <Card className="hover:shadow-xl transition-shadow h-full flex flex-col">
-                    {article.imageUrl && (
-                        <div className="aspect-video relative overflow-hidden rounded-t-lg">
-                           <Image src={article.imageUrl} alt={article.headline} fill objectFit="cover" className="group-hover:scale-105 transition-transform duration-300" data-ai-hint="news header" />
-                        </div>
-                    )}
-                    <CardHeader>
-                      <CardTitle className="font-headline text-2xl group-hover:text-primary transition-colors">{article.headline}</CardTitle>
-                      <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow">
-                      <p className="text-muted-foreground line-clamp-3">{article.content}</p>
-                    </CardContent>
-                    <CardFooter>
-                      <span className="text-sm font-semibold text-primary">Read More &rarr;</span>
-                    </CardFooter>
-                  </Card>
-                </Link>
+              {recentNews.map((article, i) => (
+                <motion.div
+                  key={article.id}
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: i * 0.2 }}
+                >
+                  <Link href="/news" className="block group">
+                    <Card className="hover:shadow-xl transition-shadow h-full flex flex-col overflow-hidden">
+                      {article.imageUrl && (
+                          <div className="aspect-video relative overflow-hidden">
+                            <Image src={article.imageUrl} alt={article.headline} fill className="object-cover group-hover:scale-105 transition-transform duration-300" data-ai-hint="news header" />
+                          </div>
+                      )}
+                      <CardHeader>
+                        <CardTitle className="font-headline text-2xl group-hover:text-primary transition-colors">{article.headline}</CardTitle>
+                        <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-grow">
+                        <p className="text-muted-foreground line-clamp-3">{article.content}</p>
+                      </CardContent>
+                      <CardFooter>
+                        <span className="text-sm font-semibold text-primary">Read More &rarr;</span>
+                      </CardFooter>
+                    </Card>
+                  </Link>
+                </motion.div>
               ))}
             </div>
             <div className="text-center mt-12">
-              <Button asChild>
+              <Button asChild size="lg">
                   <Link href="/news">View All News</Link>
               </Button>
             </div>
@@ -275,57 +310,75 @@ function PublicLandingPage() {
 
       {/* Featured Players Section */}
       {featuredPlayers.length > 0 && (
-        <section className="py-12 lg:py-24 bg-background">
+        <section className="py-24 bg-background">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-headline font-bold text-center mb-8">Meet the Stars</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              {featuredPlayers.map(player => (
-                <Link href={`/players/${player.id}`} key={player.id} className="block group">
-                  <Card className="text-center overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
-                    <div className="aspect-square relative">
-                      <Image 
-                        src={player.imageUrl} 
-                        alt={player.name} 
-                        fill
-                        objectFit="cover" 
-                        data-ai-hint="player portrait"
-                        className="group-hover:scale-105 transition-transform duration-300"
-                      />
-                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                       <div className="absolute bottom-0 left-0 p-4 text-white">
-                         <h3 className="font-headline text-2xl drop-shadow-md">{player.name}</h3>
-                         <p className="text-lg opacity-90 drop-shadow-md">{player.position}</p>
-                       </div>
-                    </div>
-                  </Card>
-                </Link>
+            <h2 className="text-4xl font-headline font-bold text-center mb-12">Meet the Stars</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+              {featuredPlayers.map((player, i) => (
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: i * 0.2 }}
+                >
+                  <Link href={`/players/${player.id}`} className="block group">
+                    <Card className="text-center overflow-hidden transform hover:-translate-y-2 transition-transform duration-300 shadow-lg">
+                      <div className="aspect-square relative">
+                        <Image 
+                          src={player.imageUrl} 
+                          alt={player.name} 
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          data-ai-hint="player portrait"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                        <div className="absolute bottom-0 left-0 p-6 text-white text-left">
+                          <Badge>#{player.jerseyNumber}</Badge>
+                          <h3 className="font-headline text-3xl drop-shadow-md mt-1">{player.name}</h3>
+                          <p className="text-lg opacity-90 drop-shadow-md">{player.position}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </Link>
+                </motion.div>
               ))}
             </div>
             <div className="text-center mt-12">
-              <Button asChild variant="secondary">
+              <Button asChild variant="secondary" size="lg">
                 <Link href="/players">View Full Roster</Link>
               </Button>
             </div>
           </div>
         </section>
       )}
+
+      {/* Footer */}
+      <footer className="bg-foreground text-background">
+        <div className="container mx-auto px-4 py-12 text-center">
+            <Image src={teamProfile?.logoUrl || '/icon.png'} alt="Team Logo" width={60} height={60} className="mx-auto" />
+            <p className="font-headline text-2xl mt-4">{teamProfile?.name}</p>
+            <div className="flex justify-center gap-4 my-6">
+                {publicMenuItems.map(item => (
+                    <Button key={item.href} asChild variant="link" className="text-background/80 hover:text-white">
+                        <Link href={item.href}>{item.label}</Link>
+                    </Button>
+                ))}
+            </div>
+            <p className="text-sm text-background/60">&copy; {new Date().getFullYear()} {teamProfile?.name}. All Rights Reserved.</p>
+        </div>
+      </footer>
     </div>
   )
 }
 
-/**
- * The main page component that decides whether to show the
- * admin dashboard or the public-facing landing page based on
- * the user's authentication status.
- */
+
 export default function HomePage() {
   const { user } = useAuth()
 
-  // If a user object exists, they are logged in as an admin.
   if (user) {
     return <AdminDashboard />;
   }
 
-  // Otherwise, show the public landing page.
   return <PublicLandingPage />;
 }
