@@ -42,19 +42,24 @@ const generatePlayerHighlightsVideoFlow = ai.defineFlow(
   },
   async ({ playerImageUri, playerName }) => {
     
-    let imagePart: MediaPart;
+    let imageDataUri = playerImageUri;
 
-    // Handle both data URIs and public URLs
-    if (playerImageUri.startsWith('data:')) {
-        imagePart = { media: { url: playerImageUri, contentType: 'image/jpeg' } };
-    } else {
+    // If it's a public URL, fetch and convert to data URI
+    if (!playerImageUri.startsWith('data:')) {
         const response = await fetch(playerImageUri);
         if (!response.ok) {
             throw new Error(`Failed to fetch image from URL: ${playerImageUri}`);
         }
         const blob = await response.blob();
-        imagePart = { media: { blob, contentType: blob.type || 'image/jpeg' } };
+        const reader = new FileReader();
+        imageDataUri = await new Promise((resolve, reject) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     }
+
+    const imagePart: MediaPart = { media: { url: imageDataUri, contentType: 'image/jpeg' } };
 
     const { operation } = await ai.generate({
         model: 'googleai/veo-2.0-generate-001',
