@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, Search, LayoutDashboard, Building } from "lucide-react"
+import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, LayoutDashboard, Building } from "lucide-react"
 import Image from "next/image"
 
 import {
