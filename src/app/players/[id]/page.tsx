@@ -87,19 +87,25 @@ function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, vi
                 </div>
             ) : videos.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {videos.map((video) => (
-                        <Link href={`/videos/${video.id}`} key={video.id}>
-                            <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-                                <div className="relative aspect-video">
-                                    <Image src={video.thumbnailUrl || 'https://placehold.co/400x225.png'} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
-                                </div>
-                                <CardHeader className="p-3">
-                                    <CardTitle className="text-base font-semibold truncate">{video.title}</CardTitle>
-                                    <CardDescription className="text-xs">{new Date((video.uploadDate as any).seconds * 1000).toLocaleDateString()}</CardDescription>
-                                </CardHeader>
-                            </Card>
-                        </Link>
-                    ))}
+                    {videos.map((video) => {
+                        const uploadDate = video.uploadDate && (video.uploadDate as any).seconds 
+                            ? new Date((video.uploadDate as any).seconds * 1000) 
+                            : new Date();
+                        
+                        return (
+                            <Link href={`/videos/${video.id}`} key={video.id}>
+                                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                                    <div className="relative aspect-video">
+                                        <Image src={video.thumbnailUrl || 'https://placehold.co/400x225.png'} alt={video.title} fill className="object-cover" data-ai-hint="soccer action" />
+                                    </div>
+                                    <CardHeader className="p-3">
+                                        <CardTitle className="text-base font-semibold truncate">{video.title}</CardTitle>
+                                        <CardDescription className="text-xs">{uploadDate.toLocaleDateString()}</CardDescription>
+                                    </CardHeader>
+                                </Card>
+                            </Link>
+                        )
+                    })}
                 </div>
             ) : (
                 <p className="text-muted-foreground text-center py-8">No highlight videos available for this player yet.</p>
@@ -335,3 +341,5 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
     </div>
   )
 }
+
+    
