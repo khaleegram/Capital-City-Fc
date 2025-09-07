@@ -2,7 +2,7 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { BarChart, FileText, Newspaper, Users, Calendar, Shield, Trophy } from "lucide-react"
+import { BarChart, FileText, Newspaper, Users, Calendar, Shield, Trophy, Home, Building, Video } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,15 @@ import { getTeamProfile } from "@/lib/team"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
+
+const publicMenuItems = [
+  { href: "/", label: "Home", icon: Home },
+  { href: "/club", label: "Club", icon: Building },
+  { href: "/players", label: "Players", icon: Users },
+  { href: "/fixtures", label: "Fixtures", icon: Calendar },
+  { href: "/news", label: "News", icon: Newspaper },
+  { href: "/videos", label: "Videos", icon: Video },
+];
 
 function AdminDashboard() {
   const [playerCount, setPlayerCount] = useState(0);
