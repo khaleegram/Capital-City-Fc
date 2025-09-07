@@ -8,7 +8,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { db, storage } from "./firebase";
-import { deleteObject, getDownloadURL, ref, uploadString } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { v4 as uuidv4 } from "uuid";
 import { NewsArticle } from "./data";
 
@@ -16,20 +16,14 @@ import { NewsArticle } from "./data";
 const newsCollectionRef = collection(db, "news");
 
 /**
- * Uploads a base64 data URI image to Firebase Storage.
- * @param imageDataUri The image data URI to upload.
+ * Uploads an image file to Firebase Storage.
+ * @param imageFile The image file to upload.
  * @returns The public URL of the uploaded image.
  */
-export const uploadNewsImage = async (imageDataUri: string): Promise<string> => {
-  // If the URI is already a Firebase Storage URL, just return it
-  if (imageDataUri.startsWith('https://firebasestorage.googleapis.com')) {
-    return imageDataUri;
-  }
-  
+export const uploadNewsImage = async (imageFile: File): Promise<string> => {
   const imageId = uuidv4();
-  const imageRef = ref(storage, `news/images/${imageId}.png`);
-  // 'data_url' is the format for base64 data URIs
-  await uploadString(imageRef, imageDataUri, 'data_url');
+  const imageRef = ref(storage, `news/images/${imageId}_${imageFile.name}`);
+  await uploadBytes(imageRef, imageFile);
   const downloadURL = await getDownloadURL(imageRef);
   return downloadURL;
 };
@@ -38,11 +32,11 @@ export const uploadNewsImage = async (imageDataUri: string): Promise<string> => 
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageDataUri?: string | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null }) => {
   try {
     let imageUrl = "";
-    if (articleData.imageDataUri) {
-        imageUrl = await uploadNewsImage(articleData.imageDataUri);
+    if (articleData.imageFile) {
+        imageUrl = await uploadNewsImage(articleData.imageFile);
     }
 
     await addDoc(newsCollectionRef, {
@@ -64,21 +58,21 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
  * @param articleId The ID of the article to update.
  * @param articleData The data to update.
  */
-export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageDataUri?: string | null }) => {
+export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null }) => {
     try {
-        let imageUrl = "";
-        if (articleData.imageDataUri) {
-            imageUrl = await uploadNewsImage(articleData.imageDataUri);
-        }
-
-        const articleDocRef = doc(db, "news", articleId);
-        await updateDoc(articleDocRef, {
+        const updateData: any = {
             headline: articleData.headline,
             content: articleData.content,
             tags: articleData.tags,
-            imageUrl: imageUrl,
             updatedAt: serverTimestamp(),
-        });
+        };
+
+        if (articleData.imageFile) {
+            updateData.imageUrl = await uploadNewsImage(articleData.imageFile);
+        }
+
+        const articleDocRef = doc(db, "news", articleId);
+        await updateDoc(articleDocRef, updateData);
     } catch (error) {
         console.error("Error updating news article: ", error);
         throw new Error("Failed to update news article.");

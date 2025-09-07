@@ -8,7 +8,6 @@ import { notFound } from "next/navigation"
 import { doc, onSnapshot, collection, query, where, getDocs, documentId, getDoc } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { Player, Video, NewsArticle } from "@/lib/data"
-import { generatePlayerHighlightsVideo } from "@/ai/flows/generate-player-highlights-video"
 import { addVideoWithTags, dataUriToBlob } from "@/lib/videos"
 
 
@@ -35,52 +34,8 @@ function PlayerHighlightsTab({ player, videos, isLoading }: { player: Player, vi
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
 
-    const handleGenerateHighlightVideo = async () => {
-        setIsGenerating(true);
-        try {
-            const result = await generatePlayerHighlightsVideo({
-                playerImageUri: player.imageUrl,
-                playerName: player.name,
-            });
-            
-            const videoBlob = dataUriToBlob(result.videoUrl);
-            const videoFile = new File([videoBlob], `${player.name.replace(/\s/g, '_')}_highlight.mp4`, { type: 'video/mp4' });
-
-            await addVideoWithTags({
-                title: `${player.name} - AI Highlight Reel`,
-                description: `An AI-generated highlight video for ${player.name}.`,
-                video: videoFile
-            }, [player]);
-
-            toast({ title: "Success!", description: "AI highlight reel generated and added to videos." });
-
-        } catch (error) {
-            console.error("Error generating highlight video:", error);
-            toast({ variant: "destructive", title: "Generation Failed", description: "Could not create the highlight video." });
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-
     return (
         <div>
-            {user && (
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle className="font-headline text-xl">AI Video Generation</CardTitle>
-                        <CardDescription>Create a short, dynamic highlight reel for this player using their profile picture.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onClick={handleGenerateHighlightVideo} disabled={isGenerating}>
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                            {isGenerating ? 'Generating Video...' : 'Generate AI Highlight Reel'}
-                        </Button>
-                        {isGenerating && <p className="text-sm text-muted-foreground mt-2">This may take a minute or two. The page will update when complete.</p>}
-                    </CardContent>
-                </Card>
-            )}
-
             {isLoading ? (
                 <div className="flex justify-center items-center h-40">
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -341,5 +296,3 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
     </div>
   )
 }
-
-    

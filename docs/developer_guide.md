@@ -227,25 +227,18 @@ The application uses Retrieval-Augmented Generation (RAG) to provide accurate, c
     *   **Output**: A helpful, conversational response suitable for a public-facing chatbot.
 
 ---
-## 7. AI Player Highlight Generation
+## 7. Video Management
 
-This feature allows admins to automatically create short, dynamic video clips for players using a single profile image.
+This feature allows admins to upload videos and tag players in them.
 
-*   **User Story**: An admin wants to create a quick, engaging highlight video for a player for social media or their profile page, but doesn't have time to edit match footage.
-*   **UI (`PlayerHighlightsTab` in `players/[id]/page.tsx`)**:
-    1.  On a player's profile page, the admin navigates to the "Highlights" tab.
-    2.  They click a "**Generate AI Highlight Reel**" button.
-*   **AI Flow (`generate-player-highlights-video.ts`)**:
-    *   **Input**: The player's image URL and their name.
-    *   **Process**: The flow uses the Google **Veo** video generation model.
-        *   It fetches the image data from the provided URL.
-        *   It sends the image and a text prompt (e.g., "Animate the person in this photo. Create a professional-style sports highlight clip...") to the Veo model.
-        *   The model generates a new, ~6-second MP4 video file. The flow waits for the generation to complete.
-        *   It downloads the generated video data.
-    *   **Output**: A data URI string of the generated video (`data:video/mp4;base64,...`).
+*   **User Story**: An admin wants to upload a match highlight video and tag the players who appear in it.
+*   **UI (`VideoForm.tsx` in `videos/page.tsx`)**:
+    1.  The admin clicks "Add New Video".
+    2.  They use a file input to select an MP4 video file. A thumbnail is automatically generated from the first frame.
+    3.  They enter a title and description for the video.
+    4.  They use a searchable multi-select input to find and add tags for players on the roster.
 *   **Backend (`videos.ts`)**:
-    *   The `addVideoWithTags` function is called with the video data.
-    *   It converts the data URI to a `File` object.
-    *   It uploads the video to Firebase Storage.
-    *   It automatically creates a thumbnail from the video's first frame and uploads that as well.
-    *   Finally, it creates a new document in the `videos` collection and a corresponding tag in the `playerVideos` collection, making the highlight immediately available in the player's profile and the main video library.
+    *   The `addVideoWithTags` function is called on submission.
+    *   It uploads the video file and the generated thumbnail to Firebase Storage.
+    *   It creates a new document in the `videos` collection containing the title, description, and URLs for the video and thumbnail.
+    *   For each player tagged, it creates a document in the `playerVideos` junction collection, linking the player's ID to the new video's ID. This allows for efficient lookups of all videos a player is tagged in.

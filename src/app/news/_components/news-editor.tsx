@@ -2,11 +2,10 @@
 "use client"
 
 import { useState, KeyboardEvent, useEffect } from "react"
-import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy, Image as ImageIcon } from "lucide-react"
+import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy, UploadCloud } from "lucide-react"
 import { generateNewsArticle } from "@/ai/flows/generate-news-article"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
 import { generateSocialPost } from "@/ai/flows/generate-social-post"
-import { generateNewsImage } from "@/ai/flows/generate-news-image"
 import { useToast } from "@/hooks/use-toast"
 import Image from "next/image"
 
@@ -20,7 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import type { NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageDataUri: string | null }, articleId?: string) => Promise<void>;
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null }, articleId?: string) => Promise<void>;
   articleToEdit?: NewsArticle | null;
   onFinishEditing: () => void;
 }
@@ -38,12 +37,13 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const [suggestedTags, setSuggestedTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState("")
   const [socialPosts, setSocialPosts] = useState<SocialPosts | null>(null);
-  const [generatedImageDataUri, setGeneratedImageDataUri] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
 
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
   const [isSuggestingTags, setIsSuggestingTags] = useState(false)
   const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { toast } = useToast()
@@ -53,7 +53,8 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       setHeadline(articleToEdit.headline);
       setArticleContent(articleToEdit.content);
       setSuggestedTags(articleToEdit.tags || []);
-      setGeneratedImageDataUri(articleToEdit.imageUrl);
+      setImagePreview(articleToEdit.imageUrl);
+      setImageFile(null);
       setBulletPoints("");
       setIsEditing(true);
       setSocialPosts(null);
@@ -68,7 +69,8 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setArticleContent("");
     setSuggestedTags([]);
     setSocialPosts(null);
-    setGeneratedImageDataUri(null);
+    setImagePreview(null);
+    setImageFile(null);
     setIsEditing(false);
     onFinishEditing();
   }
@@ -79,7 +81,8 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setArticleContent("")
     setSuggestedTags([])
     setSocialPosts(null);
-    setGeneratedImageDataUri(null);
+    setImagePreview(null);
+    setImageFile(null);
     setIsEditing(false)
     
     try {
@@ -108,7 +111,8 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setIsSuggestingTags(true)
     setIsEditing(false)
     setSocialPosts(null)
-    setGeneratedImageDataUri(null)
+    setImagePreview(null);
+    setImageFile(null);
     try {
       const result = await suggestNewsTags({ articleContent: `${headline}\n${articleContent}` })
       setSuggestedTags(result.tags)
@@ -124,22 +128,15 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     }
   }
 
-  const handleGenerateImage = async () => {
-    if (!headline) return;
-
-    setIsGeneratingImage(true);
-    try {
-        const result = await generateNewsImage({ prompt: headline });
-        setGeneratedImageDataUri(result.imageDataUri);
-    } catch (error) {
-        console.error("Failed to generate image:", error);
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "There was an issue generating the image. Please try again.",
-        });
-    } finally {
-        setIsGeneratingImage(false);
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -154,7 +151,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
         toast({
             variant: "destructive",
             title: "Error",
-            description: "There was an issue generating social posts. Please try again.",
+            description: "There was an issue generating social posts.",
         });
     } finally {
         setIsGeneratingSocial(false);
@@ -163,7 +160,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
 
   const handlePublish = async () => {
     setIsSubmitting(true);
-    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageDataUri: generatedImageDataUri }, articleToEdit?.id);
+    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile }, articleToEdit?.id);
     setIsSubmitting(false);
     resetForm();
   }
@@ -194,15 +191,14 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setSuggestedTags(suggestedTags.filter(tag => tag !== tagToRemove));
   };
 
-  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial || isGeneratingImage || isSubmitting;
+  const isLoading = isGeneratingArticle || isSuggestingTags || isGeneratingSocial || isSubmitting;
   const isCreatingNew = !articleToEdit;
 
   const showStep1 = isCreatingNew;
   const showStep2 = isGeneratingArticle || articleContent || articleToEdit;
   const showStep3 = isSuggestingTags || suggestedTags.length > 0;
   const showStep4 = showStep3 && !isSuggestingTags;
-  const showStep5 = isGeneratingImage || generatedImageDataUri;
-  const showStep6 = (isGeneratingSocial || socialPosts) && !isGeneratingImage;
+  const showStep5 = (isGeneratingSocial || socialPosts) && !isSuggestingTags;
 
 
   return (
@@ -323,33 +319,29 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
         <>
             <Separator />
             <div>
-                <h3 className="font-semibold text-base mt-6 mb-2">{isCreatingNew ? 'Step 4' : 'Step 3'}: Generate Header Image</h3>
-                <Card className="mt-2 bg-muted aspect-video flex items-center justify-center">
-                    {isGeneratingImage ? (
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                            <Loader2 className="h-8 w-8 animate-spin"/>
-                            <span>Generating image...</span>
-                        </div>
-                    ) : generatedImageDataUri ? (
-                       <Image src={generatedImageDataUri} alt="Generated news article image" width={500} height={281} className="rounded-md object-cover w-full h-full" />
+                <h3 className="font-semibold text-base mt-6 mb-2">{isCreatingNew ? 'Step 4' : 'Step 3'}: Upload Header Image</h3>
+                 <div className="aspect-video mt-1 rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50">
+                    {imagePreview ? (
+                        <Image src={imagePreview} alt="Image preview" layout="fill" objectFit="cover" className="rounded-lg" />
                     ) : (
                         <div className="text-center text-muted-foreground">
-                            <ImageIcon className="mx-auto h-12 w-12" />
-                            <p className="mt-2">Your generated image will appear here.</p>
+                            <UploadCloud className="mx-auto h-12 w-12" />
+                            <p className="mt-2 text-sm">Upload an image</p>
                         </div>
                     )}
-                </Card>
-                <div className="mt-4">
-                    <Button onClick={handleGenerateImage} disabled={isLoading || socialPosts !== null}>
-                        {isGeneratingImage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        Generate Image
-                    </Button>
+                    <Input
+                        id="image"
+                        type="file"
+                        accept="image/*"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={handleImageFileChange}
+                    />
                 </div>
             </div>
         </>
       )}
 
-      {showStep5 && !isGeneratingImage && (
+      {imagePreview && (
          <>
           <Separator />
            <div>
@@ -362,7 +354,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
          </>
       )}
 
-      {showStep6 && (
+      {showStep5 && (
         <>
            <div className="mt-4">
               {isGeneratingSocial ? (

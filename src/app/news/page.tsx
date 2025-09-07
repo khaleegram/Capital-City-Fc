@@ -41,7 +41,7 @@ export default function NewsPage() {
   }, [toast]);
 
   const handlePublish = async (
-    article: { headline: string; content: string; tags: string[]; imageDataUri: string | null },
+    article: { headline: string; content: string; tags: string[]; imageFile: File | null },
     articleId?: string
   ) => {
     try {
