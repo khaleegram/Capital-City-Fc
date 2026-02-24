@@ -2,8 +2,65 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Players
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // News
+    match /news/{articleId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Videos
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Fixtures
+    match /fixtures/{fixtureId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+
+      // Live Events under Fixtures
+      match /liveEvents/{eventId} {
+        allow read: if true;
+        allow write: if request.auth != null; // Admins only
+      }
+    }
+
+    // Recaps
+    match /recaps/{recapId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Team Profile
+    match /teamProfile/{profileId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Formations
+    match /formations/{formationId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Player Videos (tags)
+    match /playerVideos/{tagId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // User Push Tokens — only owner can read/write
+    match /userPushTokens/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
