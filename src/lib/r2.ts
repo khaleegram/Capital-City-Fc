@@ -74,6 +74,7 @@ export const deleteFileFromR2 = async (url: string | undefined): Promise<void> =
             console.warn(`File not found in R2 for deletion: ${key}`);
         } else {
             console.error("Error deleting file from R2:", error);
+            throw new Error(`Failed to delete file from R2: ${key}`);
         }
     }
 };
