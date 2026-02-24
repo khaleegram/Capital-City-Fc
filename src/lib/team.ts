@@ -24,6 +24,7 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
 
   if (docSnap.exists()) {
     const data = docSnap.data();
+    // Manually construct a plain object to avoid passing complex Firestore types
     const profile: TeamProfile = {
       id: docSnap.id,
       name: data.name,
@@ -62,10 +63,22 @@ export const uploadTeamLogo = async (imageFile: File): Promise<string> => {
 export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, 'id'>>) => {
   try {
     const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
-    await setDoc(profileDocRef, {
-      ...profileData,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+
+    // Sanitize the input to remove undefined values before sending to Firestore.
+    const dataToUpdate: { [key: string]: any } = {};
+    Object.keys(profileData).forEach(keyStr => {
+      const key = keyStr as keyof typeof profileData;
+      if (profileData[key] !== undefined) {
+        dataToUpdate[key] = profileData[key];
+      }
+    });
+
+    if (Object.keys(dataToUpdate).length > 0) {
+        await setDoc(profileDocRef, {
+            ...dataToUpdate,
+            updatedAt: serverTimestamp(),
+        }, { merge: true });
+    }
   } catch (error) {
     console.error("Error updating team profile: ", error);
     throw new Error("Failed to update team profile.");
