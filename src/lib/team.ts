@@ -63,27 +63,27 @@ export const uploadTeamLogo = async (imageFile: File): Promise<string> => {
 export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, 'id'>>) => {
   try {
     const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
+    
+    // Create a clean, "plain" object by stringifying and parsing. 
+    // This is a robust way to remove any `undefined` values or other non-serializable properties.
+    const cleanData = JSON.parse(JSON.stringify(profileData));
 
-    // Sanitize the input to remove undefined values before sending to Firestore.
-    const dataToUpdate: { [key: string]: any } = {};
-    Object.keys(profileData).forEach(keyStr => {
-      const key = keyStr as keyof typeof profileData;
-      if (profileData[key] !== undefined) {
-        dataToUpdate[key] = profileData[key];
-      }
-    });
-
-    if (Object.keys(dataToUpdate).length > 0) {
+    if (Object.keys(cleanData).length > 0) {
         await setDoc(profileDocRef, {
-            ...dataToUpdate,
+            ...cleanData,
             updatedAt: serverTimestamp(),
         }, { merge: true });
+    } else {
+      // If there's nothing to update, we can choose to do nothing.
+      // This avoids an unnecessary write to Firestore.
+      console.log("No data to update for team profile.");
     }
   } catch (error) {
     console.error("Error updating team profile: ", error);
     throw new Error("Failed to update team profile.");
   }
 };
+
 
 /**
  * Sends a custom push notification to all users via a callable function.
