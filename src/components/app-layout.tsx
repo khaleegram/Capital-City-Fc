@@ -31,6 +31,8 @@ import { cn } from "@/lib/utils"
 import { MaintenancePage } from "./maintenance-page"
 import { MaintenanceBanner } from "./maintenance-banner"
 import { Separator } from "./ui/separator"
+import { doc, onSnapshot } from "firebase/firestore"
+import { db } from "@/lib/firebase"
 
 const publicMenuItems = [
   { href: "/", label: "Home", icon: Home },
@@ -195,12 +197,31 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   useFcm();
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const profile = await getTeamProfile();
-      setTeamProfile(profile);
-      setProfileLoading(false);
-    }
-    fetchProfile();
+    const profileDocRef = doc(db, "teamProfile", "main_profile");
+    const unsubscribe = onSnapshot(profileDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            const profile: TeamProfile = {
+              id: docSnap.id,
+              name: data.name,
+              logoUrl: data.logoUrl,
+              homeVenue: data.homeVenue,
+              maintenanceMode: data.maintenanceMode || false,
+            };
+            setTeamProfile(profile);
+        } else {
+            // Fallback to get/create default if it doesn't exist
+            getTeamProfile().then(setTeamProfile);
+        }
+        setProfileLoading(false);
+    }, (error) => {
+        console.error("Failed to fetch team profile in layout:", error);
+        // Fallback to one-time fetch on error
+        getTeamProfile().then(setTeamProfile);
+        setProfileLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [])
 
   if (authLoading || profileLoading) {
