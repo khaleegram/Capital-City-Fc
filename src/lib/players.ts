@@ -7,31 +7,20 @@ import {
   serverTimestamp,
   deleteDoc,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject,
-} from "firebase/storage";
-import { db, storage } from "./firebase";
-import { v4 as uuidv4 } from 'uuid';
+import { db } from "./firebase";
 import type { Player } from "./data";
+import { uploadFileToR2, deleteFileFromR2 } from "./r2";
 
 // Firestore collection reference
 const playersCollectionRef = collection(db, "players");
 
 /**
- * Uploads a player's image to Firebase Storage.
+ * Uploads a player's image to Cloudflare R2.
  * @param imageFile The image file to upload.
- * @param playerId Optional player ID to use for the image name.
  * @returns The public URL of the uploaded image.
  */
-export const uploadPlayerImage = async (imageFile: File, playerId?: string): Promise<string> => {
-  const imageId = playerId || uuidv4();
-  const imageRef = ref(storage, `players/photos/${imageId}_${imageFile.name}`);
-  await uploadBytes(imageRef, imageFile);
-  const downloadURL = await getDownloadURL(imageRef);
-  return downloadURL;
+export const uploadPlayerImage = async (imageFile: File): Promise<string> => {
+  return uploadFileToR2(imageFile, 'players/photos');
 };
 
 /**
@@ -78,23 +67,11 @@ export const deletePlayer = async (player: Player) => {
       // Delete Firestore document
       await deleteDoc(doc(db, "players", player.id));
       
-      // Delete image from Storage, if it's a Firebase Storage URL
-      if (player.imageUrl && player.imageUrl.includes('firebasestorage.googleapis.com')) {
-        try {
-            const imageRef = ref(storage, player.imageUrl);
-            await deleteObject(imageRef);
-        } catch (storageError: any) {
-            // It's possible the file doesn't exist or permissions are wrong,
-            // but we don't want this to block the Firestore deletion.
-            console.warn("Could not delete player image from storage:", storageError.code);
-        }
-      }
+      // Delete image from R2 Storage
+      await deleteFileFromR2(player.imageUrl);
 
     } catch (error) {
        console.error("Error deleting player:", error);
        throw new Error("Failed to delete player.");
     }
   }
-    
-
-    

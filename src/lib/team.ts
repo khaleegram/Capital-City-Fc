@@ -4,14 +4,9 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL,
-} from "firebase/storage";
-import { db, storage, app } from "./firebase";
+import { db, app } from "./firebase";
 import type { TeamProfile } from "./data";
-import { v4 as uuidv4 } from "uuid";
+import { uploadFileToR2 } from "./r2";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 const TEAM_PROFILE_DOC_ID = "main_profile";
@@ -41,16 +36,12 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
 };
 
 /**
- * Uploads the team's logo to Firebase Storage.
+ * Uploads the team's logo to Cloudflare R2.
  * @param imageFile The image file to upload.
  * @returns The public URL of the uploaded image.
  */
 export const uploadTeamLogo = async (imageFile: File): Promise<string> => {
-  const imageId = uuidv4();
-  const imageRef = ref(storage, `team/logos/${imageId}_${imageFile.name}`);
-  await uploadBytes(imageRef, imageFile);
-  const downloadURL = await getDownloadURL(imageRef);
-  return downloadURL;
+    return uploadFileToR2(imageFile, 'team/logos');
 };
 
 /**

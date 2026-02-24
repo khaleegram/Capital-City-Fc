@@ -8,22 +8,13 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
 })
 
-const nextConfig: NextConfig = {
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    remotePatterns: [
+const r2PublicUrl = process.env.R2_PUBLIC_URL;
+const r2Hostname = r2PublicUrl ? new URL(r2PublicUrl).hostname : undefined;
+
+const remotePatterns: NextConfig['images']['remotePatterns'] = [
       {
         protocol: 'https',
         hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
         port: '',
         pathname: '/**',
       },
@@ -33,7 +24,25 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
-    ],
+];
+
+if (r2Hostname) {
+  remotePatterns.push({
+      protocol: 'https',
+      hostname: r2Hostname,
+      port: '',
+      pathname: '/**',
+  });
+}
+
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  images: {
+    remotePatterns,
   },
   experimental: {
     serverActions: {

@@ -16,26 +16,22 @@ import {
   runTransaction,
   increment,
 } from "firebase/firestore";
-import { db, storage } from "./firebase";
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db } from "./firebase";
 import { v4 as uuidv4 } from "uuid";
 import type { Fixture, Player } from "./data";
+import { uploadFileToR2, deleteFileFromR2 } from "./r2";
 
 const fixturesCollectionRef = collection(db, "fixtures");
 const newsCollectionRef = collection(db, "news");
 const playersCollectionRef = collection(db, "players");
 
 /**
- * Uploads an opponent's logo to Firebase Storage.
+ * Uploads an opponent's logo to Cloudflare R2.
  * @param imageFile The image file to upload.
  * @returns The public URL of the uploaded image.
  */
 export const uploadOpponentLogo = async (imageFile: File): Promise<string> => {
-  const imageId = uuidv4();
-  const imageRef = ref(storage, `teams/logos/${imageId}_${imageFile.name}`);
-  await uploadBytes(imageRef, imageFile);
-  const downloadURL = await getDownloadURL(imageRef);
-  return downloadURL;
+  return uploadFileToR2(imageFile, 'teams/logos');
 };
 
 /**
@@ -141,18 +137,7 @@ export const deleteFixture = async (fixture: Fixture) => {
             batch.delete(articleDocRef);
         }
         
-        // If there's a logo in storage, delete it.
-        // Note: This assumes the URL contains the storage path.
-        if (fixture.opponentLogoUrl && fixture.opponentLogoUrl.includes('firebasestorage.googleapis.com')) {
-            try {
-                const logoRef = ref(storage, fixture.opponentLogoUrl);
-                await deleteObject(logoRef);
-            } catch (storageError: any) {
-                // It's possible the file doesn't exist or permissions are wrong,
-                // but we don't want this to block the Firestore deletion.
-                console.warn("Could not delete opponent logo from storage:", storageError.code);
-            }
-        }
+        await deleteFileFromR2(fixture.opponentLogoUrl);
 
         await batch.commit();
     } catch (error) {
@@ -268,4 +253,3 @@ export const postLiveUpdate = async (
         throw new Error("Failed to post live update.");
     }
 };
-

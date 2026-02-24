@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import Image from "next/image"
 
-import { addVideoWithTags, updateVideo, uploadThumbnailFile, uploadVideoFile } from "@/lib/videos"
+import { addVideoWithTags, updateVideo } from "@/lib/videos"
 import type { Player, Video } from "@/lib/data"
 
 import { Button } from "@/components/ui/button"
@@ -180,10 +180,7 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
   const onSubmit = async (data: VideoFormData) => {
     setIsSubmitting(true)
     try {
-        let videoUrl = videoToEdit?.videoUrl;
-        let thumbnailUrl = videoToEdit?.thumbnailUrl;
         let videoFile: File | undefined;
-
         if (data.video instanceof FileList && data.video.length > 0) {
             videoFile = data.video[0];
         }
@@ -197,10 +194,17 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
         };
         
         if (videoToEdit) {
+            // NOTE: Video file replacement is not supported in this simplified form.
+            // A production app might handle deleting the old file and uploading a new one.
             await updateVideo(videoToEdit.id, videoPayload);
-            toast({ title: "Success", description: "Video updated successfully." });
-        } else if(videoFile) {
-            await addVideoWithTags({ ...videoPayload, video: videoFile }, taggedPlayersData);
+            toast({ title: "Success", description: "Video details updated successfully." });
+        } else {
+            if (!videoFile || !generatedThumbnailFile) {
+                toast({ variant: "destructive", title: "Missing Files", description: "A video file and a generated thumbnail are required for new uploads."});
+                setIsSubmitting(false);
+                return;
+            }
+            await addVideoWithTags({ ...videoPayload, video: videoFile, thumbnail: generatedThumbnailFile }, taggedPlayersData);
             toast({ title: "Success", description: "Video uploaded and tagged successfully." });
         }
       
@@ -250,6 +254,7 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
                                 className="absolute inset-0 h-full w-full opacity-0 cursor-pointer" 
                                 {...videoFileInput}
                                 onChange={handleVideoFileChange}
+                                disabled={!!videoToEdit}
                             />
                         </div>
                         {errors.video && <p className="text-sm text-destructive mt-1">{(errors.video.message as string)}</p>}
@@ -272,12 +277,12 @@ export function VideoForm({ isOpen, setIsOpen, players, videoToEdit }: VideoForm
                     <div>
                         <Label htmlFor="title">Video Title</Label>
                         <Input id="title" {...register("title")} />
-                        {errors.title && <p className="text-sm text-destructive">{errors.title.message}</p>}
+                        {errors.title && <p className="text-sm text-destructive mt-1">{errors.title.message}</p>}
                     </div>
                      <div>
                         <Label htmlFor="description">Description</Label>
                         <Textarea id="description" {...register("description")} rows={5} />
-                        {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
+                        {errors.description && <p className="text-sm text-destructive mt-1">{errors.description.message}</p>}
                     </div>
                     <div>
                         <Label>Tag Players (Optional)</Label>

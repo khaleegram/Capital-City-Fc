@@ -7,25 +7,22 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
-import { db, storage } from "./firebase";
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db } from "./firebase";
 import { v4 as uuidv4 } from "uuid";
 import { NewsArticle } from "./data";
+import { uploadFileToR2, deleteFileFromR2 } from "./r2";
+
 
 // Firestore collection reference
 const newsCollectionRef = collection(db, "news");
 
 /**
- * Uploads an image file to Firebase Storage.
+ * Uploads an image file to Cloudflare R2.
  * @param imageFile The image file to upload.
  * @returns The public URL of the uploaded image.
  */
 export const uploadNewsImage = async (imageFile: File): Promise<string> => {
-  const imageId = uuidv4();
-  const imageRef = ref(storage, `news/images/${imageId}_${imageFile.name}`);
-  await uploadBytes(imageRef, imageFile);
-  const downloadURL = await getDownloadURL(imageRef);
-  return downloadURL;
+    return uploadFileToR2(imageFile, 'news/images');
 };
 
 /**
@@ -87,19 +84,7 @@ export const deleteNewsArticle = async (article: NewsArticle) => {
     try {
         const articleDocRef = doc(db, "news", article.id);
         await deleteDoc(articleDocRef);
-
-        if (article.imageUrl && article.imageUrl.includes('firebasestorage.googleapis.com')) {
-            try {
-                const imageRef = ref(storage, article.imageUrl);
-                await deleteObject(imageRef);
-            } catch (storageError: any) {
-                if (storageError.code === 'storage/object-not-found') {
-                    console.warn(`Image not found for article ${article.id}, skipping deletion.`);
-                } else {
-                    throw storageError;
-                }
-            }
-        }
+        await deleteFileFromR2(article.imageUrl);
     } catch (error) {
         console.error("Error deleting news article: ", error);
         throw new Error("Failed to delete news article.");
