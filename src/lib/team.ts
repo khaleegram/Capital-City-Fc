@@ -23,7 +23,15 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
   const docSnap = await getDoc(profileDocRef);
 
   if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as TeamProfile;
+    const data = docSnap.data();
+    const profile: TeamProfile = {
+      id: docSnap.id,
+      name: data.name,
+      logoUrl: data.logoUrl,
+      homeVenue: data.homeVenue,
+      maintenanceMode: data.maintenanceMode || false,
+    };
+    return profile;
   } else {
     // If no profile exists, create a default one
     const defaultProfile: TeamProfile = {
@@ -31,6 +39,7 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
       name: "Capital City FC",
       logoUrl: "/icon.png",
       homeVenue: "Capital Stadium",
+      maintenanceMode: false,
     };
     await setDoc(profileDocRef, defaultProfile);
     return defaultProfile;

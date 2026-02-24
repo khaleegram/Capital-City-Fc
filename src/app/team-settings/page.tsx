@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState } from "react";
@@ -26,7 +25,14 @@ export default function TeamSettingsPage() {
         const profileDocRef = doc(db, "teamProfile", "main_profile");
         const unsubscribe = onSnapshot(profileDocRef, (docSnap) => {
             if (docSnap.exists()) {
-                setProfile({ id: docSnap.id, ...docSnap.data() } as TeamProfile);
+                const data = docSnap.data();
+                setProfile({
+                    id: docSnap.id,
+                    name: data.name,
+                    logoUrl: data.logoUrl,
+                    homeVenue: data.homeVenue,
+                    maintenanceMode: data.maintenanceMode || false,
+                });
             } else {
                 // If the profile doesn't exist, create the default one.
                 // This is unlikely to happen after first load but is good practice.
