@@ -11,6 +11,7 @@ import { Lock, Loader2 } from "lucide-react";
 import { TeamProfileForm } from "./_components/team-profile-form";
 import { NotificationComposer } from "./_components/notification-composer";
 import { Separator } from "@/components/ui/separator";
+import { MaintenanceToggle } from "./_components/maintenance-toggle";
 
 export default function TeamSettingsPage() {
     const { user } = useAuth();
@@ -64,6 +65,10 @@ export default function TeamSettingsPage() {
                     <p className="text-muted-foreground mt-2">Manage your club's official name, logo, and other details.</p>
                 </div>
                 {profile && <TeamProfileForm profile={profile} />}
+                
+                <Separator />
+
+                {profile && <MaintenanceToggle profile={profile} />}
                 
                 <Separator />
                 

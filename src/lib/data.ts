@@ -118,6 +118,7 @@ export type TeamProfile = {
     name: string;
     logoUrl: string;
     homeVenue: string;
+    maintenanceMode?: boolean;
 };
 
 export type Formation = {

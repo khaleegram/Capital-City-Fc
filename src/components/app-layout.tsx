@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, LayoutDashboard, Building, Menu, X } from "lucide-react"
+import { Home, Newspaper, Users, Video, Calendar, Trophy, Shield, Bot, LayoutDashboard, Building, Menu, X, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { AnimatePresence, motion } from "framer-motion"
 
@@ -28,6 +28,9 @@ import { TeamProfile } from "@/lib/data"
 import { Button } from "./ui/button"
 import { LoginDialog } from "./login-dialog"
 import { cn } from "@/lib/utils"
+import { MaintenancePage } from "./maintenance-page"
+import { MaintenanceBanner } from "./maintenance-banner"
+import { Separator } from "./ui/separator"
 
 const publicMenuItems = [
   { href: "/", label: "Home", icon: Home },
@@ -166,6 +169,7 @@ function AdminLayout({ children, teamProfile }: { children: React.ReactNode, tea
                 </SidebarContent>
             </Sidebar>
             <SidebarInset>
+                {teamProfile?.maintenanceMode && <MaintenanceBanner />}
                 <DashboardHeader />
                 <main>{children}</main>
                 <Chatbot />
@@ -185,17 +189,31 @@ function PublicLayout({ children, teamProfile }: { children: React.ReactNode, te
 }
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [teamProfile, setTeamProfile] = useState<TeamProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true);
   useFcm();
 
   useEffect(() => {
     const fetchProfile = async () => {
       const profile = await getTeamProfile();
       setTeamProfile(profile);
+      setProfileLoading(false);
     }
     fetchProfile();
   }, [])
+
+  if (authLoading || profileLoading) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      )
+  }
+  
+  if (teamProfile?.maintenanceMode && !user) {
+    return <MaintenancePage profile={teamProfile} />;
+  }
 
   if (user) {
     return <AdminLayout teamProfile={teamProfile}>{children}</AdminLayout>

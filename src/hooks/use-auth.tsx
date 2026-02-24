@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
@@ -27,14 +28,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, []);
-
-  if (loading) {
-    return (
-        <div className="flex h-screen w-full items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-    )
-  }
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
