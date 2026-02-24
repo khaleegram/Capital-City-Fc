@@ -3,40 +3,65 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if a user is an authenticated admin
-    function isAdmin() {
-      return request.auth != null;
+
+    // Players
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
     }
 
-    // Team Profile: Public can read, admins can write.
+    // News
+    match /news/{articleId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Videos
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Fixtures
+    match /fixtures/{fixtureId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+
+      // Live Events under Fixtures
+      match /liveEvents/{eventId} {
+        allow read: if true;
+        allow write: if request.auth != null; // Admins only
+      }
+    }
+
+    // Recaps
+    match /recaps/{recapId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
+    }
+
+    // Team Profile
     match /teamProfile/{profileId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if request.auth != null; // Admins only
     }
 
-    // Players, News, Videos, Fixtures, Recaps: Public can read, admins can write.
-    match /{collection}/{docId} 
-      where collection in ['players', 'news', 'videos', 'fixtures', 'recaps', 'formations'] {
+    // Formations
+    match /formations/{formationId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if request.auth != null; // Admins only
     }
 
-    // Live Events (subcollection): Public can read, admins can write.
-    match /fixtures/{fixtureId}/liveEvents/{eventId} {
-       allow read: if true;
-       allow write: if isAdmin();
-    }
-    
-    // Player-Video Tags (junction table): Public can read, admins can write.
+    // Player Videos (tags)
     match /playerVideos/{tagId} {
-        allow read: if true;
-        allow write: if isAdmin();
+      allow read: if true;
+      allow write: if request.auth != null; // Admins only
     }
 
-    // User Push Tokens: Only the authenticated user can manage their own token.
+    // User Push Tokens — only owner can read/write
     match /userPushTokens/{userId} {
-      allow read, write: if isAdmin() && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }
