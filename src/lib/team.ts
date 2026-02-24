@@ -65,13 +65,22 @@ export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, '
   try {
     const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
     
-    const cleanData = JSON.parse(JSON.stringify(profileData));
+    // Create a new, clean object for the update payload
+    const updatePayload: { [key: string]: any } = {};
 
-    if (Object.keys(cleanData).length > 0) {
-        await updateDoc(profileDocRef, {
-            ...cleanData,
-            updatedAt: serverTimestamp(),
-        });
+    // Explicitly copy only defined properties from the input data
+    if (profileData.name !== undefined) updatePayload.name = profileData.name;
+    if (profileData.homeVenue !== undefined) updatePayload.homeVenue = profileData.homeVenue;
+    if (profileData.logoUrl !== undefined) updatePayload.logoUrl = profileData.logoUrl;
+    if (profileData.maintenanceMode !== undefined) updatePayload.maintenanceMode = profileData.maintenanceMode;
+
+    // Only proceed if there's at least one property to update
+    if (Object.keys(updatePayload).length > 0) {
+        // Add the timestamp for tracking updates
+        updatePayload.updatedAt = serverTimestamp();
+        
+        // Perform the update with the sanitized payload
+        await updateDoc(profileDocRef, updatePayload);
     } else {
       console.log("No data to update for team profile.");
     }
