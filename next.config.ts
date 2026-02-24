@@ -24,6 +24,12 @@ const remotePatterns: NextConfig['images']['remotePatterns'] = [
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
 ];
 
 if (r2Hostname) {
