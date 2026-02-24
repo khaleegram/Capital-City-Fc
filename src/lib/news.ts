@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   collection,
@@ -47,7 +47,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error adding news article: ", error);
+    console.error("Error adding news article: ", errorMessage);
     throw new Error(`Failed to add news article: ${errorMessage}`);
   }
 };
@@ -74,7 +74,7 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
         await updateDoc(articleDocRef, updateData);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error updating news article: ", error);
+        console.error("Error updating news article: ", errorMessage);
         throw new Error(`Failed to update news article: ${errorMessage}`);
     }
 };
@@ -92,7 +92,7 @@ export const deleteNewsArticle = async (article: NewsArticle) => {
         }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error deleting news article: ", error);
+        console.error("Error deleting news article: ", errorMessage);
         throw new Error(`Failed to delete news article: ${errorMessage}`);
     }
 };

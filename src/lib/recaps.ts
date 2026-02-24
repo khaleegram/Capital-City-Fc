@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   collection,
@@ -22,14 +22,12 @@ const newsCollectionRef = collection(db, "news");
 export const addRecap = async (recapData: Omit<Recap, 'id' | 'createdAt'>, fixture: Fixture) => {
   const batch = writeBatch(db);
   try {
-    // 1. Create the recap document
     const recapRef = doc(recapsCollectionRef);
     batch.set(recapRef, {
       ...recapData,
       createdAt: serverTimestamp(),
     });
 
-    // 2. Create the corresponding news article
     const newsRef = doc(newsCollectionRef);
     batch.set(newsRef, {
         headline: recapData.headline,
@@ -47,7 +45,7 @@ export const addRecap = async (recapData: Omit<Recap, 'id' | 'createdAt'>, fixtu
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error adding recap and news article: ", error);
+    console.error("Error adding recap and news article: ", errorMessage);
     throw new Error(`Failed to add recap: ${errorMessage}`);
   }
 };

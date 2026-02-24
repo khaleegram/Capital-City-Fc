@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   collection,
@@ -27,11 +27,9 @@ export const addVideoWithTags = async (
 ) => {
   const batch = writeBatch(db);
   try {
-    // 1. Upload video and thumbnail to R2
     const thumbnailUrl = await uploadFileToR2(videoData.thumbnail, 'videos/thumbnails');
     const videoUrl = await uploadFileToR2(videoData.video, 'videos/raw');
 
-    // 2. Create the main video document
     const videoRef = doc(collection(db, "videos"));
     batch.set(videoRef, {
         title: videoData.title,
@@ -42,7 +40,6 @@ export const addVideoWithTags = async (
         taggedPlayers: taggedPlayers.map(p => ({ id: p.id, name: p.name })),
     });
 
-    // 3. Create a document in the junction collection for each tagged player
     if (taggedPlayers.length > 0) {
       taggedPlayers.forEach(player => {
           const playerVideoRef = doc(collection(db, "playerVideos"));
@@ -54,12 +51,11 @@ export const addVideoWithTags = async (
       });
     }
 
-    // 4. Commit the batch
     await batch.commit();
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error adding video with tags: ", error);
+    console.error("Error adding video with tags: ", errorMessage);
     throw new Error(`Failed to add video: ${errorMessage}`);
   }
 };
@@ -74,7 +70,6 @@ export const updateVideo = async (videoId: string, videoData: Partial<Omit<Video
     const batch = writeBatch(db);
     const videoRef = doc(db, "videos", videoId);
     try {
-        // Sanitize the payload to remove undefined values
         const updatePayload: { [key: string]: any } = {};
         Object.keys(videoData).forEach(key => {
             const K = key as keyof typeof videoData;
@@ -83,7 +78,6 @@ export const updateVideo = async (videoId: string, videoData: Partial<Omit<Video
             }
         });
         
-        // 1. Update the main video document
         if (Object.keys(updatePayload).length > 0) {
             batch.update(videoRef, {
                 ...updatePayload,
@@ -91,12 +85,10 @@ export const updateVideo = async (videoId: string, videoData: Partial<Omit<Video
             });
         }
 
-        // 2. Clear existing player tags for this video
         const playerVideosQuery = query(collection(db, "playerVideos"), where("videoId", "==", videoId));
         const oldTagsSnapshot = await getDocs(playerVideosQuery);
         oldTagsSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        // 3. Add new player tags
         if (videoData.taggedPlayers && videoData.taggedPlayers.length > 0) {
             videoData.taggedPlayers.forEach(player => {
                 const playerVideoRef = doc(collection(db, "playerVideos"));
@@ -111,7 +103,7 @@ export const updateVideo = async (videoId: string, videoData: Partial<Omit<Video
         await batch.commit();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error updating video:", error);
+        console.error("Error updating video:", errorMessage);
         throw new Error(`Failed to update video: ${errorMessage}`);
     }
 };
@@ -124,23 +116,19 @@ export const deleteVideo = async (video: Video) => {
     const batch = writeBatch(db);
     const videoRef = doc(db, "videos", video.id);
     try {
-        // 1. Delete the video document
         batch.delete(videoRef);
 
-        // 2. Delete player tags
         const playerVideosQuery = query(collection(db, "playerVideos"), where("videoId", "==", video.id));
         const tagsSnapshot = await getDocs(playerVideosQuery);
         tagsSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        // 3. Delete files from R2 storage
         await deleteFileFromR2(video.videoUrl);
         await deleteFileFromR2(video.thumbnailUrl);
         
-        // 4. Commit Firestore deletions
         await batch.commit();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error deleting video:", error);
+        console.error("Error deleting video:", errorMessage);
         throw new Error(`Failed to delete video: ${errorMessage}`);
     }
 };

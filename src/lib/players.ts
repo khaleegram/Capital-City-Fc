@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   collection,
@@ -37,7 +37,7 @@ export const addPlayer = async (playerData: Player) => {
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error adding player: ", error);
+    console.error("Error adding player: ", errorMessage);
     throw new Error(`Failed to add player: ${errorMessage}`);
   }
 };
@@ -51,7 +51,6 @@ export const updatePlayer = async (playerId: string, playerData: Partial<Player>
   try {
     const playerDocRef = doc(db, "players", playerId);
     
-    // Sanitize the payload to remove undefined values
     const updatePayload: { [key: string]: any } = {};
     Object.keys(playerData).forEach(key => {
         const K = key as keyof Partial<Player>;
@@ -66,7 +65,7 @@ export const updatePlayer = async (playerId: string, playerData: Partial<Player>
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error updating player: ", error);
+    console.error("Error updating player: ", errorMessage);
     throw new Error(`Failed to update player: ${errorMessage}`);
   }
 };
@@ -77,15 +76,11 @@ export const updatePlayer = async (playerId: string, playerData: Partial<Player>
  */
 export const deletePlayer = async (player: Player) => {
     try {
-      // Delete Firestore document
       await deleteDoc(doc(db, "players", player.id));
-      
-      // Delete image from R2 Storage
       await deleteFileFromR2(player.imageUrl);
-
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : String(error);
-       console.error("Error deleting player:", error);
+       console.error("Error deleting player:", errorMessage);
        throw new Error(`Failed to delete player: ${errorMessage}`);
     }
   }

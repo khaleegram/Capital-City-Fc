@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   doc,
@@ -9,7 +9,6 @@ import {
 } from "firebase/firestore";
 import { db, app } from "./firebase";
 import type { TeamProfile } from "./data";
-import { uploadFileToR2 } from "./r2";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 const TEAM_PROFILE_DOC_ID = "main_profile";
@@ -48,14 +47,6 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
   }
 };
 
-/**
- * Uploads the team's logo to Cloudflare R2.
- * @param imageFile The image file to upload.
- * @returns The public URL of the uploaded image.
- */
-export const uploadTeamLogo = async (imageFile: File): Promise<string> => {
-    return uploadFileToR2(imageFile, 'team/logos');
-};
 
 /**
  * Updates the main team profile in Firestore.
@@ -65,14 +56,13 @@ export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, '
   try {
     const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
     
-    // Manually construct the payload to ensure no undefined values are passed
     const updatePayload: { [key: string]: any } = {};
 
     if (profileData.name !== undefined) updatePayload.name = profileData.name;
     if (profileData.homeVenue !== undefined) updatePayload.homeVenue = profileData.homeVenue;
     if (profileData.logoUrl !== undefined) updatePayload.logoUrl = profileData.logoUrl;
     if (profileData.maintenanceMode !== undefined) updatePayload.maintenanceMode = profileData.maintenanceMode;
-
+    
     if (Object.keys(updatePayload).length > 0) {
         updatePayload.updatedAt = serverTimestamp();
         await updateDoc(profileDocRef, updatePayload);

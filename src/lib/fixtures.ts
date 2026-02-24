@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   collection,
@@ -92,7 +92,7 @@ export const addFixtureAndArticle = async (data: {
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error adding fixture and/or article: ", error);
+        console.error("Error adding fixture and/or article: ", errorMessage);
         throw new Error(`Failed to add fixture: ${errorMessage}`);
     }
 };
@@ -126,7 +126,7 @@ export const updateFixture = async (fixtureId: string, fixtureData: Partial<Omit
         }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error updating fixture: ", error);
+        console.error("Error updating fixture: ", errorMessage);
         throw new Error(`Failed to update fixture: ${errorMessage}`);
     }
 };
@@ -139,11 +139,9 @@ export const updateFixture = async (fixtureId: string, fixtureData: Partial<Omit
 export const deleteFixture = async (fixture: Fixture) => {
     const batch = writeBatch(db);
     try {
-        // Delete the fixture document
         const fixtureDocRef = doc(db, "fixtures", fixture.id);
         batch.delete(fixtureDocRef);
 
-        // If there's an associated article, delete it as well.
         if (fixture.articleId) {
             const articleDocRef = doc(db, "news", fixture.articleId);
             batch.delete(articleDocRef);
@@ -156,7 +154,7 @@ export const deleteFixture = async (fixture: Fixture) => {
         await batch.commit();
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Error deleting fixture:", error);
+        console.error("Error deleting fixture:", errorMessage);
         throw new Error(`Failed to delete fixture: ${errorMessage}`);
     }
 };
@@ -214,7 +212,6 @@ export const postLiveUpdate = async (
             // Handle match clock timestamps
             if (eventType === 'Match Start') {
                 fixtureUpdate.kickoffTime = serverTimestamp();
-                // Increment appearances for all starting players
                 if (fixtureData.startingXI) {
                     for (const player of fixtureData.startingXI) {
                         const playerRef = doc(playersCollectionRef, player.id);
@@ -225,7 +222,6 @@ export const postLiveUpdate = async (
             if (eventType === 'Half Time') fixtureUpdate.firstHalfEndTime = serverTimestamp();
             if (eventType === 'Second Half Start') fixtureUpdate.secondHalfStartTime = serverTimestamp();
             
-            // If it's a substitution, update the activePlayers list
             if (eventType === 'Substitution' && substitution) {
                 transaction.update(fixtureDocRef, { 
                     activePlayers: arrayRemove(substitution.subOffPlayer),
@@ -235,7 +231,6 @@ export const postLiveUpdate = async (
                 });
             }
 
-            // If it's a goal, update player stats
             if (eventType === 'Goal' && goal) {
                 const scorerRef = doc(playersCollectionRef, goal.scorer.id);
                 transaction.update(scorerRef, { "stats.goals": increment(1) });
@@ -245,10 +240,8 @@ export const postLiveUpdate = async (
                 }
             }
 
-            // Update the main fixture document
             transaction.update(fixtureDocRef, fixtureUpdate);
 
-            // Add a new document to the liveEvents subcollection
             const newEventRef = doc(liveEventsColRef);
             transaction.set(newEventRef, {
                 text: eventText,

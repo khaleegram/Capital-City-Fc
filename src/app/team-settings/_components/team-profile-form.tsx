@@ -9,7 +9,9 @@ import Image from "next/image";
 
 import { useToast } from "@/hooks/use-toast";
 import type { TeamProfile } from "@/lib/data";
-import { updateTeamProfile, uploadTeamLogo } from "@/lib/team";
+import { updateTeamProfile } from "@/lib/team";
+import { uploadTeamLogo } from "@/lib/team-actions";
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -77,8 +79,9 @@ export function TeamProfileForm({ profile }: TeamProfileFormProps) {
                 description: "Team profile has been updated.",
             });
         } catch (error) {
-            console.error("Failed to update profile:", error);
-            toast({ variant: "destructive", title: "Error", description: "Could not update the team profile." });
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+            console.error("Failed to update profile:", errorMessage);
+            toast({ variant: "destructive", title: "Error", description: errorMessage });
         } finally {
             setIsSubmitting(false);
         }

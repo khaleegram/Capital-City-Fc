@@ -1,4 +1,4 @@
-'use server';
+'use client';
 
 import {
   collection,
@@ -26,7 +26,6 @@ export const addFormation = async (
   notes?: string,
 ) => {
   try {
-    // Storing a lightweight version of the player object
     const mapPlayers = (players: Player[]) =>
       players.map((p) => ({
         id: p.id,
@@ -45,7 +44,7 @@ export const addFormation = async (
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error adding formation: ", error);
+    console.error("Error adding formation: ", errorMessage);
     throw new Error(`Failed to add formation: ${errorMessage}`);
   }
 };
@@ -60,7 +59,7 @@ export const deleteFormation = async (formationId: string) => {
     await deleteDoc(formationDocRef);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error deleting formation: ", error);
+    console.error("Error deleting formation: ", errorMessage);
     throw new Error(`Failed to delete formation: ${errorMessage}`);
   }
 };
