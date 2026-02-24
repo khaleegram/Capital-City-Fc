@@ -46,7 +46,8 @@ export const addRecap = async (recapData: Omit<Recap, 'id' | 'createdAt'>, fixtu
     await batch.commit();
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding recap and news article: ", error);
-    throw new Error("Failed to add recap.");
+    throw new Error(`Failed to add recap: ${errorMessage}`);
   }
 };

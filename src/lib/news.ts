@@ -46,8 +46,9 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       createdAt: serverTimestamp(),
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding news article: ", error);
-    throw new Error("Failed to add news article.");
+    throw new Error(`Failed to add news article: ${errorMessage}`);
   }
 };
 
@@ -72,8 +73,9 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
         const articleDocRef = doc(db, "news", articleId);
         await updateDoc(articleDocRef, updateData);
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error updating news article: ", error);
-        throw new Error("Failed to update news article.");
+        throw new Error(`Failed to update news article: ${errorMessage}`);
     }
 };
 
@@ -85,9 +87,12 @@ export const deleteNewsArticle = async (article: NewsArticle) => {
     try {
         const articleDocRef = doc(db, "news", article.id);
         await deleteDoc(articleDocRef);
-        await deleteFileFromR2(article.imageUrl);
+        if (article.imageUrl) {
+          await deleteFileFromR2(article.imageUrl);
+        }
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error deleting news article: ", error);
-        throw new Error("Failed to delete news article.");
+        throw new Error(`Failed to delete news article: ${errorMessage}`);
     }
 };

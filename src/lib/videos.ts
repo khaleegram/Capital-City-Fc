@@ -58,8 +58,9 @@ export const addVideoWithTags = async (
     await batch.commit();
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding video with tags: ", error);
-    throw new Error("Failed to add video.");
+    throw new Error(`Failed to add video: ${errorMessage}`);
   }
 };
 
@@ -73,11 +74,22 @@ export const updateVideo = async (videoId: string, videoData: Partial<Omit<Video
     const batch = writeBatch(db);
     const videoRef = doc(db, "videos", videoId);
     try {
-        // 1. Update the main video document
-        batch.update(videoRef, {
-            ...videoData,
-            updatedAt: serverTimestamp(),
+        // Sanitize the payload to remove undefined values
+        const updatePayload: { [key: string]: any } = {};
+        Object.keys(videoData).forEach(key => {
+            const K = key as keyof typeof videoData;
+            if (videoData[K] !== undefined) {
+                updatePayload[K] = videoData[K];
+            }
         });
+        
+        // 1. Update the main video document
+        if (Object.keys(updatePayload).length > 0) {
+            batch.update(videoRef, {
+                ...updatePayload,
+                updatedAt: serverTimestamp(),
+            });
+        }
 
         // 2. Clear existing player tags for this video
         const playerVideosQuery = query(collection(db, "playerVideos"), where("videoId", "==", videoId));
@@ -98,8 +110,9 @@ export const updateVideo = async (videoId: string, videoData: Partial<Omit<Video
         
         await batch.commit();
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error updating video:", error);
-        throw new Error("Failed to update video.");
+        throw new Error(`Failed to update video: ${errorMessage}`);
     }
 };
 
@@ -126,8 +139,9 @@ export const deleteVideo = async (video: Video) => {
         // 4. Commit Firestore deletions
         await batch.commit();
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error deleting video:", error);
-        throw new Error("Failed to delete video.");
+        throw new Error(`Failed to delete video: ${errorMessage}`);
     }
 };
 

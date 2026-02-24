@@ -44,8 +44,9 @@ export const addFormation = async (
       createdAt: serverTimestamp(),
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding formation: ", error);
-    throw new Error("Failed to add formation.");
+    throw new Error(`Failed to add formation: ${errorMessage}`);
   }
 };
 
@@ -58,7 +59,8 @@ export const deleteFormation = async (formationId: string) => {
     const formationDocRef = doc(db, "formations", formationId);
     await deleteDoc(formationDocRef);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error deleting formation: ", error);
-    throw new Error("Failed to delete formation.");
+    throw new Error(`Failed to delete formation: ${errorMessage}`);
   }
 };

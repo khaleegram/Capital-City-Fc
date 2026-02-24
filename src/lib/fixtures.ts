@@ -91,8 +91,9 @@ export const addFixtureAndArticle = async (data: {
         await batch.commit();
 
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error adding fixture and/or article: ", error);
-        throw new Error("Failed to add fixture.");
+        throw new Error(`Failed to add fixture: ${errorMessage}`);
     }
 };
 
@@ -105,18 +106,28 @@ export const updateFixture = async (fixtureId: string, fixtureData: Partial<Omit
     try {
         const fixtureDocRef = doc(db, "fixtures", fixtureId);
         
+        const updatePayload: { [key: string]: any } = {};
+        // Sanitize payload
+        Object.keys(fixtureData).forEach(key => {
+            const K = key as keyof typeof fixtureData;
+            if (fixtureData[K] !== undefined) {
+                updatePayload[K] = fixtureData[K];
+            }
+        });
+
         // If starting XI is being updated, also update activePlayers
-        if (fixtureData.startingXI) {
-            fixtureData.activePlayers = fixtureData.startingXI;
+        if (updatePayload.startingXI) {
+            updatePayload.activePlayers = updatePayload.startingXI;
         }
 
-        await updateDoc(fixtureDocRef, {
-            ...fixtureData,
-            updatedAt: serverTimestamp(),
-        });
+        if (Object.keys(updatePayload).length > 0) {
+            updatePayload.updatedAt = serverTimestamp();
+            await updateDoc(fixtureDocRef, updatePayload);
+        }
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error updating fixture: ", error);
-        throw new Error("Failed to update fixture.");
+        throw new Error(`Failed to update fixture: ${errorMessage}`);
     }
 };
 
@@ -138,12 +149,15 @@ export const deleteFixture = async (fixture: Fixture) => {
             batch.delete(articleDocRef);
         }
         
-        await deleteFileFromR2(fixture.opponentLogoUrl);
+        if (fixture.opponentLogoUrl) {
+            await deleteFileFromR2(fixture.opponentLogoUrl);
+        }
 
         await batch.commit();
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error deleting fixture:", error);
-        throw new Error("Failed to delete fixture.");
+        throw new Error(`Failed to delete fixture: ${errorMessage}`);
     }
 };
 
@@ -250,7 +264,8 @@ export const postLiveUpdate = async (
             });
         });
     } catch(e) {
+        const errorMessage = e instanceof Error ? e.message : String(e);
         console.error("Transaction failed: ", e);
-        throw new Error("Failed to post live update.");
+        throw new Error(`Failed to post live update: ${errorMessage}`);
     }
 };

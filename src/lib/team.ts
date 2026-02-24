@@ -65,28 +65,23 @@ export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, '
   try {
     const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
     
-    // Create a new, clean object for the update payload
+    // Manually construct the payload to ensure no undefined values are passed
     const updatePayload: { [key: string]: any } = {};
 
-    // Explicitly copy only defined properties from the input data
     if (profileData.name !== undefined) updatePayload.name = profileData.name;
     if (profileData.homeVenue !== undefined) updatePayload.homeVenue = profileData.homeVenue;
     if (profileData.logoUrl !== undefined) updatePayload.logoUrl = profileData.logoUrl;
     if (profileData.maintenanceMode !== undefined) updatePayload.maintenanceMode = profileData.maintenanceMode;
 
-    // Only proceed if there's at least one property to update
     if (Object.keys(updatePayload).length > 0) {
-        // Add the timestamp for tracking updates
         updatePayload.updatedAt = serverTimestamp();
-        
-        // Perform the update with the sanitized payload
         await updateDoc(profileDocRef, updatePayload);
-    } else {
-      console.log("No data to update for team profile.");
     }
+
   } catch (error) {
-    console.error("Error updating team profile: ", error);
-    throw new Error("Failed to update team profile.");
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error updating team profile: ", errorMessage);
+    throw new Error(`Failed to update team profile: ${errorMessage}`);
   }
 };
 
@@ -103,7 +98,8 @@ export const sendCustomNotification = async (title: string, body: string) => {
     const result = await sendNotification({ title, body });
     return result.data;
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error calling sendCustomNotification function:", error);
-    throw new Error("Failed to send custom notification.");
+    throw new Error(`Failed to send custom notification: ${errorMessage}`);
   }
 };

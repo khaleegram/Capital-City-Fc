@@ -36,8 +36,9 @@ export const addPlayer = async (playerData: Player) => {
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding player: ", error);
-    throw new Error("Failed to add player.");
+    throw new Error(`Failed to add player: ${errorMessage}`);
   }
 };
 
@@ -49,13 +50,24 @@ export const addPlayer = async (playerData: Player) => {
 export const updatePlayer = async (playerId: string, playerData: Partial<Player>) => {
   try {
     const playerDocRef = doc(db, "players", playerId);
-    await updateDoc(playerDocRef, {
-      ...playerData,
-      updatedAt: serverTimestamp(),
+    
+    // Sanitize the payload to remove undefined values
+    const updatePayload: { [key: string]: any } = {};
+    Object.keys(playerData).forEach(key => {
+        const K = key as keyof Partial<Player>;
+        if (playerData[K] !== undefined) {
+            updatePayload[K] = playerData[K];
+        }
     });
+
+    if (Object.keys(updatePayload).length > 0) {
+        updatePayload.updatedAt = serverTimestamp();
+        await updateDoc(playerDocRef, updatePayload);
+    }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error updating player: ", error);
-    throw new Error("Failed to update player.");
+    throw new Error(`Failed to update player: ${errorMessage}`);
   }
 };
 
@@ -72,7 +84,8 @@ export const deletePlayer = async (player: Player) => {
       await deleteFileFromR2(player.imageUrl);
 
     } catch (error) {
+       const errorMessage = error instanceof Error ? error.message : String(error);
        console.error("Error deleting player:", error);
-       throw new Error("Failed to delete player.");
+       throw new Error(`Failed to delete player: ${errorMessage}`);
     }
   }
