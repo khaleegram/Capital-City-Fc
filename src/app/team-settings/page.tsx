@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { getTeamProfile } from "@/lib/team";
 import type { TeamProfile } from "@/lib/data";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Lock, Loader2 } from "lucide-react";
@@ -19,18 +21,24 @@ export default function TeamSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                const teamProfile = await getTeamProfile();
-                setProfile(teamProfile);
-            } catch (error) {
-                console.error("Failed to fetch team profile:", error);
-            } finally {
-                setIsLoading(false);
+        // Replaced the one-time fetch with a real-time listener
+        // to ensure the UI updates automatically after changes.
+        const profileDocRef = doc(db, "teamProfile", "main_profile");
+        const unsubscribe = onSnapshot(profileDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setProfile({ id: docSnap.id, ...docSnap.data() } as TeamProfile);
+            } else {
+                // If the profile doesn't exist, create the default one.
+                // This is unlikely to happen after first load but is good practice.
+                getTeamProfile().then(setProfile);
             }
-        };
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Failed to fetch team profile in real-time:", error);
+            setIsLoading(false);
+        });
 
-        fetchProfile();
+        return () => unsubscribe();
     }, []);
 
     if (!user) {
