@@ -53,7 +53,7 @@ export default function VideoPlayerPage({ params }: { params: Promise<{ id: stri
     const uploadDate = (video.uploadDate as any)?.toDate ? (video.uploadDate as any).toDate() : new Date();
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
             <Card>
                 <CardContent className="p-0">
                     <video

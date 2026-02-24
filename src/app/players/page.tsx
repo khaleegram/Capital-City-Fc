@@ -93,7 +93,7 @@ export default function PlayersPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       <PlayerForm
         isOpen={isFormOpen}
         setIsOpen={setIsFormOpen}

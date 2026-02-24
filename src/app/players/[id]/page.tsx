@@ -170,7 +170,7 @@ export default function PlayerProfilePage({ params }: { params: Promise<{ id: st
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       <Card>
         <CardHeader className="flex flex-col md:flex-row gap-6 p-6">
           <Avatar className="h-32 w-32 border-4 border-primary/20">

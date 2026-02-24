@@ -182,7 +182,7 @@ function PublicLayout({ children, teamProfile }: { children: React.ReactNode, te
     return (
         <div className="flex flex-col min-h-svh">
             <PublicNavbar teamProfile={teamProfile} />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 pt-20">{children}</main>
             <Chatbot />
         </div>
     )

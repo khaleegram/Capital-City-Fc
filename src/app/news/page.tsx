@@ -79,7 +79,7 @@ export default function NewsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-headline font-bold">News & Content Creation</h1>
         <p className="text-muted-foreground mt-2">Browse the latest club news or use AI-powered tools to publish new articles.</p>

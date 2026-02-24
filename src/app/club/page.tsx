@@ -92,7 +92,7 @@ export default function ClubPage() {
     }
 
     return (
-        <div className="p-4 sm:p-6 lg:p-8 space-y-12">
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-12">
             <section className="relative text-center py-20 rounded-lg overflow-hidden bg-muted">
                  <div className="absolute inset-0 bg-cover bg-center opacity-10" style={{ backgroundImage: `url(${profile.logoUrl})` }}></div>
                 <div className="relative z-10 flex flex-col items-center">
