@@ -138,7 +138,7 @@ function UpcomingFixtureCard({ fixture, teamProfile }: { fixture: Fixture, teamP
     const fixtureDate = (fixture.date as any).toDate ? (fixture.date as any).toDate() : new Date(fixture.date);
 
     return (
-        <Card className="w-full max-w-4xl mx-auto shadow-lg relative z-20 border-primary/20 border-2 bg-background/80 backdrop-blur-sm">
+        <Card className="w-full max-w-4xl mx-auto shadow-lg border-primary/20 border-2 bg-background/80 backdrop-blur-sm">
             <CardHeader className="text-center">
                  <p className="font-semibold text-primary">{fixture.competition}</p>
                 <p className="text-sm text-muted-foreground">
@@ -214,17 +214,17 @@ function PublicLandingPage() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
-        className="relative h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex flex-col items-center justify-center pt-20"
+        className="relative min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white flex flex-col items-center justify-center pt-20 pb-32"
       >
         <Image 
-          src="https://picsum.photos/1920/1080" 
+          src="https://picsum.photos/seed/stadium/1920/1080" 
           alt="Capital City FC Stadium" 
           fill
           priority
           className="z-0 object-cover opacity-20" 
           data-ai-hint="stadium lights soccer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent z-10"></div>
         <div className="relative z-20 text-center p-4 flex flex-col items-center">
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
@@ -260,17 +260,22 @@ function PublicLandingPage() {
             </Button>
           </motion.div>
         </div>
-         {nextFixture && teamProfile && (
-            <motion.div 
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.8, delay: 1.2 }}
-              className="absolute bottom-10 w-full px-4 z-20"
-            >
-              <UpcomingFixtureCard fixture={nextFixture} teamProfile={teamProfile} />
-            </motion.div>
-        )}
       </motion.section>
+
+      {/* Upcoming Match Section */}
+      {nextFixture && teamProfile && (
+          <section className="relative z-20 -mt-24 pb-12">
+               <motion.div
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8, delay: 0.2 }}
+                  className="container mx-auto px-4"
+                >
+                    <UpcomingFixtureCard fixture={nextFixture} teamProfile={teamProfile} />
+                </motion.div>
+          </section>
+      )}
       
       {/* Recent News Section */}
       {recentNews.length > 0 && (
