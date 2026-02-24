@@ -5,6 +5,7 @@ import {
   getDoc,
   setDoc,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { db, app } from "./firebase";
 import type { TeamProfile } from "./data";
@@ -64,18 +65,14 @@ export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, '
   try {
     const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
     
-    // Create a clean, "plain" object by stringifying and parsing. 
-    // This is a robust way to remove any `undefined` values or other non-serializable properties.
     const cleanData = JSON.parse(JSON.stringify(profileData));
 
     if (Object.keys(cleanData).length > 0) {
-        await setDoc(profileDocRef, {
+        await updateDoc(profileDocRef, {
             ...cleanData,
             updatedAt: serverTimestamp(),
-        }, { merge: true });
+        });
     } else {
-      // If there's nothing to update, we can choose to do nothing.
-      // This avoids an unnecessary write to Firestore.
       console.log("No data to update for team profile.");
     }
   } catch (error) {
