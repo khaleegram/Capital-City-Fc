@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Capital City FC — Letterhead Direction A</title>
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --navy: #0B1F4D;
+    --ink: #0A1628;
+    --muted: #5A6577;
+    --hair: #D7DCE5;
+    --page: #fff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #e8eaee;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+  }
+  .sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 24px auto;
+    background: var(--page);
+    padding: 20mm 22mm 18mm;
+    position: relative;
+    box-shadow: 0 12px 40px rgba(10, 22, 40, 0.12);
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16mm;
+  }
+  .crest { width: 28mm; height: 28mm; object-fit: contain; }
+  .contact {
+    text-align: right;
+    font-size: 8.5pt;
+    line-height: 1.55;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .meta { color: var(--muted); font-size: 9pt; margin-bottom: 11mm; }
+  .recipient { font-size: 10.5pt; line-height: 1.45; margin-bottom: 7mm; }
+  .salutation { font-size: 10.5pt; margin-bottom: 9mm; }
+  .body { font-size: 10.5pt; line-height: 1.55; max-width: 100%; margin-bottom: 10mm; }
+  .closing { font-size: 10.5pt; margin-bottom: 18mm; }
+  .sign .name { font-weight: 700; font-size: 10.5pt; }
+  .sign .role { color: var(--muted); font-size: 9pt; margin-top: 2mm; }
+  footer {
+    position: absolute;
+    left: 22mm; right: 22mm; bottom: 13mm;
+    border-top: 0.3pt solid var(--hair);
+    padding-top: 3.5mm;
+    text-align: center;
+    font-size: 6.4pt;
+    color: var(--muted);
+    letter-spacing: 0.01em;
+  }
+  @media print {
+    body { background: #fff; }
+    .sheet { margin: 0; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <img class="crest" src="capital-city-fc-crest-transparent.png" alt="Capital City Football Club" />
+      <div class="contact">
+        Suite 33.2, Moshood Abiola Way<br />
+        National Stadium, Abuja<br />
+        T&nbsp;&nbsp;0807 600 2414<br />
+        E&nbsp;&nbsp;info@capitalcityfc.ng
+      </div>
+    </header>
+
+    <div class="meta">5 August 2026</div>
+    <div class="recipient">
+      The Director<br />
+      [Recipient Organisation]<br />
+      [Address Line]<br />
+      Abuja
+    </div>
+    <div class="salutation">Dear Sir/Madam,</div>
+    <p class="body">
+      This letterhead is Capital City Football Club’s official stationery system.
+      Replace this sample copy with your correspondence. The layout keeps generous
+      margins, a crest-led header, and a quiet legal footer for federation, sponsor,
+      and institutional communication.
+    </p>
+    <div class="closing">Yours faithfully,</div>
+    <div class="sign">
+      <div class="name">Abdulrahaman Umar Baba</div>
+      <div class="role">Director, Capital City FC Ltd</div>
+    </div>
+
+    <footer>
+      Capital City FC Ltd&nbsp;&nbsp;&nbsp;RC 1838954&nbsp;&nbsp;&nbsp;
+      Suite 33.2, Moshood Abiola Way, National Stadium, Abuja&nbsp;&nbsp;&nbsp;
+      0807 600 2414&nbsp;&nbsp;&nbsp;info@capitalcityfc.ng
+    </footer>
+  </div>
+</body>
+</html>

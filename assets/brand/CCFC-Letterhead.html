@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Capital City FC — Official Letterhead</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --navy: #0A1630;
+    --navy2: #0E1C3C;
+    --ink: #161C27;
+    --muted: #666F7D;
+    --rule: #DADDE1;
+    --red: #E30613;
+    --mist: #C7D1E0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #9aa3b0; font-family: Outfit, sans-serif; -webkit-font-smoothing: antialiased; }
+  .stage { padding: 48px 16px 72px; }
+  .sheet {
+    width: 210mm; height: 297mm; margin: 0 auto; background: #fff; position: relative; overflow: hidden;
+    box-shadow: 0 50px 120px rgba(5,12,30,.45);
+  }
+  .mast {
+    height: 58mm;
+    background: linear-gradient(90deg, var(--navy) 0%, var(--navy) 62%, var(--navy2) 62%, var(--navy2) 100%);
+    color: #fff;
+    display: grid;
+    grid-template-columns: 1fr 46mm;
+    gap: 8mm;
+    padding: 10mm 18mm 0;
+    position: relative;
+  }
+  .mast::after {
+    content: "";
+    position: absolute; left: 0; right: 0; bottom: -1.2mm;
+    height: 1.2mm; background: var(--red);
+  }
+  .brand-row { display: flex; gap: 6.5mm; align-items: center; }
+  .crest {
+    width: 36mm; height: 36mm; object-fit: contain; flex-shrink: 0;
+    filter: drop-shadow(0 8px 18px rgba(0,0,0,.35));
+  }
+  .lock { padding-top: 1mm; }
+  .lock .p {
+    font-weight: 600; font-size: 15pt; letter-spacing: 0.20em; line-height: 1;
+    margin-left: -0.05em;
+  }
+  .lock .s {
+    margin-top: 3.2mm; font-weight: 500; font-size: 7.2pt; letter-spacing: 0.36em;
+    color: var(--mist); line-height: 1;
+  }
+  .lock .rule {
+    width: 28mm; height: 0.5pt; background: rgba(255,255,255,.35);
+    margin: 4mm 0 2.8mm; border: 0;
+  }
+  .lock .legal { font-size: 6.3pt; color: var(--mist); font-weight: 400; }
+  .contact { text-align: right; padding-top: 4mm; }
+  .contact address {
+    font-style: normal; font-weight: 300; font-size: 7.2pt; line-height: 1.55; color: var(--mist);
+  }
+  .contact .reach {
+    margin-top: 4mm; font-weight: 500; font-size: 8.2pt; line-height: 1.55; color: #fff;
+  }
+  .body-wrap { padding: 14mm 18mm 16mm; }
+  .date { font-size: 8pt; color: var(--muted); margin-bottom: 9mm; }
+  .recipient, .salutation, .copy, .closing {
+    font-family: Newsreader, Georgia, serif; font-size: 10.5pt; color: var(--ink); line-height: 1.5;
+  }
+  .recipient { margin-bottom: 6mm; }
+  .salutation { font-style: italic; margin-bottom: 8mm; }
+  .copy p { margin-bottom: 3.2mm; }
+  .closing { margin: 5mm 0 13mm; }
+  .name { font-weight: 600; font-size: 9.5pt; color: var(--navy); }
+  .role { font-size: 7.5pt; color: var(--muted); margin-top: 1.5mm; }
+  footer {
+    position: absolute; left: 18mm; right: 18mm; bottom: 11mm;
+    border-top: 0.35pt solid var(--rule); padding-top: 3mm;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 6pt; color: var(--muted);
+  }
+  footer i {
+    width: 1.3mm; height: 1.3mm; background: var(--red); display: inline-block;
+    margin-right: 2mm; vertical-align: middle; font-style: normal;
+  }
+  @media print {
+    body, .stage { background: #fff; padding: 0; }
+    .sheet { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+<article class="sheet">
+  <header class="mast">
+    <div class="brand-row">
+      <img class="crest" src="capital-city-fc-crest-transparent.png" alt="Capital City FC crest" />
+      <div class="lock">
+        <div class="p">CAPITAL CITY</div>
+        <div class="s">FOOTBALL CLUB</div>
+        <div class="rule"></div>
+        <div class="legal">Capital City FC Ltd  ·  RC 1838954</div>
+      </div>
+    </div>
+    <div class="contact">
+      <address>
+        Suite 33.2, Moshood Abiola Way<br />
+        National Stadium, Abuja<br />
+        Nigeria
+      </address>
+      <div class="reach">
+        0807 600 2414<br />
+        info@capitalcityfc.ng
+      </div>
+    </div>
+  </header>
+
+  <div class="body-wrap">
+    <div class="date">5 August 2026</div>
+    <div class="recipient">
+      The Honourable Minister<br />
+      Federal Ministry of Youth &amp; Sports Development<br />
+      Federal Secretariat Complex<br />
+      Abuja, FCT
+    </div>
+    <div class="salutation">Dear Honourable Minister,</div>
+    <div class="copy">
+      <p>Capital City Football Club writes with respect to our continued development programme within the Federal Capital Territory. We remain committed to building a professionally run club that reflects the standards of Abuja as Nigeria’s capital.</p>
+      <p>We would welcome the opportunity to brief your office on our community outreach, academy pathway, and plans for competitive participation in the coming season. Our Director stands ready to provide any further information required.</p>
+    </div>
+    <div class="closing">Yours faithfully,</div>
+    <div class="name">Abdulrahaman Umar Baba</div>
+    <div class="role">Director, Capital City Football Club</div>
+  </div>
+
+  <footer>
+    <span><i></i>Capital City FC Ltd  ·  RC 1838954  ·  National Stadium, Abuja</span>
+    <span>info@capitalcityfc.ng</span>
+  </footer>
+</article>
+</div>
+</body>
+</html>
