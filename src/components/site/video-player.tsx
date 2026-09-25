@@ -4,6 +4,7 @@ import Image from "next/image"
 import { useState } from "react"
 import { Play } from "lucide-react"
 import { cn, embedUrlFor } from "@/lib/utils"
+import { VideoFrame } from "@/components/site/video-thumb"
 
 /** Poster-first player: nothing heavy loads until the visitor taps play. */
 export function VideoPlayer({
@@ -43,7 +44,10 @@ export function VideoPlayer({
           {poster ? (
             <Image src={poster} alt="" fill sizes="(min-width: 1024px) 60vw, 100vw" className="object-cover" priority />
           ) : (
-            <div className="absolute inset-0 bg-horizon" />
+            <>
+              <div className="absolute inset-0 bg-horizon" />
+              <VideoFrame src={url} />
+            </>
           )}
           <span className="absolute inset-0 bg-ink/30 transition-colors group-hover:bg-ink/10" />
           <span className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-signal text-white shadow-[0_0_0_10px_rgba(227,38,47,0.2)] transition-transform group-hover:scale-110">

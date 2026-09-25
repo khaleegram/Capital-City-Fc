@@ -12,6 +12,7 @@ import { byNewest, cn, embedUrlFor, formatDate, formatDuration, youtubePoster } 
 import { useToast } from "@/hooks/use-toast"
 import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
 import { EditorSheet, NativeSelect, PlayerMultiSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
+import { VideoFrame } from "@/components/site/video-thumb"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -88,6 +89,71 @@ function readVideoMeta(file: File, timeoutMs = 8000): Promise<{ duration?: numbe
   })
 }
 
+/**
+ * Grabs a still from a video so its card has a thumbnail.
+ *
+ * Runs after the video has landed, never before: a poster is decoration, and it must not be
+ * able to fail an upload that already succeeded. Frame zero is very often black, so the
+ * browser is asked for a second in — capped at halfway for clips shorter than that.
+ *
+ * Returns null rather than throwing, because every failure here is non-fatal.
+ */
+async function captureVideoPoster(file: File, atSeconds = 1): Promise<File | null> {
+  const url = URL.createObjectURL(file)
+  const v = document.createElement("video")
+  v.preload = "metadata"
+  v.muted = true
+  v.playsInline = true
+
+  /** Resolves false on error or timeout, so a clip the browser can't decode can't hang this. */
+  const waitFor = (attach: (done: (ok: boolean) => void) => void, timeoutMs = 8000) =>
+    new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), timeoutMs)
+      attach((ok) => {
+        clearTimeout(timer)
+        resolve(ok)
+      })
+    })
+
+  try {
+    const loaded = await waitFor((done) => {
+      v.onloadedmetadata = () => done(true)
+      v.onerror = () => done(false)
+      v.src = url
+    })
+    if (!loaded || !v.videoWidth) return null
+
+    const target = Number.isFinite(v.duration) && v.duration > 0 ? Math.min(atSeconds, v.duration / 2) : 0
+    const seeked = await waitFor((done) => {
+      v.onseeked = () => done(true)
+      v.onerror = () => done(false)
+      v.currentTime = target
+    })
+    if (!seeked || !v.videoWidth) return null
+
+    // Cap the still at 1280px wide; cards never draw it larger than that.
+    const scale = Math.min(1, 1280 / v.videoWidth)
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(v.videoWidth * scale)
+    canvas.height = Math.round(v.videoHeight * scale)
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return null
+    ctx.drawImage(v, 0, 0, canvas.width, canvas.height)
+
+    let blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.82))
+    if (!blob || blob.type !== "image/webp") blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85))
+    if (!blob) return null
+
+    const ext = blob.type === "image/webp" ? ".webp" : ".jpg"
+    return new File([blob], file.name.replace(/\.[^.]+$/, "") + ext, { type: blob.type })
+  } catch {
+    return null
+  } finally {
+    v.removeAttribute("src")
+    URL.revokeObjectURL(url)
+  }
+}
+
 function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Partial<Draft>) => void }) {
   const [mode, setMode] = useState<"upload" | "link">(draft.url && embedUrlFor(draft.url) ? "link" : "upload")
   const [progress, setProgress] = useState<number | null>(null)
@@ -106,6 +172,9 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
     try {
       const url = await uploadFile(file, "media", setProgress)
       onChange({ url, title: draft.title || file.name.replace(/\.[^.]+$/, "") })
+      // The video itself is safe now; everything after this is decoration, so stop showing
+      // a progress bar that would otherwise sit at 100% while the still is generated.
+      setProgress(null)
       const m = await meta
       onChange(m)
       if (!m.duration) {
@@ -114,6 +183,9 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
           description: "Its length couldn't be read, which usually means the browser can't decode the codec. Re-export as MP4 (H.264) if playback fails.",
         })
       }
+      // Thumbnail for the cards. Best effort — a failure here leaves the video intact.
+      const frame = await captureVideoPoster(file)
+      if (frame) onChange({ poster: await uploadFile(frame, "media") })
     } catch (err) {
       toast({ variant: "destructive", title: "Upload failed", description: (err as Error).message })
     } finally {
@@ -282,7 +354,12 @@ export default function MediaAdmin() {
           {rows.map((m) => (
             <div key={m.id} className="overflow-hidden rounded-2xl border border-line/10">
               <button className="relative block aspect-video w-full bg-navy-deep" onClick={() => openDraft({ ...blank(), ...m })}>
-                {(m.poster || youtubePoster(m.url)) && <Image src={(m.poster || youtubePoster(m.url))!} alt="" fill sizes="33vw" className="object-cover" />}
+                {m.poster || youtubePoster(m.url) ? (
+                  <Image src={(m.poster || youtubePoster(m.url))!} alt="" fill sizes="33vw" className="object-cover" />
+                ) : (
+                  // Footage with no still of its own: paint the video's first frame.
+                  <VideoFrame src={m.url} />
+                )}
                 {m.duration ? <span className="on-dark absolute bottom-2 right-2 rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[10px]">{formatDuration(m.duration)}</span> : null}
                 {m.featured && <Star className="absolute left-2 top-2 h-4 w-4 fill-signal text-signal" />}
               </button>

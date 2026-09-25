@@ -4,6 +4,7 @@ import { ArrowUpRight, BadgeCheck, Play, Plane } from "lucide-react"
 import type { Journey, MediaAsset, Placement, Player } from "@/lib/data"
 import { copy } from "@/lib/copy"
 import { cn, formatDate, formatDuration, youtubePoster } from "@/lib/utils"
+import { VideoFrame } from "@/components/site/video-thumb"
 import { Badge } from "@/components/ui/badge"
 import { LiveDot } from "@/components/brand/live-dot"
 import { PassportBadge } from "@/components/brand/passport-badge"
@@ -171,6 +172,13 @@ export function mediaPoster(m: Pick<MediaAsset, "poster" | "url">) {
   return m.poster || youtubePoster(m.url) || null
 }
 
+/**
+ * Paints a video's own frame in place of a poster.
+ *
+ * Footage uploaded before stills were captured at upload time has no poster of its own, and
+ * these cards used to fall back to an empty gradient. YouTube links already resolve to a real
+ * poster through `youtubePoster`, so anything reaching the video branch is a direct file.
+ */
 export function MediaCard({ asset, className, vertical }: { asset: MediaAsset; className?: string; vertical?: boolean }) {
   const poster = mediaPoster(asset)
   return (
@@ -179,7 +187,10 @@ export function MediaCard({ asset, className, vertical }: { asset: MediaAsset; c
         {poster ? (
           <Image src={poster} alt="" fill sizes="(min-width: 768px) 33vw, 80vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
         ) : (
-          <div className="absolute inset-0 bg-horizon" />
+          <>
+            <div className="absolute inset-0 bg-horizon" />
+            <VideoFrame src={asset.url} className="transition-transform duration-700 group-hover:scale-[1.03]" />
+          </>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-transparent to-transparent" />
         <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-paper/90 text-ink transition-transform group-hover:scale-110">
