@@ -48,7 +48,33 @@ const nextConfig: NextConfig = {
     "/**/opengraph-image*": ["./assets/fonts/**", "./public/ccfc-crest.png"],
   },
   async redirects() {
+    /*
+     * Both www.capitalcity.ng and capitalcity.ng are attached to this project
+     * and serve identical content with no redirect between them, so search
+     * engines see two copies of every page and pick a winner themselves.
+     * Collapse www onto whichever origin NEXT_PUBLIC_SITE_URL declares as
+     * canonical (see src/lib/site-url.ts).
+     */
+    const canonicalHost = (() => {
+      try {
+        return new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://capitalcity.ng").hostname
+      } catch {
+        return "capitalcity.ng"
+      }
+    })()
+
     return [
+      // Skipped when www is itself the canonical origin, so this can never loop.
+      ...(canonicalHost.startsWith("www.")
+        ? []
+        : [
+            {
+              source: "/:path*",
+              has: [{ type: "host" as const, value: `www.${canonicalHost}` }],
+              destination: `https://${canonicalHost}/:path*`,
+              permanent: true,
+            },
+          ]),
       { source: "/videos", destination: "/media", permanent: true },
       { source: "/videos/:id", destination: "/media/:id", permanent: true },
       { source: "/recaps", destination: "/fixtures", permanent: true },
