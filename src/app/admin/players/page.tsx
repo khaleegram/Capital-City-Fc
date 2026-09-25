@@ -2,11 +2,12 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { Loader2, Plus, Search, Users } from "lucide-react"
+import { Loader2, Plus, Search, UserPlus, Users } from "lucide-react"
 import type { Player, SquadStatus } from "@/lib/data"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { deleteFile, refreshPublic } from "@/lib/admin-client"
 import { TEAM_LOGO_URL } from "@/lib/brand"
+import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
 import { EditorSheet, ListInput, NativeSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
@@ -65,6 +66,11 @@ type Draft = {
   strengths: string[]
   readyForNextStep: boolean
   published: boolean
+  // Captured when the player submits the public /join form.
+  photoLink: string
+  videoLinks: string[]
+  contact: { email: string; phone: string }
+  source?: Player["source"]
 }
 
 const blank = (): Draft => ({
@@ -88,6 +94,9 @@ const blank = (): Draft => ({
   strengths: [],
   readyForNextStep: false,
   published: true,
+  photoLink: "",
+  videoLinks: [],
+  contact: { email: "", phone: "" },
 })
 
 function fromPlayer(p: Player): Draft {
@@ -117,6 +126,10 @@ function fromPlayer(p: Player): Draft {
     strengths: p.strengths ?? [],
     readyForNextStep: !!p.readyForNextStep,
     published: p.published !== false,
+    photoLink: p.photoLink ?? "",
+    videoLinks: p.videoLinks ?? [],
+    contact: { email: p.contact?.email ?? "", phone: p.contact?.phone ?? "" },
+    source: p.source,
   }
 }
 
@@ -126,14 +139,18 @@ export default function PlayersAdmin() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const [q, setQ] = useState("")
+  const [draftsOnly, setDraftsOnly] = useState(false)
+
+  const awaitingReview = items.filter((p) => p.published === false)
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    if (!needle) return items
-    return items.filter(
+    const rows = draftsOnly ? items.filter((p) => p.published === false) : items
+    if (!needle) return rows
+    return rows.filter(
       (p) => p.name.toLowerCase().includes(needle) || String(p.jerseyNumber) === needle || (p.nickname ?? "").toLowerCase().includes(needle)
     )
-  }, [items, q])
+  }, [items, q, draftsOnly])
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
@@ -144,7 +161,9 @@ export default function PlayersAdmin() {
     }
     setSaving(true)
     try {
-      const { id, strongFoot, ...rest } = draft
+      const { id, strongFoot, photoLink, videoLinks, contact, source, ...rest } = draft
+      const email = contact.email.trim()
+      const phone = contact.phone.trim()
       await saveDoc("players", id ?? null, {
         ...rest,
         name: rest.name.trim(),
@@ -156,6 +175,10 @@ export default function PlayersAdmin() {
         dob: rest.dob || undefined,
         nationality: rest.nationality.trim() || undefined,
         currentClub: rest.currentClub.trim() || undefined,
+        photoLink: photoLink.trim() || undefined,
+        videoLinks: videoLinks.length ? videoLinks : undefined,
+        contact: email || phone ? { email: email || undefined, phone: phone || undefined } : undefined,
+        source,
       })
       await refreshPublic("players", "journeys")
       toast({ title: draft.id ? "Player saved" : "Player added" })
@@ -177,9 +200,22 @@ export default function PlayersAdmin() {
         </Button>
       }
     >
-      <div className="relative mb-5 max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist/60" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, nickname or number" className="pl-9" />
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist/60" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, nickname or number" className="pl-9" />
+        </div>
+        <button
+          type="button"
+          onClick={() => setDraftsOnly((v) => !v)}
+          aria-pressed={draftsOnly}
+          className={cn(
+            "h-11 rounded-xl border px-4 text-xs font-semibold",
+            draftsOnly ? "border-ivory bg-ivory text-ink" : "border-white/15 text-mist/80 hover:border-white/40"
+          )}
+        >
+          Awaiting review{awaitingReview.length ? ` (${awaitingReview.length})` : ""}
+        </button>
       </div>
 
       {loading ? (
@@ -187,10 +223,16 @@ export default function PlayersAdmin() {
       ) : shown.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={q ? "No match" : "No players yet"}
-          body={q ? "Try another name or number." : "Add the first player to the public squad."}
+          title={q || draftsOnly ? "No match" : "No players yet"}
+          body={
+            draftsOnly
+              ? "Self sign-ups from the /join page land here until you publish them."
+              : q
+                ? "Try another name or number."
+                : "Add the first player to the public squad."
+          }
           action={
-            !q ? (
+            !q && !draftsOnly ? (
               <Button onClick={() => setDraft(blank())}>
                 <Plus /> Add player
               </Button>
@@ -212,6 +254,7 @@ export default function PlayersAdmin() {
                 <p className="truncate text-sm text-muted-foreground">
                   {p.position}
                   {p.nickname && ` · ${p.nickname}`}
+                  {p.source === "signup" && " · self sign-up"}
                   {p.readyForNextStep && " · Ready"}
                 </p>
               </button>
@@ -276,6 +319,48 @@ export default function PlayersAdmin() {
                 </div>
               </div>
             </div>
+
+            {draft.source === "signup" && (
+              <div className="space-y-3 rounded-2xl border border-signal/30 bg-signal/5 p-4">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-signal" />
+                  <p className="text-sm font-semibold">Submitted by the player from /join</p>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Add the official photo, confirm the squad number, then switch on &ldquo;Show on public site&rdquo; to publish.
+                </p>
+                <dl className="space-y-2 text-sm">
+                  {draft.photoLink && (
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Photo link</dt>
+                      <dd>
+                        <a href={draft.photoLink} target="_blank" rel="noreferrer" className="break-all text-signal-soft underline">
+                          {draft.photoLink}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                  {draft.videoLinks.length > 0 && (
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Footage</dt>
+                      <dd className="min-w-0 space-y-1">
+                        {draft.videoLinks.map((link) => (
+                          <a key={link} href={link} target="_blank" rel="noreferrer" className="block break-all text-signal-soft underline">
+                            {link}
+                          </a>
+                        ))}
+                      </dd>
+                    </div>
+                  )}
+                  {(draft.contact.email || draft.contact.phone) && (
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Contact</dt>
+                      <dd>{[draft.contact.email, draft.contact.phone].filter(Boolean).join(" · ")}</dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            )}
 
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Shirt number">

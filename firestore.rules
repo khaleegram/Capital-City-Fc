@@ -33,6 +33,52 @@ service cloud.firestore {
     // ───────── Always-public collections ─────────
     match /players/{playerId} {
       allow read: if true;
+
+      // Self sign-up from the public /join page. Drafts only: staff review the submission in
+      // /admin/players, set the official photo, then publish it. Keep this shape in sync with
+      // src/lib/player-signup.ts.
+      allow create: if request.resource.data.keys().hasOnly([
+            'name', 'nickname', 'position', 'role', 'jerseyNumber', 'imageUrl', 'bio', 'stats',
+            'strongFoot', 'careerHighlights', 'squadStatus', 'dob', 'heightCm', 'nationality',
+            'strengths', 'readyForNextStep', 'currentClub', 'published',
+            'photoLink', 'videoLinks', 'contact', 'source', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasAll([
+            'name', 'position', 'role', 'jerseyNumber', 'imageUrl', 'bio', 'stats', 'strongFoot',
+            'squadStatus', 'dob', 'heightCm', 'nationality', 'strengths', 'readyForNextStep',
+            'published', 'source', 'createdAt', 'updatedAt'])
+        && request.resource.data.source == 'signup'
+        && request.resource.data.published == false
+        && request.resource.data.role == 'Player'
+        && request.resource.data.squadStatus == 'current'
+        && request.resource.data.readyForNextStep == false
+        && request.resource.data.imageUrl == ''
+        && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
+        && request.resource.data.position in ['Goalkeeper', 'Defender', 'Midfielder', 'Forward']
+        && request.resource.data.strongFoot in ['Left', 'Right', 'Both']
+        && request.resource.data.jerseyNumber is int && request.resource.data.jerseyNumber >= 0 && request.resource.data.jerseyNumber <= 99
+        && request.resource.data.heightCm is int && request.resource.data.heightCm >= 100 && request.resource.data.heightCm <= 230
+        && request.resource.data.dob is string && request.resource.data.dob.size() == 10
+        && request.resource.data.nationality is string && request.resource.data.nationality.size() >= 2 && request.resource.data.nationality.size() <= 60
+        && request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 1200
+        && request.resource.data.stats is map
+        && request.resource.data.stats.keys().hasOnly(['appearances', 'goals', 'assists'])
+        && request.resource.data.stats.appearances == 0
+        && request.resource.data.stats.goals == 0
+        && request.resource.data.stats.assists == 0
+        && request.resource.data.strengths is list && request.resource.data.strengths.size() >= 1 && request.resource.data.strengths.size() <= 12
+        && (!('careerHighlights' in request.resource.data) || (request.resource.data.careerHighlights is list && request.resource.data.careerHighlights.size() <= 12))
+        && (!('nickname' in request.resource.data) || (request.resource.data.nickname is string && request.resource.data.nickname.size() <= 40))
+        && (!('currentClub' in request.resource.data) || (request.resource.data.currentClub is string && request.resource.data.currentClub.size() <= 80))
+        && (!('photoLink' in request.resource.data) || (request.resource.data.photoLink is string && request.resource.data.photoLink.size() <= 500))
+        && (!('videoLinks' in request.resource.data) || (request.resource.data.videoLinks is list && request.resource.data.videoLinks.size() <= 5))
+        && (!('contact' in request.resource.data) || (
+              request.resource.data.contact is map
+              && request.resource.data.contact.keys().hasOnly(['email', 'phone'])
+              && (!('email' in request.resource.data.contact) || (request.resource.data.contact.email is string && request.resource.data.contact.email.size() <= 200))
+              && (!('phone' in request.resource.data.contact) || (request.resource.data.contact.phone is string && request.resource.data.contact.phone.size() <= 40))))
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
       allow write: if isAdmin();
     }
 

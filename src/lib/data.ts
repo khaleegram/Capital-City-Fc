@@ -30,6 +30,13 @@ export type Player = {
   readyForNextStep?: boolean;
   currentClub?: string;
   published?: boolean;
+  /** Reference only: links captured by the /join self sign-up form. Never rendered on the public site. */
+  photoLink?: string;
+  videoLinks?: string[];
+  /** Club use only, captured at sign-up. Never rendered on the public site. */
+  contact?: { email?: string; phone?: string };
+  /** "signup" means the player submitted the profile themselves from /join. */
+  source?: "signup";
 };
 
 export type SquadStatus = "current" | "alumni";
