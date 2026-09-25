@@ -1,0 +1,4 @@
+# Never upload local secrets or the link metadata to Vercel.
+.env*
+.vercel
+node_modules

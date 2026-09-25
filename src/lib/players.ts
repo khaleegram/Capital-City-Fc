@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Player } from "./data";
-import { uploadFileToR2, deleteFileFromR2 } from "./r2";
+import { uploadFile, deleteFile, refreshPublic } from "./admin-client";
 
 // Firestore collection reference
 const playersCollectionRef = collection(db, "players");
@@ -21,7 +21,7 @@ const playersCollectionRef = collection(db, "players");
  * @returns The public URL of the uploaded image.
  */
 export const uploadPlayerImage = async (imageFile: File): Promise<string> => {
-  return uploadFileToR2(imageFile, 'players/photos');
+  return uploadFile(imageFile, 'players');
 };
 
 /**
@@ -35,6 +35,7 @@ export const addPlayer = async (playerData: Player) => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
+    await refreshPublic("players", "journeys");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding player: ", errorMessage);
@@ -62,6 +63,7 @@ export const updatePlayer = async (playerId: string, playerData: Partial<Player>
     if (Object.keys(updatePayload).length > 0) {
         updatePayload.updatedAt = serverTimestamp();
         await updateDoc(playerDocRef, updatePayload);
+        await refreshPublic("players", "journeys");
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -77,7 +79,8 @@ export const updatePlayer = async (playerId: string, playerData: Partial<Player>
 export const deletePlayer = async (player: Player) => {
     try {
       await deleteDoc(doc(db, "players", player.id));
-      await deleteFileFromR2(player.imageUrl);
+      await deleteFile(player.imageUrl);
+      await refreshPublic("players", "journeys");
     } catch (error) {
        const errorMessage = error instanceof Error ? error.message : String(error);
        console.error("Error deleting player:", errorMessage);

@@ -1,64 +1,41 @@
+import type { MetadataRoute } from "next"
+import { getFixtures, getGalleries, getJourneys, getMedia, getNews, getPlayers } from "@/lib/server/queries"
+import { toDate } from "@/lib/utils"
+import { siteUrl } from "@/lib/site-url"
 
-import { getDocs, collection, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { MetadataRoute } from 'next'
- 
+export const revalidate = 3600
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const base = siteUrl()
+  const [journeys, players, media, galleries, news, fixtures] = await Promise.all([
+    getJourneys(),
+    getPlayers(),
+    getMedia(),
+    getGalleries(),
+    getNews(),
+    getFixtures(),
+  ])
+  const at = (v: unknown) => toDate(v) ?? undefined
 
-  // Fetch dynamic data from Firestore
-  const playersSnapshot = await getDocs(collection(db, 'players'));
-  const newsSnapshot = await getDocs(collection(db, 'news'));
-  const fixturesSnapshot = await getDocs(collection(db, 'fixtures'));
-  const videosSnapshot = await getDocs(collection(db, 'videos'));
-
-  const players = playersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as { updatedAt?: Timestamp } }));
-  const news = newsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as { date: string } }));
-  const fixtures = fixturesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as { date: Timestamp } }));
-  const videos = videosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as { uploadDate: Timestamp } }));
-
-  const playerRoutes = players.map(player => ({
-    url: `${baseUrl}/players/${player.id}`,
-    lastModified: player.updatedAt?.toDate() || new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.7
-  }));
-
-  const newsRoutes = news.map(article => ({
-    url: `${baseUrl}/news/${article.id}`,
-    lastModified: new Date(article.date),
-    changeFrequency: 'daily' as const,
-    priority: 0.8
-  }));
-
-  const fixtureRoutes = fixtures.map(fixture => ({
-    url: `${baseUrl}/fixtures/${fixture.id}`,
-    lastModified: fixture.date.toDate(),
-    changeFrequency: 'daily' as const,
-    priority: 0.9
-  }));
-  
-  const videoRoutes = videos.map(video => ({
-    url: `${baseUrl}/videos/${video.id}`,
-    lastModified: video.uploadDate.toDate(),
-    changeFrequency: 'monthly' as const,
-    priority: 0.6
-  }));
-
-  const staticRoutes = [
-    { url: baseUrl, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 1 },
-    { url: `${baseUrl}/players`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.8 },
-    { url: `${baseUrl}/news`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.9 },
-    { url: `${baseUrl}/fixtures`, lastModified: new Date(), changeFrequency: 'daily' as const, priority: 0.9 },
-    { url: `${baseUrl}/videos`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.7 },
-    { url: `${baseUrl}/club`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.5 },
-  ];
+  const pages: MetadataRoute.Sitemap = [
+    { url: base, changeFrequency: "daily", priority: 1 },
+    { url: `${base}/journeys`, changeFrequency: "daily", priority: 0.9 },
+    { url: `${base}/players`, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${base}/media`, changeFrequency: "weekly", priority: 0.8 },
+    { url: `${base}/gallery`, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${base}/club`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/fixtures`, changeFrequency: "daily", priority: 0.6 },
+    { url: `${base}/news`, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${base}/contact`, changeFrequency: "yearly", priority: 0.5 },
+  ]
 
   return [
-    ...staticRoutes,
-    ...playerRoutes,
-    //...newsRoutes, // Uncomment if you create individual news article pages
-    ...fixtureRoutes,
-    ...videoRoutes,
-  ];
+    ...pages,
+    ...journeys.map((j) => ({ url: `${base}/journeys/${j.slug}`, lastModified: at(j.updatedAt), changeFrequency: j.status === "live" ? ("hourly" as const) : ("monthly" as const), priority: 0.9 })),
+    ...players.map((p) => ({ url: `${base}/players/${p.id}`, lastModified: at(p.updatedAt), changeFrequency: "weekly" as const, priority: 0.8 })),
+    ...media.map((m) => ({ url: `${base}/media/${m.id}`, lastModified: at(m.createdAt), priority: 0.5 })),
+    ...galleries.map((g) => ({ url: `${base}/gallery/${g.slug}`, lastModified: at(g.createdAt), priority: 0.5 })),
+    ...news.map((n) => ({ url: `${base}/news/${n.id}`, lastModified: at(n.date), priority: 0.5 })),
+    ...fixtures.map((f) => ({ url: `${base}/fixtures/${f.id}`, lastModified: at(f.date), priority: 0.4 })),
+  ]
 }

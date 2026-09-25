@@ -20,7 +20,7 @@ import {
 import { db } from "./firebase";
 import { v4 as uuidv4 } from "uuid";
 import type { Fixture, Player } from "./data";
-import { uploadFileToR2, deleteFileFromR2 } from "./r2";
+import { notifyQuietly, uploadFile, deleteFile } from "./admin-client";
 
 const fixturesCollectionRef = collection(db, "fixtures");
 const newsCollectionRef = collection(db, "news");
@@ -32,7 +32,7 @@ const playersCollectionRef = collection(db, "players");
  * @returns The public URL of the uploaded image.
  */
 export const uploadOpponentLogo = async (imageFile: File): Promise<string> => {
-  return uploadFileToR2(imageFile, 'teams/logos');
+  return uploadFile(imageFile, 'fixtures/logos');
 };
 
 /**
@@ -148,7 +148,7 @@ export const deleteFixture = async (fixture: Fixture) => {
         }
         
         if (fixture.opponentLogoUrl) {
-            await deleteFileFromR2(fixture.opponentLogoUrl);
+            await deleteFile(fixture.opponentLogoUrl);
         }
 
         await batch.commit();
@@ -176,6 +176,31 @@ type GoalData = {
  * @param fixtureId The ID of the fixture to update.
  * @param updateData The data for the update.
  */
+/**
+ * Builds the push copy for a live event, mirroring the mapping the old Firestore trigger
+ * used — including skipping "Info" events and any event with no text.
+ */
+function liveEventPush(event: {
+    type: string;
+    text: string;
+    score: string;
+    playerName?: string | null;
+    teamName?: string | null;
+}): { title: string; body: string } | null {
+    switch (event.type) {
+        case "Goal":
+            return { title: "⚽ GOAL!", body: `${event.playerName || "Unknown Player"} scores for ${event.teamName || "Team"} — ${event.score}` };
+        case "Red Card":
+            return { title: "🟥 Red Card", body: `${event.playerName || "Player"} sent off for ${event.teamName || "Team"}` };
+        case "Substitution":
+            return event.text ? { title: "🔄 Substitution", body: event.text } : null;
+        case "Match End":
+            return { title: "✅ Full Time", body: `Match finished. Final score: ${event.score}` };
+        default:
+            return event.type !== "Info" && event.text ? { title: "Match Update", body: event.text } : null;
+    }
+}
+
 export const postLiveUpdate = async (
     fixtureId: string,
     updateData: {
@@ -256,6 +281,18 @@ export const postLiveUpdate = async (
                 minute: minute,
             });
         });
+
+        // Push the update to subscribers. This replaces the old Firestore onCreate trigger,
+        // which Vercel can't run because Cloud Functions need the paid Blaze plan.
+        // Never throws, so a failed push can't undo an already-posted update.
+        const copy = liveEventPush({
+            type: eventType,
+            text: eventText,
+            score: `${homeScore} - ${awayScore}`,
+            playerName: playerName || goal?.scorer.name || null,
+            teamName: teamName || null,
+        });
+        if (copy) await notifyQuietly(copy.title, copy.body, `/fixtures/${fixtureId}`);
     } catch(e) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         console.error("Transaction failed: ", e);

@@ -1,69 +1,56 @@
 "use client"
 
+import React from "react"
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronRight, LogOut, PanelLeft } from "lucide-react"
-
+import { signOut } from "firebase/auth"
 import { useSidebar } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import React from "react"
 import { useAuth } from "@/hooks/use-auth"
 import { auth } from "@/lib/firebase"
-import { LoginDialog } from "./login-dialog"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export function DashboardHeader() {
   const { toggleSidebar } = useSidebar()
   const pathname = usePathname()
   const { user } = useAuth()
 
-  const breadcrumbs = React.useMemo(() => {
-    const pathParts = pathname.split('/').filter(part => part);
-    const crumbs = pathParts.map((part, index) => {
-      const href = '/' + pathParts.slice(0, index + 1).join('/');
-      const label = part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' ');
-      return { href, label };
-    });
-    return [{ href: '/', label: 'Home' }, ...crumbs];
-  }, [pathname]);
-
+  const crumbs = React.useMemo(() => {
+    const parts = pathname.split("/").filter(Boolean)
+    return parts.map((part, i) => ({
+      href: "/" + parts.slice(0, i + 1).join("/"),
+      label: i === 0 ? "Console" : decodeURIComponent(part).replace(/-/g, " "),
+    }))
+  }, [pathname])
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:px-6 lg:px-8">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 shrink-0"
-        onClick={toggleSidebar}
-      >
+    <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-white/10 bg-background/80 px-4 backdrop-blur sm:px-6">
+      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={toggleSidebar}>
         <PanelLeft className="h-5 w-5" />
         <span className="sr-only">Toggle sidebar</span>
       </Button>
-      
-      <div className="flex items-center text-sm text-muted-foreground">
-        {breadcrumbs.map((crumb, index) => (
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center text-sm text-muted-foreground">
+        {crumbs.map((crumb, i) => (
           <React.Fragment key={crumb.href}>
-            {index > 0 && <ChevronRight className="h-4 w-4 mx-1" />}
-            <Link 
+            {i > 0 && <ChevronRight className="mx-1 h-4 w-4 shrink-0" />}
+            <Link
               href={crumb.href}
-              className={`transition-colors ${index === breadcrumbs.length - 1 ? 'text-foreground font-medium' : 'hover:text-foreground'}`}
+              className={`truncate capitalize transition-colors ${i === crumbs.length - 1 ? "font-medium text-foreground" : "hover:text-foreground"}`}
             >
               {crumb.label}
             </Link>
           </React.Fragment>
         ))}
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
-        {user ? (
-          <Button variant="outline" onClick={() => auth.signOut()}>
-            <LogOut className="mr-2" />
-            Logout
+      </nav>
+      {user && (
+        <div className="ml-auto flex items-center gap-3">
+          <span className="hidden text-xs text-mist/60 md:inline">{user.email}</span>
+          <Button variant="outline" size="sm" onClick={() => signOut(auth)}>
+            <LogOut className="mr-1.5 h-4 w-4" />
+            Sign out
           </Button>
-        ) : (
-          <LoginDialog />
-        )}
-      </div>
+        </div>
+      )}
     </header>
   )
 }

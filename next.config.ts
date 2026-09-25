@@ -1,60 +1,63 @@
+require("dotenv").config()
+import type { NextConfig } from "next"
 
-require('dotenv').config();
-import type {NextConfig} from 'next';
-
-const withPWA = require('next-pwa')({
-  dest: 'public',
+const withPWA = require("next-pwa")({
+  dest: "public",
   importScripts: ["/firebase-messaging-sw.js"],
-  disable: process.env.NODE_ENV === 'development',
+  disable: process.env.NODE_ENV === "development",
 })
 
-const r2PublicUrl = process.env.R2_PUBLIC_URL;
-const r2Hostname = r2PublicUrl ? new URL(r2PublicUrl).hostname : undefined;
+type RemotePatterns = NonNullable<NonNullable<NextConfig["images"]>["remotePatterns"]>
 
-const remotePatterns: NextConfig['images']['remotePatterns'] = [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-        port: '',
-        pathname: '/**',
-      },
-];
+const https = (hostname: string) => ({ protocol: "https" as const, hostname, port: "", pathname: "/**" })
 
-if (r2Hostname) {
-  remotePatterns.push({
-      protocol: 'https',
-      hostname: r2Hostname,
-      port: '',
-      pathname: '/**',
-  });
+const remotePatterns: RemotePatterns = [
+  https("placehold.co"),
+  https("picsum.photos"),
+  https("firebasestorage.googleapis.com"),
+  https("i.ytimg.com"),
+  https("img.youtube.com"),
+  https("i.vimeocdn.com"),
+  https("lh3.googleusercontent.com"),
+]
+
+for (const url of [process.env.R2_PUBLIC_URL, process.env.NEXT_PUBLIC_R2_PUBLIC_URL]) {
+  if (!url) continue
+  try {
+    const host = new URL(url).hostname
+    if (!remotePatterns.some((p) => typeof p === "object" && "hostname" in p && p.hostname === host)) {
+      remotePatterns.push(https(host))
+    }
+  } catch {
+    console.warn(`[next.config] Ignoring invalid R2 URL: ${url}`)
+  }
 }
 
-
 const nextConfig: NextConfig = {
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     remotePatterns,
+    formats: ["image/avif", "image/webp"],
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '4.5mb',
+      bodySizeLimit: "50mb",
     },
   },
-};
+  serverExternalPackages: ["firebase-admin"],
+  outputFileTracingIncludes: {
+    "/**/opengraph-image*": ["./assets/fonts/**", "./public/ccfc-crest.png"],
+  },
+  async redirects() {
+    return [
+      { source: "/videos", destination: "/media", permanent: true },
+      { source: "/videos/:id", destination: "/media/:id", permanent: true },
+      { source: "/recaps", destination: "/fixtures", permanent: true },
+      { source: "/team-settings", destination: "/admin/settings", permanent: true },
+      { source: "/formations", destination: "/admin/formations", permanent: true },
+      { source: "/scouting", destination: "/admin/scouting", permanent: true },
+      { source: "/stories", destination: "/news", permanent: false },
+    ]
+  },
+}
 
-module.exports = withPWA(nextConfig);
+module.exports = withPWA(nextConfig)

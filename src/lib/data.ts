@@ -20,7 +20,22 @@ export type Player = {
   createdAt: Timestamp;
   updatedAt: Timestamp;
   careerHighlights: string[];
+  // v1 pathway fields
+  squadStatus?: SquadStatus;
+  cohort?: string; // e.g. "2025/26"
+  dob?: string; // ISO date
+  heightCm?: number;
+  nationality?: string;
+  strengths?: string[];
+  readyForNextStep?: boolean;
+  currentClub?: string;
+  published?: boolean;
 };
+
+export type SquadStatus = "current" | "alumni";
+
+/** Firestore Timestamp on the client, ISO string once serialized by the server layer. */
+export type DateLike = Timestamp | Date | string;
 
 export type NewsArticle = {
   id: string;
@@ -119,6 +134,11 @@ export type TeamProfile = {
     logoUrl: string;
     homeVenue: string;
     maintenanceMode?: boolean;
+    heroVideoUrl?: string;
+    heroImageUrl?: string;
+    socials?: { instagram?: string; tiktok?: string; youtube?: string; x?: string };
+    /** Manual override; any field left empty falls back to the computed value. */
+    proofStats?: Partial<ProofStats> | null;
 };
 
 export type Formation = {
@@ -130,6 +150,240 @@ export type Formation = {
   createdAt: Timestamp;
 };
 
+
+/* ─────────────────────────── v1 pathway model ─────────────────────────── */
+
+export type JourneyStatus = "upcoming" | "live" | "completed";
+export type JourneyKind = "international" | "domestic";
+
+/** A city on an international route, or a round in a domestic campaign. */
+export type JourneyStop = {
+  city: string;
+  country: string;
+  code?: string;
+  lat?: number;
+  lng?: number;
+  arrive?: string;
+  depart?: string;
+  reached?: boolean;
+  current?: boolean;
+};
+
+export type JourneyRecord = {
+  played: number;
+  won: number;
+  drawn: number;
+  lost: number;
+  goalsFor: number;
+  goalsAgainst: number;
+};
+
+/** Tournament games (opponents abroad aren't always club fixtures). */
+export type JourneyMatch = {
+  id: string;
+  date?: string;
+  stage: string;
+  opponent: string;
+  venue?: string;
+  scoreFor?: number | null;
+  scoreAgainst?: number | null;
+  status: "upcoming" | "live" | "played";
+  note?: string;
+};
+
+export type JourneyTableRow = {
+  team: string;
+  p: number;
+  w: number;
+  d: number;
+  l: number;
+  gf: number;
+  ga: number;
+  pts: number;
+  isUs?: boolean;
+};
+
+export type JourneyQuote = { text: string; author: string; role?: string };
+
+/** Tournament sheet: may include players who are not on the public CCFC squad yet. */
+export type JourneySquadMember = {
+  number: number;
+  name: string;
+  position: "Goalkeeper" | "Defender" | "Midfielder" | "Forward";
+  goals?: number;
+  assists?: number;
+  /** Linked CCFC player profile, when one exists. */
+  playerId?: string | null;
+};
+
+export type Journey = {
+  id: string;
+  slug: string;
+  title: string;
+  subtitle?: string;
+  kind: JourneyKind;
+  status: JourneyStatus;
+  season?: string;
+  startDate?: string;
+  endDate?: string;
+  coverImageUrl?: string;
+  summary: string;
+  stops: JourneyStop[];
+  /** 0–100 */
+  progress: number;
+  record?: JourneyRecord | null;
+  outcome?: { headline: string; body?: string; badge?: string } | null;
+  heroMediaId?: string | null;
+  playerIds: string[];
+  fixtureIds: string[];
+  matches: JourneyMatch[];
+  table?: JourneyTableRow[];
+  squad?: JourneySquadMember[];
+  quotes: JourneyQuote[];
+  published: boolean;
+  featured?: boolean;
+  order?: number;
+  createdAt?: DateLike;
+  updatedAt?: DateLike;
+};
+
+export type JourneyEntry = {
+  id: string;
+  day?: number;
+  title: string;
+  body?: string;
+  location?: string;
+  mediaIds: string[];
+  /** Quick photo posted straight from the tour diary form. */
+  imageUrl?: string;
+  createdAt: DateLike;
+};
+
+export type MediaType =
+  | "fullMatch"
+  | "highlight"
+  | "training"
+  | "playerFocus"
+  | "travelDiary"
+  | "documentary"
+  | "interview"
+  | "behindScenes";
+
+export type MediaAsset = {
+  id: string;
+  type: MediaType;
+  title: string;
+  description?: string;
+  /** Direct video file (R2) or a YouTube/Vimeo link. */
+  url: string;
+  poster?: string;
+  /** seconds */
+  duration?: number;
+  vertical?: boolean;
+  journeyId?: string | null;
+  fixtureId?: string | null;
+  playerIds: string[];
+  /** Denormalised for display so the public site never needs a join. */
+  taggedPlayers?: { id: string; name: string }[];
+  year?: number;
+  featured?: boolean;
+  published: boolean;
+  legacyVideoId?: string;
+  createdAt?: DateLike;
+};
+
+export type GalleryPhoto = { url: string; caption?: string; playerIds?: string[]; w?: number; h?: number };
+
+export type Gallery = {
+  id: string;
+  slug: string;
+  chapter?: number;
+  title: string;
+  story?: string;
+  location?: string;
+  date?: string;
+  journeyId?: string | null;
+  photos: GalleryPhoto[];
+  published: boolean;
+  createdAt?: DateLike;
+};
+
+export type PlacementType = "signed" | "loan" | "trial";
+
+export type Placement = {
+  id: string;
+  playerId?: string | null;
+  playerName: string;
+  playerImageUrl?: string;
+  position?: string;
+  club: string;
+  country: string;
+  league?: string;
+  type: PlacementType;
+  date?: string;
+  verified: boolean;
+  sourceUrl?: string;
+  published: boolean;
+  createdAt?: DateLike;
+};
+
+export type StaffGroup = "management" | "coaching" | "operations" | "medical";
+
+export type StaffMember = {
+  id: string;
+  name: string;
+  role: string;
+  group: StaffGroup;
+  rank: number;
+  imageUrl?: string;
+  bio?: string;
+  quote?: string;
+  licences?: string[];
+  published: boolean;
+  legacyPlayerId?: string;
+};
+
+export type Achievement = {
+  id: string;
+  title: string;
+  year: number;
+  competition?: string;
+  detail?: string;
+  kind: "trophy" | "unbeaten" | "milestone";
+  journeyId?: string | null;
+  published: boolean;
+};
+
+export type EnquiryRole = "scout" | "parent" | "player" | "partner" | "media";
+
+export type Enquiry = {
+  id: string;
+  role: EnquiryRole;
+  name: string;
+  email: string;
+  phone?: string;
+  organisation?: string;
+  message: string;
+  playerId?: string | null;
+  playerName?: string | null;
+  status: "new" | "read" | "replied" | "archived";
+  createdAt: DateLike;
+};
+
+export type ProofStats = {
+  playersAbroad: number;
+  countries: number;
+  tournaments: number;
+  unbeatenRuns: number;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name?: string;
+  role: "owner" | "editor";
+  createdAt?: DateLike;
+};
 
 export const newsArticles: NewsArticle[] = [
   // This mock data is no longer used for display, 

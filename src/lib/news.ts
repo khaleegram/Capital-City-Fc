@@ -11,7 +11,7 @@ import {
 import { db } from "./firebase";
 import { v4 as uuidv4 } from "uuid";
 import { NewsArticle } from "./data";
-import { uploadFileToR2, deleteFileFromR2 } from "./r2";
+import { notifyQuietly, uploadFile, deleteFile } from "./admin-client";
 
 
 // Firestore collection reference
@@ -23,7 +23,7 @@ const newsCollectionRef = collection(db, "news");
  * @returns The public URL of the uploaded image.
  */
 export const uploadNewsImage = async (imageFile: File): Promise<string> => {
-    return uploadFileToR2(imageFile, 'news/images');
+    return uploadFile(imageFile, 'news');
 };
 
 /**
@@ -45,6 +45,10 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       date: new Date().toISOString(),
       createdAt: serverTimestamp(),
     });
+
+    // Replaces the old Firestore onCreate trigger. Never throws, so a failed push
+    // can't report a published article as a failure.
+    await notifyQuietly("📰 Latest News", articleData.headline, "/news");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("Error adding news article: ", errorMessage);
@@ -88,7 +92,7 @@ export const deleteNewsArticle = async (article: NewsArticle) => {
         const articleDocRef = doc(db, "news", article.id);
         await deleteDoc(articleDocRef);
         if (article.imageUrl) {
-          await deleteFileFromR2(article.imageUrl);
+          await deleteFile(article.imageUrl);
         }
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

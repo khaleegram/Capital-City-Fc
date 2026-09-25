@@ -1,95 +1,41 @@
-'use client';
+"use client"
 
-import {
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
-  updateDoc,
-} from "firebase/firestore";
-import { db, app } from "./firebase";
-import type { TeamProfile } from "./data";
-import { getFunctions, httpsCallable } from "firebase/functions";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore"
+import { db } from "./firebase"
+import type { TeamProfile } from "./data"
+import { TEAM_LOGO_URL } from "./brand"
+import { clean } from "./collections"
+import { notifyAll, refreshPublic } from "./admin-client"
 
-const TEAM_PROFILE_DOC_ID = "main_profile";
+export const TEAM_PROFILE_DOC_ID = "main_profile"
 
-/**
- * Retrieves the main team profile from Firestore.
- * Creates a default one if it doesn't exist.
- * @returns The team profile object.
- */
 export const getTeamProfile = async (): Promise<TeamProfile> => {
-  const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
-  const docSnap = await getDoc(profileDocRef);
-
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    // Manually construct a plain object to avoid passing complex Firestore types
-    const profile: TeamProfile = {
-      id: docSnap.id,
-      name: data.name,
-      logoUrl: data.logoUrl,
-      homeVenue: data.homeVenue,
-      maintenanceMode: data.maintenanceMode || false,
-    };
-    return profile;
-  } else {
-    // If no profile exists, create a default one
-    const defaultProfile: TeamProfile = {
-      id: TEAM_PROFILE_DOC_ID,
-      name: "Capital City FC",
-      logoUrl: "/icon.png",
-      homeVenue: "Capital Stadium",
-      maintenanceMode: false,
-    };
-    await setDoc(profileDocRef, defaultProfile);
-    return defaultProfile;
+  const snap = await getDoc(doc(db, "teamProfile", TEAM_PROFILE_DOC_ID))
+  const data = snap.exists() ? snap.data() : {}
+  return {
+    id: TEAM_PROFILE_DOC_ID,
+    name: data.name || "Capital City FC",
+    logoUrl: TEAM_LOGO_URL,
+    homeVenue: data.homeVenue || "Abuja, Nigeria",
+    maintenanceMode: !!data.maintenanceMode,
+    heroVideoUrl: data.heroVideoUrl,
+    heroImageUrl: data.heroImageUrl,
+    socials: data.socials,
+    proofStats: data.proofStats ?? null,
   }
-};
+}
 
+export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, "id">>) => {
+  await setDoc(
+    doc(db, "teamProfile", TEAM_PROFILE_DOC_ID),
+    { ...clean(profileData), updatedAt: serverTimestamp() },
+    { merge: true }
+  )
+  await refreshPublic("team", "proof")
+}
 
-/**
- * Updates the main team profile in Firestore.
- * @param profileData The data to update.
- */
-export const updateTeamProfile = async (profileData: Partial<Omit<TeamProfile, 'id'>>) => {
-  try {
-    const profileDocRef = doc(db, "teamProfile", TEAM_PROFILE_DOC_ID);
-    
-    const updatePayload: { [key: string]: any } = {};
-
-    if (profileData.name !== undefined) updatePayload.name = profileData.name;
-    if (profileData.homeVenue !== undefined) updatePayload.homeVenue = profileData.homeVenue;
-    if (profileData.logoUrl !== undefined) updatePayload.logoUrl = profileData.logoUrl;
-    if (profileData.maintenanceMode !== undefined) updatePayload.maintenanceMode = profileData.maintenanceMode;
-    
-    if (Object.keys(updatePayload).length > 0) {
-        updatePayload.updatedAt = serverTimestamp();
-        await updateDoc(profileDocRef, updatePayload);
-    }
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error updating team profile: ", errorMessage);
-    throw new Error(`Failed to update team profile: ${errorMessage}`);
-  }
-};
-
-
-/**
- * Sends a custom push notification to all users via a callable function.
- * @param title The title of the notification.
- * @param body The body message of the notification.
- */
+/** Sends a push notification to all subscribed devices via our own API route. */
 export const sendCustomNotification = async (title: string, body: string) => {
-  try {
-    const functions = getFunctions(app);
-    const sendNotification = httpsCallable(functions, 'sendCustomNotification');
-    const result = await sendNotification({ title, body });
-    return result.data;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("Error calling sendCustomNotification function:", error);
-    throw new Error(`Failed to send custom notification: ${errorMessage}`);
-  }
-};
+  const result = await notifyAll(title, body)
+  return { success: true, message: "Notifications sent successfully.", ...result }
+}

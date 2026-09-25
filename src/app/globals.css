@@ -2,75 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Brand palette: ink #07142E, navy #13295B, navy-soft #1E3A74, navy-deep #0B1D42,
+ * ivory #F5F3EE, mist #C9D3E6, live red #E3262F.
+ *
+ * The site is light-first: a warm ivory ground, ink text, navy for accent, and red
+ * kept for LIVE indicators alone.
+ *
+ * Text colours resolve through CSS variables rather than fixed hex values. That means a
+ * navy band or a photo scrim only has to declare `.on-dark`, and every colour beneath it
+ * flips back to light on its own. This is the mechanism that keeps light text off a light
+ * background — it is structural, so nobody has to remember to invert a class.
+ */
 @layer base {
   :root {
-    --background: 39 54% 85%;
-    --foreground: 24 9.8% 10%;
-    --card: 39 50% 90%;
-    --card-foreground: 24 9.8% 10%;
-    --popover: 39 50% 90%;
-    --popover-foreground: 24 9.8% 10%;
-    --primary: 347 77% 44%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 98%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 51 100% 50%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 39 54% 75%;
-    --input: 39 54% 75%;
-    --ring: 347 77% 44%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 39 50% 90%;
-    --sidebar-foreground: 24 9.8% 10%;
-    --sidebar-primary: 347 77% 44%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 39 54% 80%;
-    --sidebar-accent-foreground: 24 9.8% 10%;
-    --sidebar-border: 39 54% 75%;
-    --sidebar-ring: 347 77% 44%;
+    /* Light theme — the default. */
+    --brand-fg: 7 20 46; /* ink: primary text */
+    --brand-muted: 40 47 63; /* secondary text */
+    --brand-line: 7 20 46; /* hairlines, always used at low alpha */
+    --brand-surface: 255 255 255; /* raised cards */
+    --brand-canvas: 245 243 238; /* page ground (warm ivory) */
+    --brand-accent: 19 41 91; /* navy, replacing red */
+    --brand-accent-soft: 30 58 116;
+    --brand-accent-fg: 255 255 255; /* text and icons sitting on an accent fill */
+    --brand-live: 214 31 40; /* red, LIVE indicators only */
+
+    --background: 45 26% 95%;
+    --foreground: 222 74% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 74% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 74% 10%;
+    --primary: 221 64% 22%;
+    --primary-foreground: 45 26% 96%;
+    --secondary: 42 22% 90%;
+    --secondary-foreground: 222 74% 12%;
+    --muted: 42 22% 90%;
+    --muted-foreground: 220 20% 29%;
+    --accent: 221 64% 22%;
+    --accent-foreground: 45 26% 96%;
+    --destructive: 358 74% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 16% 84%;
+    --input: 220 16% 84%;
+    --ring: 221 64% 32%;
+    --radius: 1rem;
+    --chart-1: 221 64% 29%;
+    --chart-2: 219 30% 45%;
+    --chart-3: 221 45% 62%;
+    --chart-4: 42 25% 78%;
+    --chart-5: 222 74% 14%;
+    --sidebar-background: 45 30% 97%;
+    --sidebar-foreground: 222 74% 12%;
+    --sidebar-primary: 221 64% 22%;
+    --sidebar-primary-foreground: 45 26% 96%;
+    --sidebar-accent: 42 22% 90%;
+    --sidebar-accent-foreground: 222 74% 12%;
+    --sidebar-border: 220 16% 84%;
+    --sidebar-ring: 221 64% 32%;
+    color-scheme: light;
   }
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 346.8 77.2% 49.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 47.9 95.8% 53.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 346.8 77.2% 49.8%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 346.8 77.2% 49.8%;
-    --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 217.2 32.6% 17.5%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 346.8 77.2% 49.8%;
+
+  /*
+   * Applied to navy bands, dark cards and photo scrims. Anything inside inherits light
+   * text, light hairlines and light-on-dark accent colours.
+   */
+  .on-dark {
+    --brand-fg: 245 243 238;
+    --brand-muted: 201 211 230;
+    --brand-line: 255 255 255;
+    --brand-surface: 30 58 116;
+    /*
+     * Accent fills invert here: an ivory chip with ink text reads on navy, whereas a navy
+     * fill with white text would not. `--brand-accent-fg` carries the pairing.
+     */
+    --brand-accent: 245 243 238;
+    --brand-accent-soft: 255 255 255;
+    --brand-accent-fg: 7 20 46;
+    --brand-live: 255 112 118;
+
+    /*
+     * The shadcn variables must flip too. Without this, text that simply inherits `color`
+     * from <body> — no explicit text-* class — would stay ink and disappear on navy.
+     */
+    --background: 222 73% 10%;
+    --foreground: 40 26% 95%;
+    --card: 221 64% 13%;
+    --card-foreground: 40 26% 95%;
+    --popover: 222 70% 11%;
+    --popover-foreground: 40 26% 95%;
+    --primary: 221 51% 30%;
+    --primary-foreground: 40 26% 96%;
+    --secondary: 221 51% 22%;
+    --secondary-foreground: 40 26% 95%;
+    --muted: 221 50% 17%;
+    --muted-foreground: 219 30% 80%;
+    --accent: 221 45% 24%;
+    --accent-foreground: 40 26% 95%;
+    --border: 220 40% 34%;
+    --input: 220 40% 34%;
+    --ring: 221 51% 60%;
+
+    /*
+     * `color` must be set here, not just the variable. Colour inherits as an already
+     * resolved value, so <body>'s ink would cascade straight past this element and every
+     * child without an explicit text-* class would stay dark. Re-declaring it at the
+     * boundary is what actually flips inherited text back to light.
+     */
+    color: rgb(var(--brand-fg));
+    color-scheme: dark;
   }
 }
 
@@ -78,7 +118,96 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-signal ring-offset-2 ring-offset-background;
+  }
+  ::selection {
+    @apply bg-signal text-white;
+  }
+}
+
+@layer utilities {
+  .font-expanded {
+    font-stretch: 125%;
+  }
+  .font-condensed {
+    font-stretch: 75%;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .hairline {
+    border: 1px solid rgb(var(--brand-line) / 0.12);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .snap-rail {
+    @apply flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain scroll-smooth scrollbar-none;
+    scroll-padding-inline: 1.25rem;
+  }
+  .snap-rail > * {
+    @apply snap-start shrink-0;
+  }
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .mask-fade-b {
+    mask-image: linear-gradient(to bottom, black 55%, transparent);
+  }
+
+  /* Grid lines follow --brand-line, so they darken on ivory and lighten on navy. */
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(var(--brand-line) / 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--brand-line) / 0.07) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Soft navy wash on ivory; the navy band variant steps back in under .on-dark. */
+  .bg-horizon {
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgb(30 58 116 / 0.1), transparent 60%),
+      radial-gradient(60% 40% at 85% 100%, rgb(227 38 47 / 0.05), transparent 70%),
+      rgb(var(--brand-canvas));
+  }
+  .on-dark .bg-horizon,
+  .on-dark.bg-horizon {
+    background:
+      radial-gradient(120% 80% at 50% 0%, rgb(30 58 116 / 0.55), transparent 60%),
+      radial-gradient(60% 40% at 85% 100%, rgb(227 38 47 / 0.12), transparent 70%),
+      #07142e;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

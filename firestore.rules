@@ -3,35 +3,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // A simple check for an "admin". For this app, any signed-in user is an admin.
+    // Staff are users with a document at admins/{uid}.
     function isAdmin() {
-      return isSignedIn();
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // Players: Public read, admin write
+    function isOwner() {
+      return isAdmin() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    function isPublished() {
+      return resource.data.published == true;
+    }
+
+    // ───────── Staff accounts ─────────
+    match /admins/{uid} {
+      // A user may read their own record (used by AdminGuard and server-side staff checks).
+      allow read: if (isSignedIn() && request.auth.uid == uid) || isAdmin();
+      allow create, update: if isOwner()
+        && request.resource.data.role in ['owner', 'editor'];
+      // Owners can't delete themselves, so there's always at least one owner.
+      allow delete: if isOwner() && request.auth.uid != uid;
+    }
+
+    // ───────── Always-public collections ─────────
     match /players/{playerId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // News: Public read, admin write
     match /news/{articleId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Videos: Public read, admin write
+    // Legacy video collection (migrated to mediaAssets). Kept readable for old links.
     match /videos/{videoId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Fixtures & Live Events: Public read, admin write
     match /fixtures/{fixtureId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -42,31 +57,75 @@ service cloud.firestore {
       }
     }
 
-    // Recaps: Public read, admin write
     match /recaps/{recapId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Team Profile: Public read, admin write
     match /teamProfile/{profileId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Formations: Admin read/write
+    // ───────── v1 pathway collections: public only once published ─────────
+    match /journeys/{journeyId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isAdmin();
+
+      match /entries/{entryId} {
+        allow read: if get(/databases/$(database)/documents/journeys/$(journeyId)).data.published == true || isAdmin();
+        allow write: if isAdmin();
+      }
+    }
+
+    match /mediaAssets/{assetId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /galleries/{galleryId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /placements/{placementId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /staff/{staffId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /achievements/{achievementId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // ───────── Enquiries: anyone can submit, only staff can read ─────────
+    match /enquiries/{enquiryId} {
+      allow create: if request.resource.data.keys().hasOnly(
+            ['role', 'name', 'email', 'phone', 'organisation', 'message', 'playerId', 'playerName', 'status', 'createdAt'])
+        && request.resource.data.role in ['scout', 'parent', 'player', 'partner', 'media']
+        && request.resource.data.name is string && request.resource.data.name.size() > 1 && request.resource.data.name.size() <= 120
+        && request.resource.data.email is string && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
+        && request.resource.data.email.size() <= 200
+        && request.resource.data.message is string && request.resource.data.message.size() >= 10 && request.resource.data.message.size() <= 4000
+        && request.resource.data.status == 'new'
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ───────── Staff-only tools ─────────
     match /formations/{formationId} {
-      // Only admins should see saved formations
       allow read, write: if isAdmin();
     }
 
-    // Player Videos (Junction table): Admin read/write
     match /playerVideos/{tagId} {
-       // Only admins should see these relationships
       allow read, write: if isAdmin();
     }
 
-    // User Push Tokens: Only the owner can read/write their own token
     match /userPushTokens/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
