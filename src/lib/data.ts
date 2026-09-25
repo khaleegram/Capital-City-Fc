@@ -30,16 +30,57 @@ export type Player = {
   readyForNextStep?: boolean;
   currentClub?: string;
   published?: boolean;
-  /** Reference only: links captured by the /join self sign-up form. Never rendered on the public site. */
-  photoLink?: string;
-  videoLinks?: string[];
-  /** Club use only, captured at sign-up. Never rendered on the public site. */
-  contact?: { email?: string; phone?: string };
-  /** "signup" means the player submitted the profile themselves from /join. */
+  /**
+   * Set when the player submitted this profile themselves from /join.
+   * `signupSessionId` scopes the files they uploaded to R2 under `signups/{id}/`, so staff
+   * can promote or discard the whole submission in one move.
+   */
   source?: "signup";
+  signupSessionId?: string;
+  signupGallery?: { url: string; bytes: number }[];
+  signupVideos?: { url: string; bytes: number; name?: string }[];
+  /** Total bytes this player's sign-up uploaded. Shown in review. */
+  storageBytes?: number;
+  /**
+   * Club history a player entered on the /join form, newest first. Unverified by default —
+   * staff tick each entry during review.
+   */
+  clubHistory?: PlayerClubEntry[];
 };
 
 export type SquadStatus = "current" | "alumni";
+
+/** The four playing positions. Distinct from Player["position"], which also covers Coach/Staff. */
+export type FieldPosition = "Goalkeeper" | "Defender" | "Midfielder" | "Forward";
+
+export type PlayerClubLevel = "Youth" | "Academy" | "Senior";
+
+/**
+ * One club a player has played for, self-reported on the /join form.
+ *
+ * Field names deliberately mirror `Placement` (`club`, `country`, `league`, `verified`) so
+ * staff can promote an entry straight into the `placements` collection without retyping.
+ * `seasons` is the one addition — a player may describe a spell as "2023/24".
+ *
+ * `verified` is always false for a player-submitted entry. Staff tick it during review, and
+ * only a verified entry may ever be rendered as confirmed on the public site.
+ */
+export type PlayerClubEntry = {
+  club: string;
+  league?: string;
+  division?: string;
+  country?: string;
+  /** A season or year range, e.g. "2023/24" or "2024". */
+  seasons?: string;
+  /** Exactly one entry may be current; the form enforces it and it mirrors into `currentClub`. */
+  current?: boolean;
+  level?: PlayerClubLevel;
+  appearances?: number;
+  goals?: number;
+  assists?: number;
+  position?: FieldPosition;
+  verified: boolean;
+};
 
 /** Firestore Timestamp on the client, ISO string once serialized by the server layer. */
 export type DateLike = Timestamp | Date | string;

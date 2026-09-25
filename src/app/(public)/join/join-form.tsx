@@ -1,21 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { CheckCircle2, Loader2, Plus, Send, X } from "lucide-react"
 import { copy } from "@/lib/copy"
 import { ageFrom, cn } from "@/lib/utils"
-import {
-  isHttpUrl,
-  parseLinkList,
-  submitPlayerSignup,
-  type SignupFoot,
-  type SignupPosition,
-} from "@/lib/player-signup"
+import { SIGNUP_STORAGE_LIMIT } from "@/lib/signup-limits"
+import { submitPlayerSignup, type ClubEntryInput, type SignupFoot, type SignupPosition } from "@/lib/player-signup"
+import { fetchStorageUsage, newSignupSessionId, type UploadedFile } from "@/lib/signup-upload"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { PhotoGuidance } from "@/components/site/photo-guidance"
+import { ClubHistoryEditor, blankClub } from "./club-history-editor"
+import { FilePicker, StorageMeter, type Usage } from "./upload-controls"
 
 const POSITIONS: [SignupPosition, string][] = [
   ["Goalkeeper", "Goalkeeper"],
@@ -30,7 +29,8 @@ const FEET: [SignupFoot, string][] = [
   ["Both", "Both"],
 ]
 
-const MAX_LINKS = 5
+const MAX_GALLERY = 8
+const MAX_VIDEOS = 4
 const MAX_CHIPS = 12
 
 function Field({
@@ -162,18 +162,35 @@ export function JoinForm() {
     strongFoot: "Right" as SignupFoot,
     heightCm: "",
     jerseyNumber: "",
-    currentClub: "",
     bio: "",
-    photoLink: "",
-    email: "",
-    phone: "",
   })
+  // Starts with one blank block so the club fields are visible without a tap.
+  const [clubHistory, setClubHistory] = useState<ClubEntryInput[]>([blankClub()])
   const [strengths, setStrengths] = useState<string[]>([])
   const [highlights, setHighlights] = useState<string[]>([])
-  const [videoText, setVideoText] = useState("")
+  const [photo, setPhoto] = useState<UploadedFile[]>([])
+  const [gallery, setGallery] = useState<UploadedFile[]>([])
+  const [videos, setVideos] = useState<UploadedFile[]>([])
+  const [usage, setUsage] = useState<Usage | null>(null)
+  const [showGuidance, setShowGuidance] = useState(false)
+  const [guidanceSeen, setGuidanceSeen] = useState(false)
   const [consent, setConsent] = useState(false)
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle")
   const [error, setError] = useState("")
+
+  // One id per form load. Every file this player uploads lands under it, which is what
+  // lets staff approve or discard the whole submission in one move.
+  const [sessionId] = useState(() => newSignupSessionId())
+
+  useEffect(() => {
+    let cancelled = false
+    fetchStorageUsage(sessionId)
+      .then((u) => !cancelled && setUsage(u))
+      .catch(() => !cancelled && setUsage({ usedBytes: 0, remainingBytes: SIGNUP_STORAGE_LIMIT, limitBytes: SIGNUP_STORAGE_LIMIT }))
+    return () => {
+      cancelled = true
+    }
+  }, [sessionId])
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -192,7 +209,6 @@ export function JoinForm() {
     const heightCm = Number(form.heightCm)
     const jerseyNumber = Number(form.jerseyNumber)
     const age = ageFrom(form.dob)
-    const videoLinks = parseLinkList(videoText)
 
     if (name.length < 2) return fail("Enter your full name.")
     if (age === null) return fail("Enter your date of birth.")
@@ -203,12 +219,7 @@ export function JoinForm() {
       return fail("Pick a preferred squad number between 0 and 99.")
     if (bio.length < 20) return fail("Add a short bio of at least 20 characters.")
     if (strengths.length === 0) return fail("Add at least one strength.")
-    if (videoLinks.length > MAX_LINKS) return fail(`Add up to ${MAX_LINKS} video links.`)
-    if (videoLinks.some((l) => !isHttpUrl(l))) return fail("Video links must start with http:// or https://")
-    if (form.photoLink.trim() && !isHttpUrl(form.photoLink.trim()))
-      return fail("Your photo link must start with http:// or https://")
-    if (form.email.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim()))
-      return fail("That email address doesn't look right.")
+    if (photo.length === 0) return fail("Upload a profile photo — it's what appears on your player page.")
     if (!consent) return fail("Please confirm you're happy for the club to publish this profile.")
 
     setState("sending")
@@ -222,13 +233,14 @@ export function JoinForm() {
         strongFoot: form.strongFoot,
         heightCm,
         jerseyNumber,
-        currentClub: form.currentClub,
+        clubHistory,
         bio,
         strengths,
         careerHighlights: highlights,
-        photoLink: form.photoLink,
-        videoLinks,
-        contact: { email: form.email, phone: form.phone },
+        sessionId,
+        photo: photo[0],
+        gallery,
+        videos,
       })
       setState("sent")
     } catch (err) {
@@ -243,8 +255,8 @@ export function JoinForm() {
         <CheckCircle2 className="mx-auto h-10 w-10 text-signal" />
         <h2 className="mt-4 font-display text-3xl font-black uppercase font-condensed">Profile submitted</h2>
         <p className="mx-auto mt-3 max-w-md text-mist/85">
-          Thanks {form.name.trim().split(" ")[0]}. Your details are with the club. A staff member will check everything,
-          add your official photo and squad number, then publish your profile.
+          Thanks {form.name.trim().split(" ")[0]}. Your details and your files are with the club. A staff member will
+          check everything, confirm your squad number, then publish your profile.
         </p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           <Button asChild>
@@ -313,9 +325,17 @@ export function JoinForm() {
           <Field label="Preferred squad number" htmlFor="jerseyNumber" required hint="The club confirms this on review.">
             <Input id="jerseyNumber" type="number" inputMode="numeric" min={0} max={99} required value={form.jerseyNumber} onChange={set("jerseyNumber")} />
           </Field>
-          <Field label="Current or previous club" htmlFor="currentClub" hint="Leave blank if none.">
-            <Input id="currentClub" maxLength={80} value={form.currentClub} onChange={set("currentClub")} />
-          </Field>
+        </div>
+
+        <div className="mt-6 space-y-3 border-t border-line/10 pt-6">
+          <div>
+            <p className="text-sm font-medium">Clubs you&apos;ve played for</p>
+            <p className="mt-1 text-xs text-mist/70">
+              Start with the club you&apos;re at now and work backwards. Only the club name is needed —
+              add what you know. The club verifies these before they appear on your profile.
+            </p>
+          </div>
+          <ClubHistoryEditor value={clubHistory} onChange={setClubHistory} />
         </div>
       </Section>
 
@@ -343,48 +363,74 @@ export function JoinForm() {
         </Field>
       </Section>
 
-      <Section
-        step="04 · Media"
-        title="Photos and footage"
-        body="Optional, but profiles with footage get seen far more. Staff handle the final upload — these are pointers."
-      >
-        <Field
-          label="Photo link"
-          htmlFor="photoLink"
-          hint="A link to a photo of you in club kit (Google Drive, Google Photos, Instagram). Staff use it to build your profile."
-        >
-          <Input id="photoLink" type="url" inputMode="url" placeholder="https://" value={form.photoLink} onChange={set("photoLink")} />
-        </Field>
-        <Field
-          label="Video links"
-          htmlFor="videos"
-          hint={`Up to ${MAX_LINKS} links, one per line — YouTube, Vimeo or Google Drive.`}
-        >
-          <Textarea
-            id="videos"
-            rows={3}
-            maxLength={600}
-            placeholder={"https://youtube.com/watch?v=...\nhttps://drive.google.com/..."}
-            value={videoText}
-            onChange={(e) => setVideoText(e.target.value)}
+      <Section step="04 · Photos" title="Your photo" body="Uploaded straight to the club. You can replace or remove it before you submit.">
+        {showGuidance ? (
+          <PhotoGuidance
+            onContinue={() => {
+              setShowGuidance(false)
+              setGuidanceSeen(true)
+            }}
+            onCancel={() => setShowGuidance(false)}
           />
-        </Field>
+        ) : (
+          <FilePicker
+            sessionId={sessionId}
+            kind="photo"
+            accept="image/*"
+            label={photo.length ? "Replace profile photo" : "Upload your profile photo"}
+            hint="One clear photo of you in club kit. This becomes your player page photo."
+            max={1}
+            value={photo}
+            onChange={setPhoto}
+            onUsage={setUsage}
+            onBeforePick={() => {
+              // Show the standard once. After that, the player just picks normally.
+              if (guidanceSeen || photo.length > 0) return true
+              setShowGuidance(true)
+              return false
+            }}
+            previewAspect="aspect-[4/5]"
+          />
+        )}
       </Section>
 
       <Section
-        step="05 · Club only"
-        title="How we reach you"
-        body="Kept private. This never appears on the public website — it's only so staff can confirm details with you."
+        step="05 · Gallery"
+        title="More photos"
+        body="Optional. Action shots, training, or you in the kit — up to 8. These go into your profile gallery."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Email" htmlFor="email">
-            <Input id="email" type="email" autoComplete="email" maxLength={200} value={form.email} onChange={set("email")} />
-          </Field>
-          <Field label="Phone / WhatsApp" htmlFor="phone">
-            <Input id="phone" type="tel" autoComplete="tel" maxLength={40} value={form.phone} onChange={set("phone")} />
-          </Field>
-        </div>
+        <FilePicker
+          sessionId={sessionId}
+          kind="gallery"
+          accept="image/*"
+          label="Add photos"
+          max={MAX_GALLERY}
+          value={gallery}
+          onChange={setGallery}
+          onUsage={setUsage}
+          previewAspect="aspect-square"
+        />
       </Section>
+
+      <Section
+        step="06 · Footage"
+        title="Video highlights"
+        body="Optional, but the biggest thing you can do for your profile. Real match footage is what clubs ask for."
+      >
+        <FilePicker
+          sessionId={sessionId}
+          kind="video"
+          accept="video/*"
+          label="Add a video"
+          hint={`Up to ${MAX_VIDEOS} clips. Watch your storage — video fills it fastest.`}
+          max={MAX_VIDEOS}
+          value={videos}
+          onChange={setVideos}
+          onUsage={setUsage}
+        />
+      </Section>
+
+      <StorageMeter usage={usage} />
 
       <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-line/10 p-4">
         <input
@@ -394,8 +440,8 @@ export function JoinForm() {
           className="mt-0.5 h-4 w-4 shrink-0 accent-signal"
         />
         <span className="text-sm leading-relaxed text-mist/85">
-          I&apos;m happy for Capital City FC to publish this profile — including my photo, position and stats — on the club
-          website and social channels.
+          I&apos;m happy for Capital City FC to publish this profile — including my photos, video, position and stats —
+          on the club website and social channels.
         </span>
       </label>
 
@@ -411,7 +457,8 @@ export function JoinForm() {
       </Button>
 
       <p className={cn("text-xs text-mist/70", state === "sending" && "opacity-60")}>
-        Nothing goes live until a staff member reviews it. You can ask us to change or remove it at any time.
+        Nothing goes live until a staff member reviews it. If the club can&apos;t use your submission, the files you
+        uploaded are deleted.
       </p>
     </form>
   )

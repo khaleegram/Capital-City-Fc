@@ -2,11 +2,13 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { Loader2, Plus, Search, UserPlus, Users } from "lucide-react"
-import type { Player, SquadStatus } from "@/lib/data"
+import { Loader2, Plus, Search, UserPlus, Users, CircleCheck } from "lucide-react"
+import type { Player, PlayerClubEntry, SquadStatus } from "@/lib/data"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
-import { deleteFile, refreshPublic } from "@/lib/admin-client"
+import { approveSignupFiles, deleteFile, discardSignupFiles, refreshPublic } from "@/lib/admin-client"
+import { publishSignupMedia } from "@/lib/publish-signup"
 import { TEAM_LOGO_URL } from "@/lib/brand"
+import { formatBytes } from "@/lib/signup-limits"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
@@ -66,10 +68,13 @@ type Draft = {
   strengths: string[]
   readyForNextStep: boolean
   published: boolean
-  // Captured when the player submits the public /join form.
-  photoLink: string
-  videoLinks: string[]
-  contact: { email: string; phone: string }
+  /** Player-stated club history. Staff tick `verified` per entry during review. */
+  clubHistory: PlayerClubEntry[]
+  // Present when the player submitted this profile from the public /join form.
+  signupSessionId?: string
+  signupGallery: { url: string; bytes: number }[]
+  signupVideos: { url: string; bytes: number; name?: string }[]
+  storageBytes: number
   source?: Player["source"]
 }
 
@@ -94,9 +99,10 @@ const blank = (): Draft => ({
   strengths: [],
   readyForNextStep: false,
   published: true,
-  photoLink: "",
-  videoLinks: [],
-  contact: { email: "", phone: "" },
+  clubHistory: [],
+  signupGallery: [],
+  signupVideos: [],
+  storageBytes: 0,
 })
 
 function fromPlayer(p: Player): Draft {
@@ -126,9 +132,11 @@ function fromPlayer(p: Player): Draft {
     strengths: p.strengths ?? [],
     readyForNextStep: !!p.readyForNextStep,
     published: p.published !== false,
-    photoLink: p.photoLink ?? "",
-    videoLinks: p.videoLinks ?? [],
-    contact: { email: p.contact?.email ?? "", phone: p.contact?.phone ?? "" },
+    clubHistory: p.clubHistory ?? [],
+    signupSessionId: p.signupSessionId,
+    signupGallery: p.signupGallery ?? [],
+    signupVideos: p.signupVideos ?? [],
+    storageBytes: p.storageBytes ?? 0,
     source: p.source,
   }
 }
@@ -138,6 +146,7 @@ export default function PlayersAdmin() {
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
+  const [promoting, setPromoting] = useState(false)
   const [q, setQ] = useState("")
   const [draftsOnly, setDraftsOnly] = useState(false)
 
@@ -154,6 +163,71 @@ export default function PlayersAdmin() {
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
+  /**
+   * Accepting a self sign-up. The player's files move out of staging into the club's
+   * permanent prefixes, then the document is repointed at the new URLs and published.
+   *
+   * The photo *must* be rewritten to the promoted URL: the staged copy is deleted during
+   * the move, so leaving the old URL behind would give the public page a dead image.
+   */
+  const approveSignup = async () => {
+    if (!draft?.id || !draft.signupSessionId) return
+    setPromoting(true)
+    try {
+      const promoted = await approveSignupFiles(draft.signupSessionId, draft.id)
+      const first = (kind: "photo" | "gallery" | "video") => promoted.filter((p) => p.kind === kind)
+
+      const photo = first("photo")[0]
+      const gallery = first("gallery").map((p) => ({ url: p.url, bytes: p.bytes }))
+      const videos = first("video").map((p) => ({ url: p.url, bytes: p.bytes }))
+
+      await saveDoc("players", draft.id, {
+        imageUrl: photo?.url ?? draft.imageUrl,
+        // Always write the arrays: leaving them out would merge-keep the old values and
+        // leave the document pointing at staging URLs that no longer exist.
+        signupGallery: gallery,
+        signupVideos: videos,
+        published: true,
+      })
+
+      // The player page reads `galleries` and `mediaAssets`, not the player document, so the
+      // promoted files are invisible until we create those rows. Idempotent — safe to re-run.
+      const published = await publishSignupMedia({
+        playerId: draft.id,
+        playerName: draft.name.trim(),
+        galleryUrls: gallery.map((g) => g.url),
+        videoUrls: videos.map((v) => v.url),
+      })
+
+      await refreshPublic("players", "journeys", "media", "galleries")
+      toast({
+        title: "Approved",
+        description: `${draft.name} is live with ${formatBytes(draft.storageBytes)} of media${
+          published.clipIds.length ? ` and ${published.clipIds.length} highlight${published.clipIds.length === 1 ? "" : "s"}` : ""
+        }.`,
+      })
+      setDraft(null)
+    } catch (err) {
+      toast({ variant: "destructive", title: "Approval failed", description: (err as Error).message })
+    } finally {
+      setPromoting(false)
+    }
+  }
+
+  /** Rejecting a self sign-up: delete the profile *and* reclaim every byte it uploaded. */
+  const discardSignup = async () => {
+    if (!draft?.id) return
+    try {
+      if (draft.signupSessionId) await discardSignupFiles(draft.signupSessionId)
+      await removeDoc("players", draft.id)
+      await refreshPublic("players", "journeys")
+      toast({ title: "Discarded", description: `${draft.name}'s submission and files were deleted.` })
+      setDraft(null)
+    } catch (err) {
+      toast({ variant: "destructive", title: "Discard failed", description: (err as Error).message })
+    }
+  }
+
   const save = async () => {
     if (!draft?.name.trim()) {
       toast({ variant: "destructive", title: "Name is required." })
@@ -161,9 +235,7 @@ export default function PlayersAdmin() {
     }
     setSaving(true)
     try {
-      const { id, strongFoot, photoLink, videoLinks, contact, source, ...rest } = draft
-      const email = contact.email.trim()
-      const phone = contact.phone.trim()
+      const { id, strongFoot, signupSessionId, signupGallery, signupVideos, storageBytes, source, ...rest } = draft
       await saveDoc("players", id ?? null, {
         ...rest,
         name: rest.name.trim(),
@@ -175,9 +247,6 @@ export default function PlayersAdmin() {
         dob: rest.dob || undefined,
         nationality: rest.nationality.trim() || undefined,
         currentClub: rest.currentClub.trim() || undefined,
-        photoLink: photoLink.trim() || undefined,
-        videoLinks: videoLinks.length ? videoLinks : undefined,
-        contact: email || phone ? { email: email || undefined, phone: phone || undefined } : undefined,
         source,
       })
       await refreshPublic("players", "journeys")
@@ -321,44 +390,123 @@ export default function PlayersAdmin() {
             </div>
 
             {draft.source === "signup" && (
-              <div className="space-y-3 rounded-2xl border border-signal/30 bg-signal/5 p-4">
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-signal" />
-                  <p className="text-sm font-semibold">Submitted by the player from /join</p>
+              <div className="space-y-4 rounded-2xl border border-signal/30 bg-signal/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <UserPlus className="h-4 w-4 text-signal" />
+                      <p className="text-sm font-semibold">
+                        {draft.published ? "Self sign-up (already published)" : "Submitted by the player from /join"}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {draft.published
+                        ? `${formatBytes(draft.storageBytes)} of media, promoted into the club's storage.`
+                        : `${formatBytes(draft.storageBytes)} uploaded, waiting in staging. Approving moves their files into the club's permanent storage and publishes the profile.`}
+                    </p>
+                  </div>
+                  {!draft.published && (
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={approveSignup} disabled={promoting || !draft.signupSessionId}>
+                        {promoting ? <Loader2 className="animate-spin" /> : <CircleCheck />}
+                        Approve &amp; publish
+                      </Button>
+                      <ConfirmDelete
+                        what={`${draft.name}'s submission and uploaded files`}
+                        label="Discard"
+                        onConfirm={discardSignup}
+                      />
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Add the official photo, confirm the squad number, then switch on &ldquo;Show on public site&rdquo; to publish.
-                </p>
-                <dl className="space-y-2 text-sm">
-                  {draft.photoLink && (
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Photo link</dt>
-                      <dd>
-                        <a href={draft.photoLink} target="_blank" rel="noreferrer" className="break-all text-signal-soft underline">
-                          {draft.photoLink}
-                        </a>
-                      </dd>
-                    </div>
-                  )}
-                  {draft.videoLinks.length > 0 && (
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Footage</dt>
-                      <dd className="min-w-0 space-y-1">
-                        {draft.videoLinks.map((link) => (
-                          <a key={link} href={link} target="_blank" rel="noreferrer" className="block break-all text-signal-soft underline">
-                            {link}
-                          </a>
-                        ))}
-                      </dd>
-                    </div>
-                  )}
-                  {(draft.contact.email || draft.contact.phone) && (
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <dt className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">Contact</dt>
-                      <dd>{[draft.contact.email, draft.contact.phone].filter(Boolean).join(" · ")}</dd>
-                    </div>
-                  )}
-                </dl>
+
+                {draft.signupVideos.length > 0 && (
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Footage · {draft.signupVideos.length} clip{draft.signupVideos.length === 1 ? "" : "s"}
+                    </p>
+                    <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {draft.signupVideos.map((v) => (
+                        <li key={v.url} className="overflow-hidden rounded-xl border border-white/10">
+                          <video src={v.url} className="aspect-video w-full bg-navy-deep object-cover" controls muted playsInline preload="metadata" />
+                          <p className="truncate px-2 py-1 font-mono text-[10px] text-muted-foreground">
+                            {formatBytes(v.bytes)}
+                            {v.name ? ` · ${v.name}` : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {draft.signupGallery.length > 0 && (
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Gallery · {draft.signupGallery.length} photo{draft.signupGallery.length === 1 ? "" : "s"}
+                    </p>
+                    <ul className="mt-2 grid grid-cols-4 gap-2">
+                      {draft.signupGallery.map((p) => (
+                        <li key={p.url} className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-navy-deep">
+                          <Image src={p.url} alt="" fill sizes="120px" className="object-cover" />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {draft.clubHistory.length > 0 && (
+                  <div>
+                    <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                      Club history · {draft.clubHistory.length} {draft.clubHistory.length === 1 ? "club" : "clubs"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      Stated by the player, so nothing here is confirmed yet. Tick each club you can
+                      verify, then Save — the public profile only ever shows verified clubs.
+                    </p>
+                    <ul className="mt-2 space-y-2">
+                      {draft.clubHistory.map((club, i) => (
+                        <li key={i} className="rounded-xl border border-white/10 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold">
+                                {club.club}
+                                {club.current && (
+                                  <span className="ml-2 rounded-full bg-signal/20 px-2 py-0.5 text-[10px] font-medium text-signal">current</span>
+                                )}
+                                {!club.verified && (
+                                  <span className="ml-2 text-[10px] font-normal text-muted-foreground">unverified</span>
+                                )}
+                              </p>
+                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {[club.level, club.position, club.league, club.division, club.country, club.seasons].filter(Boolean).join(" · ") ||
+                                  "No further details given"}
+                              </p>
+                              {(club.appearances != null || club.goals != null || club.assists != null) && (
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  {club.appearances ?? 0} apps · {club.goals ?? 0} goals · {club.assists ?? 0} assists
+                                </p>
+                              )}
+                            </div>
+                            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={!!club.verified}
+                                onChange={(e) =>
+                                  set(
+                                    "clubHistory",
+                                    draft.clubHistory.map((x, xi) => (xi === i ? { ...x, verified: e.target.checked } : x))
+                                  )
+                                }
+                                className="h-4 w-4 accent-signal"
+                              />
+                              Verified
+                            </label>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

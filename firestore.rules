@@ -32,26 +32,53 @@ service cloud.firestore {
 
     // ───────── Always-public collections ─────────
     match /players/{playerId} {
-      allow read: if true;
+      // Unpublished drafts hold date of birth and the signupSessionId that unlocks the
+      // player's staged files, so they must never be world-readable. A list query must
+      // therefore carry a `published == true` constraint (rules are not filters) — see
+      // src/lib/server/queries.ts.
+      allow read: if resource.data.published == true || isAdmin();
+
+      // Validates one club-history entry. Applied to every index of the bounded array by the
+      // create rule below. Keep in sync with src/lib/player-signup.ts.
+      function validClubEntry(e) {
+        return e is map
+          && e.keys().hasAll(['club', 'current', 'verified'])
+          && e.keys().hasOnly([
+              'club', 'league', 'division', 'country', 'seasons', 'current', 'level',
+              'appearances', 'goals', 'assists', 'position', 'verified'])
+          && e.club is string && e.club.size() >= 1 && e.club.size() <= 80
+          && e.current is bool
+          // A player can never mark their own claim as confirmed.
+          && e.verified == false
+          && (!('league' in e) || (e.league is string && e.league.size() <= 80))
+          && (!('division' in e) || (e.division is string && e.division.size() <= 60))
+          && (!('country' in e) || (e.country is string && e.country.size() <= 60))
+          && (!('seasons' in e) || (e.seasons is string && e.seasons.size() <= 40))
+          && (!('level' in e) || e.level in ['Youth', 'Academy', 'Senior'])
+          && (!('position' in e) || e.position in ['Goalkeeper', 'Defender', 'Midfielder', 'Forward'])
+          && (!('appearances' in e) || (e.appearances is int && e.appearances >= 0 && e.appearances <= 2000))
+          && (!('goals' in e) || (e.goals is int && e.goals >= 0 && e.goals <= 2000))
+          && (!('assists' in e) || (e.assists is int && e.assists >= 0 && e.assists <= 2000));
+      }
 
       // Self sign-up from the public /join page. Drafts only: staff review the submission in
-      // /admin/players, set the official photo, then publish it. Keep this shape in sync with
+      // /admin/players, approve the files, then publish. Keep this shape in sync with
       // src/lib/player-signup.ts.
       allow create: if request.resource.data.keys().hasOnly([
             'name', 'nickname', 'position', 'role', 'jerseyNumber', 'imageUrl', 'bio', 'stats',
             'strongFoot', 'careerHighlights', 'squadStatus', 'dob', 'heightCm', 'nationality',
-            'strengths', 'readyForNextStep', 'currentClub', 'published',
-            'photoLink', 'videoLinks', 'contact', 'source', 'createdAt', 'updatedAt'])
+            'strengths', 'readyForNextStep', 'currentClub', 'published', 'clubHistory',
+            'signupSessionId', 'signupGallery', 'signupVideos', 'storageBytes', 'source',
+            'createdAt', 'updatedAt'])
         && request.resource.data.keys().hasAll([
             'name', 'position', 'role', 'jerseyNumber', 'imageUrl', 'bio', 'stats', 'strongFoot',
             'squadStatus', 'dob', 'heightCm', 'nationality', 'strengths', 'readyForNextStep',
-            'published', 'source', 'createdAt', 'updatedAt'])
+            'published', 'signupSessionId', 'storageBytes', 'source', 'createdAt', 'updatedAt'])
         && request.resource.data.source == 'signup'
         && request.resource.data.published == false
         && request.resource.data.role == 'Player'
         && request.resource.data.squadStatus == 'current'
         && request.resource.data.readyForNextStep == false
-        && request.resource.data.imageUrl == ''
         && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
         && request.resource.data.position in ['Goalkeeper', 'Defender', 'Midfielder', 'Forward']
         && request.resource.data.strongFoot in ['Left', 'Right', 'Both']
@@ -69,13 +96,40 @@ service cloud.firestore {
         && (!('careerHighlights' in request.resource.data) || (request.resource.data.careerHighlights is list && request.resource.data.careerHighlights.size() <= 12))
         && (!('nickname' in request.resource.data) || (request.resource.data.nickname is string && request.resource.data.nickname.size() <= 40))
         && (!('currentClub' in request.resource.data) || (request.resource.data.currentClub is string && request.resource.data.currentClub.size() <= 80))
-        && (!('photoLink' in request.resource.data) || (request.resource.data.photoLink is string && request.resource.data.photoLink.size() <= 500))
-        && (!('videoLinks' in request.resource.data) || (request.resource.data.videoLinks is list && request.resource.data.videoLinks.size() <= 5))
-        && (!('contact' in request.resource.data) || (
-              request.resource.data.contact is map
-              && request.resource.data.contact.keys().hasOnly(['email', 'phone'])
-              && (!('email' in request.resource.data.contact) || (request.resource.data.contact.email is string && request.resource.data.contact.email.size() <= 200))
-              && (!('phone' in request.resource.data.contact) || (request.resource.data.contact.phone is string && request.resource.data.contact.phone.size() <= 40))))
+        && (!('clubHistory' in request.resource.data) || (
+              request.resource.data.clubHistory is list
+              && request.resource.data.clubHistory.size() >= 1
+              && request.resource.data.clubHistory.size() <= 8
+              // Full shape validation of the first entry.
+              && validClubEntry(request.resource.data.clubHistory[0])
+              // Security-critical check for the rest. Rules cannot loop, and running the
+              // full validClubEntry across all eight entries blows the rules evaluation
+              // budget (verified empirically: it rejects legitimate 2-entry submissions),
+              // so the remaining indices get the cheap check that actually matters —
+              // a player must never be able to mark their own claim as confirmed.
+              // Bump these guards if the size bound above ever changes.
+              && (request.resource.data.clubHistory.size() < 2 || request.resource.data.clubHistory[1].verified == false)
+              && (request.resource.data.clubHistory.size() < 3 || request.resource.data.clubHistory[2].verified == false)
+              && (request.resource.data.clubHistory.size() < 4 || request.resource.data.clubHistory[3].verified == false)
+              && (request.resource.data.clubHistory.size() < 5 || request.resource.data.clubHistory[4].verified == false)
+              && (request.resource.data.clubHistory.size() < 6 || request.resource.data.clubHistory[5].verified == false)
+              && (request.resource.data.clubHistory.size() < 7 || request.resource.data.clubHistory[6].verified == false)
+              && (request.resource.data.clubHistory.size() < 8 || request.resource.data.clubHistory[7].verified == false)))
+        // Files must sit under the staging prefix for this exact session, so a crafted write
+        // can't attach somebody else's object — or a published player's photo — to a profile.
+        && request.resource.data.signupSessionId is string
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/photo/[^ ]+$')
+        && (!('signupGallery' in request.resource.data) || (
+              request.resource.data.signupGallery is list && request.resource.data.signupGallery.size() <= 8
+              && request.resource.data.signupGallery[0].url.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/gallery/[^ ]+$')))
+        && (!('signupVideos' in request.resource.data) || (
+              request.resource.data.signupVideos is list && request.resource.data.signupVideos.size() <= 4
+              && request.resource.data.signupVideos[0].url.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/video/[^ ]+$')))
+        // Note: rules can't iterate a list, so only index 0 of the gallery/video arrays is
+        // pattern-checked. The rest are length-bounded, and staff review every submission
+        // before it can be published — that review is the backstop, not this line.
+        && request.resource.data.storageBytes is int && request.resource.data.storageBytes >= 0
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 

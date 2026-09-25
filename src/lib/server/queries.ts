@@ -68,9 +68,12 @@ export function squadStatusOf(p: Player): SquadStatus {
 
 export const getPlayers = cached(
   async (): Promise<Player[]> => {
-    const rows = await listDocs<Player>("players")
+    // Firestore rules are not filters: a public list of `players` must ask for
+    // `published == true` itself, or the rules reject the whole query and this returns
+    // an empty squad. Drafts are unreadable by design — see the `players` read rule.
+    const rows = await listDocs<Player>("players", { where: [PUBLISHED] })
     return rows
-      .filter((p) => p.published !== false && (p.role ?? "Player") === "Player")
+      .filter((p) => (p.role ?? "Player") === "Player")
       .map((p) => ({ ...p, squadStatus: squadStatusOf(p) }))
       .sort((a, b) => (a.jerseyNumber ?? 99) - (b.jerseyNumber ?? 99))
   },
@@ -198,8 +201,10 @@ export const getStaff = cached(
   async (): Promise<StaffMember[]> => {
     const rows = await listDocs<StaffMember>("staff", { where: [PUBLISHED] })
     if (rows.length) return rows.sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-    // Until staff are migrated, fall back to coaches/staff stored on the legacy players collection.
-    const legacy = await listDocs<Player>("players")
+    // Until staff are migrated, fall back to coaches/staff stored on the legacy players
+    // collection. Same rules-not-filters constraint as getPlayers(): this must carry
+    // `published == true` or Firestore rejects the query outright.
+    const legacy = await listDocs<Player>("players", { where: [PUBLISHED] })
     return legacy
       .filter((p) => p.role === "Coach" || p.role === "Staff")
       .map((p, i) => ({
