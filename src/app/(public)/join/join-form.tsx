@@ -138,7 +138,7 @@ function ChipList({
               <button
                 type="button"
                 onClick={() => onChange(value.filter((x) => x !== v))}
-                className="rounded-full p-1 hover:bg-white/10"
+                className="rounded-full p-1 hover:bg-line/10"
                 aria-label={`Remove ${v}`}
               >
                 <X className="h-3 w-3" />
@@ -204,6 +204,10 @@ export function JoinForm() {
       setState("error")
     }
 
+    // The submit button is disabled without this, but a disabled button does not stop Enter
+    // inside a text field from submitting — so the handler has to refuse as well.
+    if (!consent) return fail("Accept the acknowledgement above before submitting your profile.")
+
     const name = form.name.trim()
     const bio = form.bio.trim()
     const heightCm = Number(form.heightCm)
@@ -220,7 +224,6 @@ export function JoinForm() {
     if (bio.length < 20) return fail("Add a short bio of at least 20 characters.")
     if (strengths.length === 0) return fail("Add at least one strength.")
     if (photo.length === 0) return fail("Upload a profile photo — it's what appears on your player page.")
-    if (!consent) return fail("Please confirm you're happy for the club to publish this profile.")
 
     setState("sending")
     try {
@@ -296,10 +299,10 @@ export function JoinForm() {
               id="position"
               value={form.position}
               onChange={(e) => setForm((f) => ({ ...f, position: e.target.value as SignupPosition }))}
-              className="flex h-11 w-full rounded-xl border border-input bg-ink/60 px-3 text-sm"
+              className="flex h-11 w-full rounded-xl border border-input bg-paper px-3 text-sm text-ivory"
             >
               {POSITIONS.map(([v, label]) => (
-                <option key={v} value={v} className="bg-ink">
+                <option key={v} value={v} className="bg-popover text-popover-foreground">
                   {label}
                 </option>
               ))}
@@ -310,10 +313,10 @@ export function JoinForm() {
               id="strongFoot"
               value={form.strongFoot}
               onChange={(e) => setForm((f) => ({ ...f, strongFoot: e.target.value as SignupFoot }))}
-              className="flex h-11 w-full rounded-xl border border-input bg-ink/60 px-3 text-sm"
+              className="flex h-11 w-full rounded-xl border border-input bg-paper px-3 text-sm text-ivory"
             >
               {FEET.map(([v, label]) => (
-                <option key={v} value={v} className="bg-ink">
+                <option key={v} value={v} className="bg-popover text-popover-foreground">
                   {label}
                 </option>
               ))}
@@ -436,6 +439,10 @@ export function JoinForm() {
         <input
           type="checkbox"
           checked={consent}
+          // Native backstop for the Enter-key path: the browser focuses the box and surfaces
+          // its own message before the submit event fires. Matches how the text fields above
+          // already enforce themselves.
+          required
           onChange={(e) => setConsent(e.target.checked)}
           className="mt-0.5 h-4 w-4 shrink-0 accent-signal"
         />
@@ -451,10 +458,29 @@ export function JoinForm() {
         </p>
       )}
 
-      <Button type="submit" size="xl" className="w-full sm:w-auto" disabled={state === "sending"}>
-        {state === "sending" ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-        Submit my profile
-      </Button>
+      <div className="space-y-2">
+        {/*
+          * A disabled button is removed from the tab order, so keyboard and screen-reader
+          * users cannot reach it to find out why it is dead. This visible line is what
+          * conveys the reason, rather than colour alone.
+          */}
+        {!consent && state !== "sending" && (
+          <p id="acknowledgement-hint" className="text-xs text-mist/70">
+            Accept the acknowledgement above to enable submitting your profile.
+          </p>
+        )}
+        <Button
+          type="submit"
+          size="xl"
+          className="w-full sm:w-auto"
+          disabled={state === "sending" || !consent}
+          aria-disabled={state === "sending" || !consent}
+          aria-describedby={!consent ? "acknowledgement-hint" : undefined}
+        >
+          {state === "sending" ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
+          Submit my profile
+        </Button>
+      </div>
 
       <p className={cn("text-xs text-mist/70", state === "sending" && "opacity-60")}>
         Nothing goes live until a staff member reviews it. If the club can&apos;t use your submission, the files you
