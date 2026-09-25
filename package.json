@@ -10,6 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "verify:join-rule": "node scripts/verify-join-rule.mjs",
     "storage:cors": "npx --yes wrangler r2 bucket cors set capital-city-storage --file cors.json --force",
     "storage:cors:show": "npx --yes wrangler r2 bucket cors list capital-city-storage"
   },

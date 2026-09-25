@@ -38,8 +38,9 @@ service cloud.firestore {
       // src/lib/server/queries.ts.
       allow read: if resource.data.published == true || isAdmin();
 
-      // Validates one club-history entry. Applied to every index of the bounded array by the
-      // create rule below. Keep in sync with src/lib/player-signup.ts.
+      // Validates one club-history entry. The create rule below applies this in full to the
+      // first entry, and the cheaper `verified == false` check to the remaining indices —
+      // see the note there for why. Keep in sync with src/lib/player-signup.ts.
       function validClubEntry(e) {
         return e is map
           && e.keys().hasAll(['club', 'current', 'verified'])
@@ -99,36 +100,46 @@ service cloud.firestore {
         && (!('clubHistory' in request.resource.data) || (
               request.resource.data.clubHistory is list
               && request.resource.data.clubHistory.size() >= 1
-              && request.resource.data.clubHistory.size() <= 8
+              // Bounded at 5, not 8. Firestore caps the rules evaluation budget and this
+              // create rule sits close to it: at a bound of 8, the eighth entry was rejected
+              // for a realistic payload once the signupGallery/signupVideos empty-array
+              // guards were added (verified empirically — 7 entries passed, 8 failed).
+              // Fewer entries means fewer per-index guards, and that is the only headroom
+              // available without dropping the per-entry `verified` check or the index-0
+              // shape validation, both of which must hold. Keep in sync with MAX_CLUBS in
+              // src/app/(public)/join/club-history-editor.tsx.
+              && request.resource.data.clubHistory.size() <= 5
               // Full shape validation of the first entry.
               && validClubEntry(request.resource.data.clubHistory[0])
-              // Security-critical check for the rest. Rules cannot loop, and running the
-              // full validClubEntry across all eight entries blows the rules evaluation
-              // budget (verified empirically: it rejects legitimate 2-entry submissions),
-              // so the remaining indices get the cheap check that actually matters —
-              // a player must never be able to mark their own claim as confirmed.
-              // Bump these guards if the size bound above ever changes.
+              // Security-critical check for the rest. Rules cannot loop, and running the full
+              // validClubEntry on every entry blows the budget outright (verified empirically:
+              // it rejects legitimate 2-entry submissions), so the remaining indices get the
+              // cheap check that actually matters — a player must never be able to mark their
+              // own claim as confirmed. Bump these guards if the bound above ever changes.
               && (request.resource.data.clubHistory.size() < 2 || request.resource.data.clubHistory[1].verified == false)
               && (request.resource.data.clubHistory.size() < 3 || request.resource.data.clubHistory[2].verified == false)
               && (request.resource.data.clubHistory.size() < 4 || request.resource.data.clubHistory[3].verified == false)
-              && (request.resource.data.clubHistory.size() < 5 || request.resource.data.clubHistory[4].verified == false)
-              && (request.resource.data.clubHistory.size() < 6 || request.resource.data.clubHistory[5].verified == false)
-              && (request.resource.data.clubHistory.size() < 7 || request.resource.data.clubHistory[6].verified == false)
-              && (request.resource.data.clubHistory.size() < 8 || request.resource.data.clubHistory[7].verified == false)))
+              && (request.resource.data.clubHistory.size() < 5 || request.resource.data.clubHistory[4].verified == false)))
         // Files must sit under the staging prefix for this exact session, so a crafted write
         // can't attach somebody else's object — or a published player's photo — to a profile.
         && request.resource.data.signupSessionId is string
         && request.resource.data.imageUrl is string
         && request.resource.data.imageUrl.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/photo/[^ ]+$')
+        // `size() == 0 ||` is load-bearing, not belt-and-braces: player-signup.ts always
+        // writes these arrays (as [] when the player uploaded none), and indexing [0] out of
+        // range makes the whole rule *error* rather than fail — which denied every photo-only
+        // submission, the most common first case. Both arrays need it.
         && (!('signupGallery' in request.resource.data) || (
               request.resource.data.signupGallery is list && request.resource.data.signupGallery.size() <= 8
-              && request.resource.data.signupGallery[0].url.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/gallery/[^ ]+$')))
+              && (request.resource.data.signupGallery.size() == 0
+                  || request.resource.data.signupGallery[0].url.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/gallery/[^ ]+$'))))
         && (!('signupVideos' in request.resource.data) || (
               request.resource.data.signupVideos is list && request.resource.data.signupVideos.size() <= 4
-              && request.resource.data.signupVideos[0].url.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/video/[^ ]+$')))
-        // Note: rules can't iterate a list, so only index 0 of the gallery/video arrays is
-        // pattern-checked. The rest are length-bounded, and staff review every submission
-        // before it can be published — that review is the backstop, not this line.
+              && (request.resource.data.signupVideos.size() == 0
+                  || request.resource.data.signupVideos[0].url.matches('^https://[^ ]+/signups/' + request.resource.data.signupSessionId + '/video/[^ ]+$'))))
+        // Note: only index 0 of the gallery/video arrays is pattern-checked. The rest are
+        // length-bounded, and staff review every submission before it can be published —
+        // that review is the backstop, not this line.
         && request.resource.data.storageBytes is int && request.resource.data.storageBytes >= 0
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;

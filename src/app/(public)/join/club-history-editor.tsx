@@ -9,8 +9,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-/** The rule allows 10; the form stops at 8 so a crafted write can never exceed it. */
-const MAX_CLUBS = 8
+/**
+ * Kept equal to the `clubHistory` size bound in firestore.rules (not below it).
+ *
+ * That bound is 5 rather than 8 for a rules-budget reason documented in the rule: at 8 the
+ * eighth entry was rejected for a realistic payload. If this ever exceeds the rule's bound,
+ * a player who fills the form in good faith gets a silent rejection, so the two must move
+ * together. `maxLength` on each field is likewise aligned with the rule.
+ */
+const MAX_CLUBS = 5
 
 export function blankClub(): ClubEntryInput {
   return { club: "", current: false }
