@@ -13,6 +13,25 @@ export const revalidate = 60
 
 type Props = { params: Promise<{ id: string }> }
 
+/**
+ * Hero frames. Covers render with `object-cover`, so a full-length portrait photo in the
+ * landscape frame loses its subject. An article that supplies a portrait `heroImageUrl`
+ * gets a 4:5 frame that matches the photo instead.
+ * Class strings are written out in full so Tailwind's scanner can see them.
+ */
+const HERO_FRAMES = {
+  landscape: {
+    box: "container mt-8 max-w-5xl",
+    frame: "relative -mx-5 aspect-[16/9] overflow-hidden sm:mx-0 sm:rounded-3xl",
+    sizes: "(min-width: 1024px) 64rem, 100vw",
+  },
+  portrait: {
+    box: "container mt-8 max-w-md",
+    frame: "relative -mx-5 aspect-[4/5] overflow-hidden sm:mx-0 sm:rounded-3xl",
+    sizes: "(min-width: 768px) 28rem, 100vw",
+  },
+} as const
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const a = await getArticle(id)
@@ -34,6 +53,8 @@ export default async function StoryPage({ params }: Props) {
   const article = await getArticle(id)
   if (!article) notFound()
   const more = (await getNews()).filter((n) => n.id !== id).slice(0, 3)
+  const heroSrc = article.heroImageUrl || article.imageUrl
+  const hero = article.heroImageUrl ? HERO_FRAMES.portrait : HERO_FRAMES.landscape
 
   return (
     <article className="pt-20 md:pt-28">
@@ -67,10 +88,10 @@ export default async function StoryPage({ params }: Props) {
           </ul>
         )}
       </div>
-      {article.imageUrl && (
-        <div className="container mt-8 max-w-5xl">
-          <div className="relative -mx-5 aspect-[16/9] overflow-hidden sm:mx-0 sm:rounded-3xl">
-            <Image src={article.imageUrl} alt="" fill priority sizes="(min-width: 1024px) 64rem, 100vw" className="object-cover" />
+      {heroSrc && (
+        <div className={hero.box}>
+          <div className={hero.frame}>
+            <Image src={heroSrc} alt="" fill priority sizes={hero.sizes} className="object-cover" />
           </div>
         </div>
       )}

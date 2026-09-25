@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import type { NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null }, articleId?: string) => Promise<void>;
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; clearHeroImage: boolean }, articleId?: string) => Promise<void>;
   articleToEdit?: NewsArticle | null;
   onFinishEditing: () => void;
 }
@@ -39,6 +39,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const [socialPosts, setSocialPosts] = useState<SocialPosts | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [heroPreview, setHeroPreview] = useState<string | null>(null);
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [clearHeroImage, setClearHeroImage] = useState(false);
 
 
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
@@ -55,6 +58,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       setSuggestedTags(articleToEdit.tags || []);
       setImagePreview(articleToEdit.imageUrl);
       setImageFile(null);
+      setHeroPreview(articleToEdit.heroImageUrl || null);
+      setHeroImageFile(null);
+      setClearHeroImage(false);
       setBulletPoints("");
       setIsEditing(true);
       setSocialPosts(null);
@@ -71,6 +77,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setSocialPosts(null);
     setImagePreview(null);
     setImageFile(null);
+    setHeroPreview(null);
+    setHeroImageFile(null);
+    setClearHeroImage(false);
     setIsEditing(false);
     onFinishEditing();
   }
@@ -140,6 +149,25 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     }
   };
 
+  const handleHeroFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setHeroImageFile(file);
+      setClearHeroImage(false);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setHeroPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveHero = () => {
+    setHeroPreview(null);
+    setHeroImageFile(null);
+    setClearHeroImage(true);
+  };
+
   const handleGenerateSocial = async () => {
     if (!articleContent.trim()) return
     setIsGeneratingSocial(true)
@@ -160,7 +188,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
 
   const handlePublish = async () => {
     setIsSubmitting(true);
-    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile }, articleToEdit?.id);
+    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile, heroImageFile: heroImageFile, clearHeroImage }, articleToEdit?.id);
     setIsSubmitting(false);
     resetForm();
   }
@@ -326,7 +354,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                     ) : (
                         <div className="text-center text-muted-foreground">
                             <UploadCloud className="mx-auto h-12 w-12" />
-                            <p className="mt-2 text-sm">Upload an image</p>
+                            <p className="mt-2 text-sm">Upload a landscape cover</p>
                         </div>
                     )}
                     <Input
@@ -337,6 +365,39 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                         onChange={handleImageFileChange}
                     />
                 </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Used for listing thumbnails, social previews and the article hero.
+                </p>
+            </div>
+            <div className="mt-6">
+                <Label className="font-semibold">Portrait hero (optional)</Label>
+                <div className="aspect-[4/5] max-w-[200px] mt-2 rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50">
+                    {heroPreview ? (
+                        <Image src={heroPreview} alt="Portrait hero preview" layout="fill" objectFit="cover" className="rounded-lg" />
+                    ) : (
+                        <div className="text-center text-muted-foreground">
+                            <UploadCloud className="mx-auto h-8 w-8" />
+                            <p className="mt-1 text-xs">No portrait</p>
+                        </div>
+                    )}
+                    <Input
+                        type="file"
+                        accept="image/*"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={handleHeroFileChange}
+                    />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Covers are cropped to fill the hero. A full-length photo uploaded here gets a
+                    taller frame instead, so the whole picture shows. Leave empty to use the
+                    landscape cover above.
+                </p>
+                {heroPreview && (
+                    <Button type="button" variant="outline" size="sm" className="mt-3" onClick={handleRemoveHero} disabled={isLoading}>
+                        <X className="mr-2 h-3 w-3" />
+                        Remove portrait hero
+                    </Button>
+                )}
             </div>
         </>
       )}

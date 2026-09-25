@@ -89,10 +89,22 @@ export type NewsArticle = {
   id: string;
   headline: string;
   content: string;
+  /**
+   * Landscape cover. Drives listing thumbnails, social previews, and the article hero
+   * unless `heroImageUrl` is set.
+   */
   imageUrl: string;
   date: string; // Should be ISO string
   tags: string[];
   audioUrl?: string;
+  /**
+   * Optional portrait (4:5) cover for the article hero only.
+   *
+   * Covers render with `object-cover`, so a full-length photo dropped into the landscape
+   * frame loses its subject. Supplying a portrait image here gives the hero a 4:5 frame
+   * that matches the photo, so the whole thing shows. Listings keep using `imageUrl`.
+   */
+  heroImageUrl?: string;
 };
 
 export type Video = {

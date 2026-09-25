@@ -30,11 +30,17 @@ export const uploadNewsImage = async (imageFile: File): Promise<string> => {
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null }) => {
   try {
     let imageUrl = "";
     if (articleData.imageFile) {
         imageUrl = await uploadNewsImage(articleData.imageFile);
+    }
+
+    // Optional portrait hero. Leave empty to keep the landscape cover in the hero.
+    let heroImageUrl = "";
+    if (articleData.heroImageFile) {
+        heroImageUrl = await uploadNewsImage(articleData.heroImageFile);
     }
 
     await addDoc(newsCollectionRef, {
@@ -42,6 +48,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       content: articleData.content,
       tags: articleData.tags,
       imageUrl: imageUrl,
+      heroImageUrl: heroImageUrl,
       date: new Date().toISOString(),
       createdAt: serverTimestamp(),
     });
@@ -61,7 +68,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
  * @param articleId The ID of the article to update.
  * @param articleData The data to update.
  */
-export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null }) => {
+export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; clearHeroImage?: boolean }) => {
     try {
         const updateData: any = {
             headline: articleData.headline,
@@ -72,6 +79,13 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
 
         if (articleData.imageFile) {
             updateData.imageUrl = await uploadNewsImage(articleData.imageFile);
+        }
+
+        if (articleData.heroImageFile) {
+            updateData.heroImageUrl = await uploadNewsImage(articleData.heroImageFile);
+        } else if (articleData.clearHeroImage) {
+            // Falls the hero back to the landscape cover.
+            updateData.heroImageUrl = "";
         }
 
         const articleDocRef = doc(db, "news", articleId);
