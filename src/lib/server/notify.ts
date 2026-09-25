@@ -1,7 +1,7 @@
 import "server-only"
 
 import type { App } from "firebase-admin/app"
-import type { DocumentReference } from "firebase-admin/firestore"
+import type { DocumentReference, Firestore } from "firebase-admin/firestore"
 
 /**
  * Sends push notifications from our own API route, replacing the Cloud Functions that
@@ -17,8 +17,13 @@ import type { DocumentReference } from "firebase-admin/firestore"
 
 export type PushResult = { devices: number; sent: number; failed: number; cleaned: number }
 
-/** Tokens are stored one per document, keyed by user id: userPushTokens/{userId}. */
-const TOKEN_COLLECTION = "userPushTokens"
+/**
+ * Tokens live in two collections. `userPushTokens` is keyed by account for signed-in users
+ * (staff, players); `pushDevices` is keyed by a random device id for the visitors who have no
+ * account, which is most of them. Only reading the first is why a public visitor could enable
+ * notifications and still never receive one.
+ */
+const TOKEN_COLLECTIONS = ["userPushTokens", "pushDevices"] as const
 
 /** FCM accepts at most 500 tokens per multicast call. */
 const TOKEN_BATCH = 500
@@ -57,6 +62,27 @@ function adminApp(): Promise<App> {
   return appPromise
 }
 
+/** Every device token we hold, deduplicated, with the document to prune if FCM rejects it. */
+async function collectTokens(db: Firestore): Promise<{ ref: DocumentReference; token: string }[]> {
+  const snaps = await Promise.all(TOKEN_COLLECTIONS.map((name) => db.collection(name).get()))
+
+  const entries: { ref: DocumentReference; token: string }[] = []
+  const seen = new Set<string>()
+
+  for (const snap of snaps) {
+    for (const doc of snap.docs) {
+      const token = doc.get("token")
+      if (typeof token !== "string" || token.length === 0) continue
+      // A signed-in visitor's device lands in both collections; FCM would count it twice.
+      if (seen.has(token)) continue
+      seen.add(token)
+      entries.push({ ref: doc.ref, token })
+    }
+  }
+
+  return entries
+}
+
 /** Sends one notification to every subscribed device and prunes tokens FCM rejects outright. */
 export async function sendPushToAll(
   title: string,
@@ -71,10 +97,7 @@ export async function sendPushToAll(
   const app = await adminApp()
   const db = getFirestore(app)
 
-  const snap = await db.collection(TOKEN_COLLECTION).get()
-  const entries = snap.docs
-    .map((d) => ({ ref: d.ref, token: typeof d.get("token") === "string" ? (d.get("token") as string) : "" }))
-    .filter((e) => e.token.length > 0)
+  const entries = await collectTokens(db)
 
   if (entries.length === 0) return { devices: 0, sent: 0, failed: 0, cleaned: 0 }
 
@@ -88,6 +111,15 @@ export async function sendPushToAll(
     const res = await messaging.sendEachForMulticast({
       notification: { title, body },
       data,
+      /*
+       * The web-push extras decide what the notification looks like and where a tap lands.
+       * `fcmOptions.link` lets the browser handle the click natively; without it a tap does
+       * nothing at all, which reads as the notification being broken.
+       */
+      webpush: {
+        fcmOptions: { link: data.url || "/" },
+        notification: { icon: "/icons/icon-192x192.png", badge: "/icons/icon-96x96.png" },
+      },
       tokens: slice.map((e) => e.token),
     })
 
@@ -123,6 +155,7 @@ export async function sendPushToAll(
 export async function countSubscribers(): Promise<number> {
   const { getFirestore } = await import("firebase-admin/firestore")
   const app = await adminApp()
-  const snap = await getFirestore(app).collection(TOKEN_COLLECTION).count().get()
-  return snap.data().count
+  const db = getFirestore(app)
+  const counts = await Promise.all(TOKEN_COLLECTIONS.map((name) => db.collection(name).count().get()))
+  return counts.reduce((total, snap) => total + snap.data().count, 0)
 }

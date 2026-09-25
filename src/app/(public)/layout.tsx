@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
 import { BottomTabBar } from "@/components/site/bottom-tab-bar"
 import { MaintenanceGate } from "@/components/site/maintenance-gate"
+import { PushConsentCard } from "@/components/site/push-consent-card"
 import { JsonLd } from "@/components/seo/json-ld"
 import { siteGraph } from "@/lib/seo"
 
@@ -28,6 +29,8 @@ export default async function PublicLayout({ children }: { children: React.React
       </main>
       <SiteFooter team={team} />
       <BottomTabBar />
+      {/* Asks once per visit whether to send push updates. Never blocks the page. */}
+      <PushConsentCard />
       {/* Sitewide schema.org: the club (SportsTeam) and the website, linked by @id. */}
       <JsonLd data={siteGraph(team)} />
     </div>

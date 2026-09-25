@@ -240,5 +240,23 @@ service cloud.firestore {
     match /userPushTokens/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
+
+    /*
+     * Push subscriptions for visitors who aren't signed in — the vast majority of them.
+     * There is no account to key these on, so the document id is a random UUID the browser
+     * generates and keeps in local storage, and the visitor can only ever reach their own.
+     *
+     * The collection is never readable from the client; only the Admin SDK lists tokens when
+     * sending a notification. Field validation is deliberately strict because this is the one
+     * place an unauthenticated caller can create a document.
+     */
+    match /pushDevices/{deviceId} {
+      allow create, update: if deviceId.size() >= 20 && deviceId.size() <= 64
+        && request.resource.data.keys().hasOnly(['token', 'updatedAt'])
+        && request.resource.data.token is string
+        && request.resource.data.token.size() >= 100
+        && request.resource.data.token.size() <= 4096;
+      allow read, delete: if isAdmin();
+    }
   }
 }

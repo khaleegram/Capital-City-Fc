@@ -1,13 +1,19 @@
 {
+  "id": "/",
   "name": "Capital City FC",
   "short_name": "Capital City",
   "description": "From Abuja. Built for the World. Journeys, players and footage from Capital City FC.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
+  "lang": "en-GB",
+  "dir": "ltr",
+  "categories": ["sports", "news", "entertainment"],
   "background_color": "#07142E",
   "theme_color": "#07142E",
+  "prefer_related_applications": false,
   "icons": [
     { "src": "/icons/icon-72x72.png", "sizes": "72x72", "type": "image/png" },
     { "src": "/icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" },
@@ -16,6 +22,13 @@
     { "src": "/icons/icon-152x152.png", "sizes": "152x152", "type": "image/png" },
     { "src": "/icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-384x384.png", "sizes": "384x384", "type": "image/png" },
-    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "/icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/icon-maskable-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Fixtures", "short_name": "Fixtures", "url": "/fixtures" },
+    { "name": "Watch", "short_name": "Watch", "url": "/media" },
+    { "name": "Journeys", "short_name": "Journeys", "url": "/journeys" }
   ]
 }
