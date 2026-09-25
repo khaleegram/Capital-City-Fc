@@ -76,6 +76,12 @@ export default async function MediaAssetPage({ params }: Props) {
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{copy.media.categories[asset.type]}</Badge>
+            {asset.fixtureKind ? <Badge variant="outline">{copy.media.fixtureKinds[asset.fixtureKind]}</Badge> : null}
+            {asset.scoreFor != null && asset.scoreAgainst != null ? (
+              <span className="font-mono text-xs text-mist/75">
+                {asset.scoreFor}&ndash;{asset.scoreAgainst}
+              </span>
+            ) : null}
             {asset.duration ? <span className="font-mono text-xs text-mist/75">{formatDuration(asset.duration)}</span> : null}
             {asset.createdAt && <span className="font-mono text-xs text-mist/75">{formatDate(asset.createdAt)}</span>}
           </div>

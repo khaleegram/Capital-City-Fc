@@ -4,11 +4,11 @@ import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Clapperboard, Link2, Loader2, Plus, Star, UploadCloud } from "lucide-react"
-import type { Fixture, Journey, MediaAsset, MediaType } from "@/lib/data"
+import type { FixtureKind, Journey, MediaAsset, MediaType } from "@/lib/data"
 import { copy } from "@/lib/copy"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { deleteFile, refreshPublic, uploadFile } from "@/lib/admin-client"
-import { byNewest, cn, toDate, embedUrlFor, formatDate, formatDuration, youtubePoster } from "@/lib/utils"
+import { byNewest, cn, embedUrlFor, formatDate, formatDuration, youtubePoster } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
 import { EditorSheet, NativeSelect, PlayerMultiSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
@@ -19,8 +19,20 @@ import { Badge } from "@/components/ui/badge"
 
 const { all: _all, ...categoryLabels } = copy.media.categories
 const TYPES = Object.entries(categoryLabels) as [MediaType, string][]
+const KINDS = Object.entries(copy.media.fixtureKinds) as [FixtureKind, string][]
 
 type Draft = Omit<MediaAsset, "id" | "createdAt"> & { id?: string }
+
+/**
+ * "CAPITAL CITY FC VS MALANTARKI (1-2)" — the shape the club was already typing into the
+ * Title box by hand. Opponent first, score appended once both sides are filled in.
+ */
+function autoTitleFor(d: Pick<Draft, "opponent" | "scoreFor" | "scoreAgainst">) {
+  const opponent = (d.opponent ?? "").trim()
+  if (!opponent) return ""
+  const score = d.scoreFor != null && d.scoreAgainst != null ? ` (${d.scoreFor}-${d.scoreAgainst})` : ""
+  return `CAPITAL CITY FC VS ${opponent.toUpperCase()}${score}`
+}
 
 const blank = (): Draft => ({
   type: "highlight",
@@ -32,6 +44,10 @@ const blank = (): Draft => ({
   taggedPlayers: [],
   journeyId: null,
   fixtureId: null,
+  fixtureKind: "friendly",
+  opponent: "",
+  scoreFor: undefined,
+  scoreAgainst: undefined,
   year: new Date().getFullYear(),
   vertical: false,
   featured: false,
@@ -178,22 +194,38 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
 export default function MediaAdmin() {
   const { items, loading } = useCollection<MediaAsset>("mediaAssets", byNewest)
   const { items: journeys } = useCollection<Journey>("journeys")
-  const { items: fixtures } = useCollection<Fixture>("fixtures", (a, b) => (toDate(b.date)?.getTime() ?? 0) - (toDate(a.date)?.getTime() ?? 0))
   const params = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const [type, setType] = useState<MediaType | "all">("all")
+  /** Once the title has been typed by hand, auto-fill stops touching it. */
+  const titleTouched = useRef(false)
+
+  /** Opening a draft adopts whatever title it already has, so auto-fill won't overwrite it. */
+  const openDraft = (d: Draft) => {
+    titleTouched.current = Boolean(d.title.trim())
+    setDraft(d)
+  }
 
   useEffect(() => {
     if (params.get("new") === "1") {
-      setDraft({ ...blank(), journeyId: params.get("journey") })
+      openDraft({ ...blank(), journeyId: params.get("journey") })
       router.replace("/admin/media")
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params, router])
 
-  const set = (patch: Partial<Draft>) => setDraft((d) => (d ? { ...d, ...patch } : d))
+  const set = (patch: Partial<Draft>) =>
+    setDraft((d) => {
+      if (!d) return d
+      const next = { ...d, ...patch }
+      // Keep the score-line title in step with the opponent and score, but never clobber a
+      // title the user typed themselves.
+      if (!titleTouched.current) next.title = autoTitleFor(next) || next.title
+      return next
+    })
   const rows = useMemo(() => items.filter((m) => type === "all" || m.type === type), [items, type])
 
   const save = async () => {
@@ -221,7 +253,7 @@ export default function MediaAdmin() {
       title="Media library"
       description="Full matches, highlights, training and tour footage. Tag players so it shows on their scouting profile."
       actions={
-        <Button onClick={() => setDraft(blank())}>
+        <Button onClick={() => openDraft(blank())}>
           <Plus /> Add media
         </Button>
       }
@@ -249,7 +281,7 @@ export default function MediaAdmin() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((m) => (
             <div key={m.id} className="overflow-hidden rounded-2xl border border-line/10">
-              <button className="relative block aspect-video w-full bg-navy-deep" onClick={() => setDraft({ ...blank(), ...m })}>
+              <button className="relative block aspect-video w-full bg-navy-deep" onClick={() => openDraft({ ...blank(), ...m })}>
                 {(m.poster || youtubePoster(m.url)) && <Image src={(m.poster || youtubePoster(m.url))!} alt="" fill sizes="33vw" className="object-cover" />}
                 {m.duration ? <span className="on-dark absolute bottom-2 right-2 rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[10px]">{formatDuration(m.duration)}</span> : null}
                 {m.featured && <Star className="absolute left-2 top-2 h-4 w-4 fill-signal text-signal" />}
@@ -298,9 +330,27 @@ export default function MediaAdmin() {
         {draft && (
           <>
             <VideoSource draft={draft} onChange={set} />
-            <Field label="Title">
-              <Input value={draft.title} onChange={(e) => set({ title: e.target.value })} />
+            <Field label="Title" hint="Fills itself from the opponent and score below. Type here to take over.">
+              <Input
+                value={draft.title}
+                onChange={(e) => {
+                  titleTouched.current = true
+                  set({ title: e.target.value })
+                }}
+              />
             </Field>
+            {autoTitleFor(draft) && draft.title !== autoTitleFor(draft) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  titleTouched.current = false
+                  set({ title: autoTitleFor(draft) })
+                }}
+                className="text-xs font-semibold text-signal underline underline-offset-2"
+              >
+                Use &ldquo;{autoTitleFor(draft)}&rdquo;
+              </button>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Category">
                 <NativeSelect<MediaType> value={draft.type} onChange={(v) => set({ type: v })} options={TYPES} />
@@ -308,24 +358,20 @@ export default function MediaAdmin() {
               <Field label="Year">
                 <Input type="number" value={draft.year ?? ""} onChange={(e) => set({ year: numberOrUndefined(e.target.value) })} />
               </Field>
+              <Field label="Fixture type" hint="Friendly, league, cup or tournament.">
+                <NativeSelect<FixtureKind> value={draft.fixtureKind ?? ""} onChange={(v) => set({ fixtureKind: v })} placeholder="Not set" options={KINDS} />
+              </Field>
               <Field label="Journey">
                 <NativeSelect value={draft.journeyId ?? ""} onChange={(v) => set({ journeyId: v || null })} placeholder="None" options={journeys.map((j) => [j.id, j.title] as const)} />
               </Field>
-              <Field label="Fixture">
-                <NativeSelect
-                  value={draft.fixtureId ?? ""}
-                  onChange={(v) => set({ fixtureId: v || null })}
-                  placeholder="None"
-                  // Lead with the competition — "Friendly", "Tournament" — so a fixture is
-                  // identifiable at a glance; the opponent alone reads like a team name.
-                  options={fixtures.map(
-                    (f) =>
-                      [
-                        f.id,
-                        `${f.competition} · vs ${f.opponent} · ${formatDate(f.date, { day: "numeric", month: "short" })}`,
-                      ] as const
-                  )}
-                />
+              <Field label="Opponent" className="sm:col-span-2">
+                <Input value={draft.opponent ?? ""} onChange={(e) => set({ opponent: e.target.value })} placeholder="e.g. Malantarki" />
+              </Field>
+              <Field label="Our score">
+                <Input type="number" min={0} inputMode="numeric" value={draft.scoreFor ?? ""} onChange={(e) => set({ scoreFor: numberOrUndefined(e.target.value) })} />
+              </Field>
+              <Field label="Their score">
+                <Input type="number" min={0} inputMode="numeric" value={draft.scoreAgainst ?? ""} onChange={(e) => set({ scoreAgainst: numberOrUndefined(e.target.value) })} />
               </Field>
               <Field label="Duration (seconds)" hint="Filled automatically for uploads.">
                 <Input type="number" value={draft.duration ?? ""} onChange={(e) => set({ duration: numberOrUndefined(e.target.value) })} />

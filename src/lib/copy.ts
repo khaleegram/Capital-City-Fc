@@ -113,6 +113,12 @@ export const copy = {
       interview: "Interviews",
       behindScenes: "Behind the Scenes",
     },
+    fixtureKinds: {
+      friendly: "Friendly",
+      league: "League",
+      cup: "Cup",
+      tournament: "Tournament",
+    },
     empty: "New footage is on the way.",
   },
 

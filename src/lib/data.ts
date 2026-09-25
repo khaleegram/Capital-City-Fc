@@ -353,6 +353,12 @@ export type MediaType =
   | "interview"
   | "behindScenes";
 
+/**
+ * What kind of game a clip belongs to. Deliberately a small fixed set rather than the
+ * free-text `Fixture.competition`, so footage can be grouped and filtered consistently.
+ */
+export type FixtureKind = "friendly" | "league" | "cup" | "tournament";
+
 export type MediaAsset = {
   id: string;
   type: MediaType;
@@ -366,6 +372,11 @@ export type MediaAsset = {
   vertical?: boolean;
   journeyId?: string | null;
   fixtureId?: string | null;
+  /** Match footage: what kind of game it was, who against, and the result. */
+  fixtureKind?: FixtureKind;
+  opponent?: string;
+  scoreFor?: number;
+  scoreAgainst?: number;
   playerIds: string[];
   /** Denormalised for display so the public site never needs a join. */
   taggedPlayers?: { id: string; name: string }[];
