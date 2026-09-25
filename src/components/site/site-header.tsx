@@ -13,12 +13,22 @@ import { isActivePath, moreNav, primaryNav } from "./nav-items"
 
 export type LiveJourneyLink = { slug: string; title: string } | null
 
+/**
+ * How far the page has to move before the bar takes on a surface.
+ *
+ * This used to be 8px, which meant a stray trackpad nudge turned the bar white with a
+ * visible hairline while the hero still filled the screen — it read as an unwanted band
+ * rather than a scrolled header. Roughly one header height is the point at which the
+ * change actually communicates something.
+ */
+const SOLID_AT_SCROLL_Y = 48
+
 export function SiteHeader({ live }: { live: LiveJourneyLink }) {
   const pathname = usePathname()
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
+    const onScroll = () => setScrolled(window.scrollY > SOLID_AT_SCROLL_Y)
     onScroll()
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
@@ -37,12 +47,12 @@ export function SiteHeader({ live }: { live: LiveJourneyLink }) {
     <header
       className={cn(
         "fixed inset-x-0 top-0 z-40 transition-colors duration-300",
-        scrolled
-          ? "border-b border-line/10 bg-canvas/85 backdrop-blur-xl"
-          : cn(
-              "border-b border-transparent",
-              overDarkHero ? "on-dark" : "bg-gradient-to-b from-canvas/80 to-transparent"
-            )
+        /*
+         * At rest the bar is fully transparent — no wash behind it — so it sits on the hero
+         * rather than reading as a white band. It only gains a surface once the page moves,
+         * at which point ivory text over ivory content would be unreadable anyway.
+         */
+        scrolled ? "border-b border-line/10 bg-canvas/85 backdrop-blur-xl" : cn("border-b border-transparent", overDarkHero && "on-dark")
       )}
     >
       <div className="container flex h-14 items-center gap-4 md:h-16">
