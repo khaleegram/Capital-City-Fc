@@ -445,7 +445,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <Label htmlFor="squadStatus">Squad</Label>
-                      <select id="squadStatus" {...register("squadStatus")} className="flex h-11 w-full rounded-xl border border-white/15 bg-ink/40 px-3 text-sm">
+                      <select id="squadStatus" {...register("squadStatus")} className="flex h-11 w-full rounded-xl border border-input bg-paper px-3 text-sm text-ivory">
                         <option value="current">Current squad</option>
                         <option value="alumni">Alumni</option>
                       </select>

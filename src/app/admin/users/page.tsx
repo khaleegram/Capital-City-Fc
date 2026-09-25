@@ -64,7 +64,7 @@ export default function AdminUsersPage() {
                 <EmptyState icon={ShieldCheck} title="No staff yet" />
               </div>
             ) : (
-              <ul className="divide-y divide-white/10">
+              <ul className="divide-y divide-line/10">
                 {items.map((u) => (
                   <li key={u.id} className="flex flex-wrap items-center gap-3 p-4">
                     <div className="min-w-0 flex-1">

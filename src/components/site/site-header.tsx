@@ -26,11 +26,23 @@ export function SiteHeader({ live }: { live: LiveJourneyLink }) {
 
   const desktopLinks = [...primaryNav.slice(1), ...moreNav.filter((i) => i.href !== "/contact")]
 
+  /*
+   * The homepage hero is the only dark ground the header floats over — every other public
+   * route opens on ivory. At rest that decides whether the bar carries light or ink text;
+   * once scrolled it is a solid ivory bar either way, so it always goes back to ink.
+   */
+  const overDarkHero = pathname === "/"
+
   return (
     <header
       className={cn(
         "fixed inset-x-0 top-0 z-40 transition-colors duration-300",
-        scrolled ? "border-b border-line/10 bg-canvas/85 backdrop-blur-xl" : "border-b border-transparent bg-gradient-to-b from-canvas/80 to-transparent"
+        scrolled
+          ? "border-b border-line/10 bg-canvas/85 backdrop-blur-xl"
+          : cn(
+              "border-b border-transparent",
+              overDarkHero ? "on-dark" : "bg-gradient-to-b from-canvas/80 to-transparent"
+            )
       )}
     >
       <div className="container flex h-14 items-center gap-4 md:h-16">
@@ -71,7 +83,7 @@ export function SiteHeader({ live }: { live: LiveJourneyLink }) {
           })}
           <Link
             href="/contact"
-            className="ml-2 inline-flex h-10 items-center gap-1.5 rounded-full bg-signal px-4 text-sm font-semibold text-white transition hover:bg-signal-soft"
+            className="ml-2 inline-flex h-10 items-center gap-1.5 rounded-full bg-signal px-4 text-sm font-semibold text-signal-foreground transition hover:bg-signal-soft"
           >
             {copy.nav.contact}
             <ArrowUpRight className="h-4 w-4" />

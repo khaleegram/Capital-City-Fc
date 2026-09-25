@@ -59,7 +59,7 @@ export function DetailsTab({ journeyId, draft, set }: TabProps) {
         <Field label="Summary" hint="One or two sentences shown on cards and at the top of the journey page.">
           <Textarea rows={4} value={draft.summary} onChange={(e) => set({ summary: e.target.value })} />
         </Field>
-        <div className="space-y-3 rounded-2xl border border-white/10 p-4">
+        <div className="space-y-3 rounded-2xl border border-line/10 p-4">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Journey progress</span>
             <span className="font-mono text-sm tabular-nums">{draft.progress ?? 0}%</span>

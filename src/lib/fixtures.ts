@@ -50,6 +50,9 @@ export const addFixtureAndArticle = async (data: {
         publishArticle: boolean;
         startingXI?: Player[];
         substitutes?: Player[];
+        /** Set once a match has been played; omitted entirely for upcoming fixtures. */
+        score?: { home: number; away: number };
+        status?: Fixture["status"];
     };
     preview: string;
     tags: string[];
@@ -80,8 +83,8 @@ export const addFixtureAndArticle = async (data: {
         const newFixtureData: Omit<Fixture, 'id'> = {
             ...fixtureData,
             articleId: articleId,
-            status: "UPCOMING",
-            score: { home: 0, away: 0 },
+            status: fixtureData.status ?? "UPCOMING",
+            score: fixtureData.score ?? { home: 0, away: 0 },
             createdAt: serverTimestamp(),
             activePlayers: fixtureData.startingXI || [], // Initially, active players are the starters
         } as any;

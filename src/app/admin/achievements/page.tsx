@@ -65,9 +65,9 @@ export default function AchievementsAdmin() {
       ) : items.length === 0 ? (
         <EmptyState icon={Award} title="No achievements yet" />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/10">
+        <div className="overflow-hidden rounded-2xl border border-line/10">
           {items.map((a) => (
-            <div key={a.id} className="flex items-center gap-4 border-b border-white/5 p-3 last:border-0">
+            <div key={a.id} className="flex items-center gap-4 border-b border-line/5 p-3 last:border-0">
               <span className="w-14 font-mono text-sm text-mist/70">{a.year}</span>
               <button className="min-w-0 flex-1 text-left" onClick={() => setDraft({ ...blank(), ...a })}>
                 <p className="truncate font-semibold">{a.title}</p>

@@ -17,7 +17,7 @@ export function SquadTab({ draft, set }: TabProps) {
         <PlayerMultiSelect label="CCFC profiles on this journey" value={draft.playerIds ?? []} onChange={(ids) => set({ playerIds: ids })} />
         <p className="mt-2 text-xs text-muted-foreground">These players get this journey on their pathway timeline. The full tournament sheet lives on the public journey page.</p>
         {(draft.squad?.length ?? 0) > 0 && (
-          <ul className="mt-6 divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10 text-sm">
+          <ul className="mt-6 divide-y divide-line/10 overflow-hidden rounded-xl border border-line/10 text-sm">
             {draft.squad!.map((m) => (
               <li key={`${m.number}-${m.name}`} className="flex items-center gap-3 px-3 py-2">
                 <span className="w-6 font-mono text-xs text-muted-foreground">{m.number}</span>
@@ -35,10 +35,10 @@ export function SquadTab({ draft, set }: TabProps) {
           <span className="font-mono text-xs text-muted-foreground">{fixtureIds.length} linked</span>
         </div>
         <p className="text-xs text-muted-foreground">For matches you ran through the live match console. Tournament games abroad go in Results instead.</p>
-        <ul className="max-h-96 overflow-y-auto rounded-xl border border-white/10">
+        <ul className="max-h-96 overflow-y-auto rounded-xl border border-line/10">
           {fixtures.map((f) => (
-            <li key={f.id} className="border-b border-white/5 last:border-0">
-              <label className="flex cursor-pointer items-center gap-3 p-3 text-sm hover:bg-white/5">
+            <li key={f.id} className="border-b border-line/5 last:border-0">
+              <label className="flex cursor-pointer items-center gap-3 p-3 text-sm hover:bg-line/5">
                 <Checkbox
                   checked={fixtureIds.includes(f.id)}
                   onCheckedChange={(v) => set({ fixtureIds: v ? [...fixtureIds, f.id] : fixtureIds.filter((x) => x !== f.id) })}

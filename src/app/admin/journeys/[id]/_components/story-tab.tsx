@@ -41,7 +41,7 @@ export function StoryTab({ draft, set }: TabProps) {
           <p className="text-sm text-muted-foreground">Voices from players, coaches, parents and opponents.</p>
         </div>
         {quotes.map((q, i) => (
-          <div key={i} className="space-y-2 rounded-2xl border border-white/10 p-3">
+          <div key={i} className="space-y-2 rounded-2xl border border-line/10 p-3">
             <Textarea
               rows={3}
               aria-label="Quote"

@@ -49,7 +49,7 @@ export function AdminPage({
 
 export function EmptyState({ icon: Icon, title, body, action }: { icon?: React.ElementType; title: string; body?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line/20 px-6 py-14 text-center">
       {Icon && <Icon className="mb-3 h-8 w-8 text-mist/60" />}
       <p className="font-display text-lg font-semibold">{title}</p>
       {body && <p className="mt-1 max-w-sm text-sm text-muted-foreground">{body}</p>}
@@ -145,7 +145,7 @@ export function UploadField({
   }
 
   return (
-    <div className={cn("relative overflow-hidden rounded-xl border border-dashed border-white/15 bg-ink/40", aspect, className)}>
+    <div className={cn("relative overflow-hidden rounded-xl border border-dashed border-line/20 bg-line/[0.03]", aspect, className)}>
       {value ? (
         <>
           {isVideo ? (

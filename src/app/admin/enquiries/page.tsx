@@ -49,13 +49,13 @@ export default function EnquiriesAdmin() {
           <button
             key={key}
             onClick={() => setFilter(key)}
-            className={cn("h-9 rounded-full border px-4 text-xs font-semibold", filter === key ? "border-ivory bg-ivory text-ink" : "border-white/15 text-mist/80")}
+            className={cn("h-9 rounded-full border px-4 text-xs font-semibold", filter === key ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/80")}
           >
             {label}
             {key === "new" && ` (${items.filter((e) => e.status === "new").length})`}
           </button>
         ))}
-        <select value={role} onChange={(e) => setRole(e.target.value as EnquiryRole | "all")} className="on-dark h-9 rounded-full border border-white/15 bg-ink px-3 text-xs">
+        <select value={role} onChange={(e) => setRole(e.target.value as EnquiryRole | "all")} className="h-9 rounded-full border border-input bg-paper px-3 text-xs text-ivory">
           <option value="all">All roles</option>
           {Object.entries(copy.contact.roles).map(([k, v]) => (
             <option key={k} value={k}>
@@ -71,12 +71,12 @@ export default function EnquiriesAdmin() {
         <EmptyState icon={Inbox} title="Inbox zero" body="New enquiries appear here the moment they're sent." />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
-          <ul className="overflow-hidden rounded-2xl border border-white/10">
+          <ul className="overflow-hidden rounded-2xl border border-line/10">
             {rows.map((e) => (
               <li key={e.id}>
                 <button
                   onClick={() => open(e)}
-                  className={cn("flex w-full items-start gap-3 border-b border-white/5 p-4 text-left hover:bg-white/5", openId === e.id && "bg-white/5")}
+                  className={cn("flex w-full items-start gap-3 border-b border-line/5 p-4 text-left hover:bg-line/5", openId === e.id && "bg-line/5")}
                 >
                   <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", e.status === "new" ? "bg-signal" : "bg-transparent")} />
                   <span className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ export default function EnquiriesAdmin() {
             ))}
           </ul>
 
-          <div className="rounded-2xl border border-white/10 p-5 lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-2xl border border-line/10 p-5 lg:sticky lg:top-20 lg:self-start">
             {!active ? (
               <p className="py-16 text-center text-sm text-muted-foreground">Select an enquiry to read it.</p>
             ) : (
@@ -120,7 +120,7 @@ export default function EnquiriesAdmin() {
                   </Link>
                 )}
                 <p className="whitespace-pre-line leading-relaxed">{active.message}</p>
-                <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+                <div className="flex flex-wrap gap-2 border-t border-line/10 pt-4">
                   <Button asChild>
                     <a
                       href={`mailto:${active.email}?subject=${encodeURIComponent("Capital City FC: your enquiry")}`}

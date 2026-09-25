@@ -38,16 +38,36 @@ const blank = (): Draft => ({
   published: false,
 })
 
-function readVideoMeta(file: File): Promise<{ duration?: number; vertical?: boolean }> {
+/**
+ * Reads duration and orientation from a video file.
+ *
+ * Never rejects, and never hangs. Some clips — iPhone HEVC .MOVs especially — fire neither
+ * `loadedmetadata` nor `error`, which used to leave the caller's `Promise.all` pending
+ * forever and stranded the editor at 100% with the file already sitting in the bucket.
+ */
+function readVideoMeta(file: File, timeoutMs = 8000): Promise<{ duration?: number; vertical?: boolean }> {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file)
     const v = document.createElement("video")
     v.preload = "metadata"
-    v.onloadedmetadata = () => {
-      resolve({ duration: Math.round(v.duration) || undefined, vertical: v.videoHeight > v.videoWidth })
+    let settled = false
+    const finish = (meta: { duration?: number; vertical?: boolean }) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      v.onloadedmetadata = null
+      v.onerror = null
+      v.removeAttribute("src")
       URL.revokeObjectURL(url)
+      resolve(meta)
     }
-    v.onerror = () => resolve({})
+    const timer = setTimeout(() => finish({}), timeoutMs)
+    v.onloadedmetadata = () =>
+      finish({
+        duration: Number.isFinite(v.duration) ? Math.round(v.duration) : undefined,
+        vertical: v.videoHeight > v.videoWidth,
+      })
+    v.onerror = () => finish({})
     v.src = url
   })
 }
@@ -61,9 +81,23 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
   const pick = async (file?: File) => {
     if (!file) return
     setProgress(0)
+    /*
+     * Metadata is a nicety — duration and orientation. It runs *alongside* the upload
+     * rather than gating it, so a clip whose codec the browser can't parse can no longer
+     * leave this panel stuck on a spinner after the bytes have already landed.
+     */
+    const meta = readVideoMeta(file)
     try {
-      const [meta, url] = await Promise.all([readVideoMeta(file), uploadFile(file, "media", setProgress)])
-      onChange({ url, ...meta, title: draft.title || file.name.replace(/\.[^.]+$/, "") })
+      const url = await uploadFile(file, "media", setProgress)
+      onChange({ url, title: draft.title || file.name.replace(/\.[^.]+$/, "") })
+      const m = await meta
+      onChange(m)
+      if (!m.duration) {
+        toast({
+          title: "Uploaded — but this clip may not play",
+          description: "Its length couldn't be read, which usually means the browser can't decode the codec. Re-export as MP4 (H.264) if playback fails.",
+        })
+      }
     } catch (err) {
       toast({ variant: "destructive", title: "Upload failed", description: (err as Error).message })
     } finally {
@@ -79,7 +113,10 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={cn("flex h-9 items-center gap-1.5 rounded-full border px-4 text-xs font-semibold", mode === m ? "border-ivory bg-ivory text-ink" : "border-white/15 text-mist/80")}
+            className={cn(
+              "flex h-9 items-center gap-1.5 rounded-full border px-4 text-xs font-semibold transition-colors",
+              mode === m ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/80 hover:border-line/40"
+            )}
           >
             {m === "upload" ? <UploadCloud className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
             {m === "upload" ? "Upload file" : "YouTube / Vimeo link"}
@@ -98,7 +135,7 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
         />
       ) : draft.url && !embedUrlFor(draft.url) ? (
         <div className="space-y-2">
-          <video src={draft.url} controls preload="metadata" className="aspect-video w-full rounded-xl bg-ink" />
+          <video src={draft.url} controls preload="metadata" className="aspect-video w-full rounded-xl bg-navy-deep" />
           <Button type="button" variant="outline" size="sm" onClick={() => onChange({ url: "" })}>
             Replace video
           </Button>
@@ -108,7 +145,7 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
           type="button"
           disabled={progress !== null}
           onClick={() => input.current?.click()}
-          className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-ink/40 text-sm text-mist/70 hover:text-ivory"
+          className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line/20 bg-line/[0.03] text-sm text-mist/70 transition-colors hover:border-line/40 hover:text-ivory"
         >
           {progress !== null ? (
             <>
@@ -122,7 +159,18 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
           )}
         </button>
       )}
-      <input ref={input} type="file" accept="video/*" className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      <input
+        ref={input}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          // Clear the input so re-picking the *same* file still fires a change event.
+          e.target.value = ""
+          void pick(file)
+        }}
+      />
     </div>
   )
 }
@@ -183,7 +231,10 @@ export default function MediaAdmin() {
           <button
             key={k}
             onClick={() => setType(k)}
-            className={cn("h-9 rounded-full border px-4 text-xs font-semibold", type === k ? "border-ivory bg-ivory text-ink" : "border-white/15 text-mist/80")}
+            className={cn(
+              "h-9 rounded-full border px-4 text-xs font-semibold transition-colors",
+              type === k ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/80 hover:border-line/40"
+            )}
           >
             {label}
           </button>
@@ -197,7 +248,7 @@ export default function MediaAdmin() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((m) => (
-            <div key={m.id} className="overflow-hidden rounded-2xl border border-white/10">
+            <div key={m.id} className="overflow-hidden rounded-2xl border border-line/10">
               <button className="relative block aspect-video w-full bg-navy-deep" onClick={() => setDraft({ ...blank(), ...m })}>
                 {(m.poster || youtubePoster(m.url)) && <Image src={(m.poster || youtubePoster(m.url))!} alt="" fill sizes="33vw" className="object-cover" />}
                 {m.duration ? <span className="on-dark absolute bottom-2 right-2 rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[10px]">{formatDuration(m.duration)}</span> : null}
@@ -265,7 +316,15 @@ export default function MediaAdmin() {
                   value={draft.fixtureId ?? ""}
                   onChange={(v) => set({ fixtureId: v || null })}
                   placeholder="None"
-                  options={fixtures.map((f) => [f.id, `vs ${f.opponent} · ${formatDate(f.date)}`] as const)}
+                  // Lead with the competition — "Friendly", "Tournament" — so a fixture is
+                  // identifiable at a glance; the opponent alone reads like a team name.
+                  options={fixtures.map(
+                    (f) =>
+                      [
+                        f.id,
+                        `${f.competition} · vs ${f.opponent} · ${formatDate(f.date, { day: "numeric", month: "short" })}`,
+                      ] as const
+                  )}
                 />
               </Field>
               <Field label="Duration (seconds)" hint="Filled automatically for uploads.">

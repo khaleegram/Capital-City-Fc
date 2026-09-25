@@ -74,7 +74,7 @@ export default function StaffAdmin() {
                 <h2 className="mb-3 font-mono text-[11px] uppercase tracking-stamp text-mist/70">{label}</h2>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {people.map((s) => (
-                    <div key={s.id} className="flex items-center gap-3 rounded-2xl border border-white/10 p-3">
+                    <div key={s.id} className="flex items-center gap-3 rounded-2xl border border-line/10 p-3">
                       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-navy-deep">
                         {s.imageUrl && <Image src={s.imageUrl} alt="" fill sizes="56px" className="object-cover" />}
                       </div>

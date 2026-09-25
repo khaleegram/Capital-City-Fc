@@ -71,7 +71,7 @@ export default function JourneysAdmin() {
       ) : (
         <div className="space-y-3">
           {items.map((j) => (
-            <div key={j.id} className="flex items-center gap-4 rounded-2xl border border-white/10 p-3">
+            <div key={j.id} className="flex items-center gap-4 rounded-2xl border border-line/10 p-3">
               <Link href={`/admin/journeys/${j.id}`} className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-navy-deep">
                   {j.coverImageUrl && <Image src={j.coverImageUrl} alt="" fill sizes="96px" className="object-cover" />}

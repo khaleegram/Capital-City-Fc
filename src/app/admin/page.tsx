@@ -17,7 +17,7 @@ import { ProofStrip } from "@/components/site/proof-strip"
 
 function Stat({ icon: Icon, label, value, href, note }: { icon: React.ElementType; label: string; value: number | string; href: string; note?: string }) {
   return (
-    <Link href={href} className="group rounded-2xl border border-white/10 bg-card p-4 transition-colors hover:border-white/25">
+    <Link href={href} className="group rounded-2xl border border-line/10 bg-card p-4 transition-colors hover:border-line/25">
       <div className="flex items-center justify-between text-mist/70">
         <span className="text-xs font-medium uppercase tracking-[0.14em]">{label}</span>
         <Icon className="h-4 w-4" />
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
             {enquiries.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">No enquiries yet.</p>
             ) : (
-              <ul className="divide-y divide-white/10">
+              <ul className="divide-y divide-line/10">
                 {enquiries.slice(0, 5).map((e) => (
                   <li key={e.id} className="flex items-start justify-between gap-3 py-3">
                     <div className="min-w-0">
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
           { href: "/admin/galleries", label: "Publish a photo story", body: "Bulk upload, caption and tag players." },
           { href: "/admin/staff", label: "Update management", body: "Staff profiles shown on the Club page." },
         ].map((a) => (
-          <Link key={a.href} href={a.href} className="group flex items-start justify-between rounded-2xl border border-white/10 p-4 hover:border-white/25">
+          <Link key={a.href} href={a.href} className="group flex items-start justify-between rounded-2xl border border-line/10 p-4 hover:border-line/25">
             <div>
               <p className="font-semibold">{a.label}</p>
               <p className="text-sm text-muted-foreground">{a.body}</p>

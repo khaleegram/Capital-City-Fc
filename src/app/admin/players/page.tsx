@@ -280,7 +280,7 @@ export default function PlayersAdmin() {
           aria-pressed={draftsOnly}
           className={cn(
             "h-11 rounded-xl border px-4 text-xs font-semibold",
-            draftsOnly ? "border-ivory bg-ivory text-ink" : "border-white/15 text-mist/80 hover:border-white/40"
+            draftsOnly ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/80 hover:border-line/40"
           )}
         >
           Awaiting review{awaitingReview.length ? ` (${awaitingReview.length})` : ""}
@@ -311,7 +311,7 @@ export default function PlayersAdmin() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {shown.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 rounded-2xl border border-white/10 p-3">
+            <li key={p.id} className="flex items-center gap-3 rounded-2xl border border-line/10 p-3">
               <button type="button" onClick={() => setDraft(fromPlayer(p))} className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-navy-deep">
                 <Image src={p.imageUrl || TEAM_LOGO_URL} alt="" fill sizes="64px" className={p.imageUrl ? "object-cover object-top" : "object-contain p-2 opacity-40"} />
               </button>
@@ -427,7 +427,7 @@ export default function PlayersAdmin() {
                     </p>
                     <ul className="mt-2 grid gap-2 sm:grid-cols-2">
                       {draft.signupVideos.map((v) => (
-                        <li key={v.url} className="overflow-hidden rounded-xl border border-white/10">
+                        <li key={v.url} className="overflow-hidden rounded-xl border border-line/10">
                           <video src={v.url} className="aspect-video w-full bg-navy-deep object-cover" controls muted playsInline preload="metadata" />
                           <p className="truncate px-2 py-1 font-mono text-[10px] text-muted-foreground">
                             {formatBytes(v.bytes)}
@@ -446,7 +446,7 @@ export default function PlayersAdmin() {
                     </p>
                     <ul className="mt-2 grid grid-cols-4 gap-2">
                       {draft.signupGallery.map((p) => (
-                        <li key={p.url} className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-navy-deep">
+                        <li key={p.url} className="relative aspect-square overflow-hidden rounded-lg border border-line/10 bg-navy-deep">
                           <Image src={p.url} alt="" fill sizes="120px" className="object-cover" />
                         </li>
                       ))}
@@ -465,7 +465,7 @@ export default function PlayersAdmin() {
                     </p>
                     <ul className="mt-2 space-y-2">
                       {draft.clubHistory.map((club, i) => (
-                        <li key={i} className="rounded-xl border border-white/10 p-3">
+                        <li key={i} className="rounded-xl border border-line/10 p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold">

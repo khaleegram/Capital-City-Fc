@@ -30,6 +30,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+/**
+ * Scores stay blank until a match has been played, so an empty pair has to stay distinct
+ * from a real 0-0. Kept as strings here and parsed in `onSubmit` — `z.coerce.number()`
+ * would turn an untouched input into 0.
+ */
+const scoreField = z
+    .string()
+    .optional()
+    .refine((v) => !v || v.trim() === "" || /^\d+$/.test(v.trim()), "Scores must be whole numbers.")
+
+/** Blank stays blank; anything non-numeric is treated as not entered. */
+function parseScore(v?: string): number | undefined {
+    if (v === undefined || v.trim() === "") return undefined
+    const n = Number(v)
+    return Number.isInteger(n) && n >= 0 ? n : undefined
+}
+
 const fixtureSchema = z.object({
     opponent: z.string().min(2, "Opponent name is required."),
     venue: z.string().min(2, "Venue is required."),
@@ -40,6 +57,8 @@ const fixtureSchema = z.object({
     notes: z.string().optional(),
     startingXI: z.array(z.any()).optional(),
     substitutes: z.array(z.any()).optional(),
+    homeScore: scoreField,
+    awayScore: scoreField,
 })
 
 type FixtureFormData = z.infer<typeof fixtureSchema>
@@ -153,6 +172,8 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                 ...fixture,
                 date: fixture.date ? (fixture.date as any).toDate() : new Date(),
                 publishArticle: !!fixture.articleId,
+                homeScore: fixture.score?.home != null ? String(fixture.score.home) : "",
+                awayScore: fixture.score?.away != null ? String(fixture.score.away) : "",
             });
             setStartingXI(fixture.startingXI || []);
             setSubstitutes(fixture.substitutes || []);
@@ -165,6 +186,8 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                 date: new Date(),
                 notes: "",
                 publishArticle: true,
+                homeScore: "",
+                awayScore: "",
             });
             setStartingXI([]);
             setSubstitutes([]);
@@ -244,11 +267,19 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                 opponentLogoUrl = await uploadOpponentLogo(data.opponentLogo[0]);
             }
 
+            // `opponentLogo` is a raw FileList — writing it to Firestore throws. Drop it;
+            // the uploaded URL is what belongs on the document.
+            const { opponentLogo: _opponentLogo, homeScore, awayScore, ...rest } = data;
+            const home = parseScore(homeScore);
+            const away = parseScore(awayScore);
+            const played = home !== undefined && away !== undefined;
             const finalFixtureData = {
-                ...data,
+                ...rest,
                 opponentLogoUrl,
                 startingXI,
                 substitutes,
+                // Only a complete result is stored, and it promotes the fixture to full time.
+                ...(played ? { score: { home, away }, status: "FT" as const } : {}),
             };
 
             if (fixture) {
@@ -375,6 +406,22 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     
               <Separator />
     
+              {/* 🔹 Result (optional) */}
+              <section className="space-y-2">
+                <Label>Result (optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Leave blank until the match has been played. Filling in both sides marks it full time.
+                </p>
+                <div className="flex items-center gap-3">
+                  <Input type="number" min={0} inputMode="numeric" placeholder="Home" className="w-28" {...register("homeScore")} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" min={0} inputMode="numeric" placeholder="Away" className="w-28" {...register("awayScore")} />
+                </div>
+                {(errors.homeScore || errors.awayScore) && (
+                  <p className="text-sm text-destructive">{errors.homeScore?.message ?? errors.awayScore?.message}</p>
+                )}
+              </section>
+
               {/* 🔹 Section 3: Lineup */}
               <section className="space-y-4">
                 <div className="flex items-center justify-between">

@@ -104,9 +104,9 @@ export default function PlacementsAdmin() {
       ) : items.length === 0 ? (
         <EmptyState icon={Plane} title="No placements yet" body="Add the first player signed abroad." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/10">
+        <div className="overflow-hidden rounded-2xl border border-line/10">
           {items.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 border-b border-white/5 p-3 last:border-0">
+            <div key={p.id} className="flex items-center gap-4 border-b border-line/5 p-3 last:border-0">
               <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-navy-deep">
                 {p.playerImageUrl && <Image src={p.playerImageUrl} alt="" fill sizes="48px" className="object-cover" />}
               </div>

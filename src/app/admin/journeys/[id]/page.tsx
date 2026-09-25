@@ -132,7 +132,7 @@ export default function JourneyEditor({ params }: { params: Promise<{ id: string
         <JourneyStatusBadge status={draft.status} />
         {!draft.published && <span className="text-xs text-muted-foreground">Draft. Not visible publicly until published (Details tab).</span>}
       </div>
-      <nav className="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b border-white/10 px-4 sm:mx-0 sm:px-0" aria-label="Journey sections">
+      <nav className="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b border-line/10 px-4 sm:mx-0 sm:px-0" aria-label="Journey sections">
         {TABS.map(([key, label]) => (
           <button
             key={key}
@@ -151,7 +151,7 @@ export default function JourneyEditor({ params }: { params: Promise<{ id: string
       <View journeyId={id} draft={draft} set={set} />
 
       {tab === "details" && (
-        <div className="mt-10 flex items-center gap-2 border-t border-white/10 pt-6 text-sm text-muted-foreground">
+        <div className="mt-10 flex items-center gap-2 border-t border-line/10 pt-6 text-sm text-muted-foreground">
           <ConfirmDelete
             label="Delete journey"
             what={draft.title}

@@ -46,7 +46,7 @@ export function ResultsTab({ draft, set }: TabProps) {
         </div>
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
           {RECORD_FIELDS.map(([k, label]) => (
-            <label key={k} className="rounded-xl border border-white/10 p-2 text-center">
+            <label key={k} className="rounded-xl border border-line/10 p-2 text-center">
               <span className="block font-mono text-[10px] uppercase tracking-[0.16em] text-mist/60">{label}</span>
               <input
                 type="number"
@@ -64,7 +64,7 @@ export function ResultsTab({ draft, set }: TabProps) {
         <h2 className="font-display text-xl font-bold">Matches</h2>
         <div className="space-y-2">
           {matches.map((m, i) => (
-            <div key={m.id} className="grid items-center gap-2 rounded-2xl border border-white/10 p-3 sm:grid-cols-[130px_120px_1fr_64px_64px_120px_44px]">
+            <div key={m.id} className="grid items-center gap-2 rounded-2xl border border-line/10 p-3 sm:grid-cols-[130px_120px_1fr_64px_64px_120px_44px]">
               <Input type="date" aria-label="Date" value={m.date ?? ""} onChange={(e) => updateMatch(i, { date: e.target.value })} />
               <Input aria-label="Stage" placeholder="Group A" value={m.stage} onChange={(e) => updateMatch(i, { stage: e.target.value })} />
               <Input aria-label="Opponent" placeholder="Opponent" value={m.opponent} onChange={(e) => updateMatch(i, { opponent: e.target.value })} />
@@ -104,7 +104,7 @@ export function ResultsTab({ draft, set }: TabProps) {
       <section className="space-y-3">
         <h2 className="font-display text-xl font-bold">Group table</h2>
         {table.length > 0 && (
-          <div className="overflow-x-auto rounded-2xl border border-white/10">
+          <div className="overflow-x-auto rounded-2xl border border-line/10">
             <table className="w-full text-sm">
               <thead>
                 <tr className="font-mono text-[10px] uppercase tracking-[0.14em] text-mist/60">
@@ -120,7 +120,7 @@ export function ResultsTab({ draft, set }: TabProps) {
               </thead>
               <tbody>
                 {table.map((r, i) => (
-                  <tr key={i} className="border-t border-white/5">
+                  <tr key={i} className="border-t border-line/5">
                     <td className="p-1">
                       <Input aria-label="Team" value={r.team} onChange={(e) => updateRow(i, { team: e.target.value })} />
                     </td>

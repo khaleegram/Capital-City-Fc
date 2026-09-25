@@ -141,7 +141,7 @@ export default function GalleryEditor({ params }: { params: Promise<{ id: string
             <Input value={draft.slug} onChange={(e) => set({ slug: slugify(e.target.value) })} />
           </Field>
           <SwitchRow label="Published" checked={draft.published} onChange={(v) => set({ published: v })} />
-          <div className="border-t border-white/10 pt-4">
+          <div className="border-t border-line/10 pt-4">
             <ConfirmDelete
               label="Delete gallery"
               what="this gallery and its photos"
@@ -160,7 +160,7 @@ export default function GalleryEditor({ params }: { params: Promise<{ id: string
             type="button"
             onClick={() => input.current?.click()}
             disabled={!!uploads}
-            className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/20 py-8 text-sm text-mist/80 hover:border-white/40 hover:text-ivory"
+            className="mb-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line/20 py-8 text-sm text-mist/80 hover:border-line/40 hover:text-ivory"
           >
             {uploads ? (
               <>
@@ -176,7 +176,7 @@ export default function GalleryEditor({ params }: { params: Promise<{ id: string
 
           <ol className="space-y-3">
             {draft.photos.map((p, i) => (
-              <li key={p.url} className="flex gap-3 rounded-2xl border border-white/10 p-2">
+              <li key={p.url} className="flex gap-3 rounded-2xl border border-line/10 p-2">
                 <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-navy-deep sm:h-28 sm:w-36">
                   <Image src={p.url} alt="" fill sizes="144px" className="object-cover" />
                   {i === 0 && <span className="absolute left-1 top-1 rounded bg-signal px-1.5 py-0.5 text-[10px] font-bold">COVER</span>}

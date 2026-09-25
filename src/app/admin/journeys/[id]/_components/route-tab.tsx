@@ -61,7 +61,7 @@ export function RouteTab({ draft, set }: TabProps) {
         </p>
 
         {draft.kind === "international" && (
-          <div className="rounded-2xl border border-white/10 p-3">
+          <div className="rounded-2xl border border-line/10 p-3">
             <label htmlFor="route-origin" className="text-sm font-medium">
               Route origin
             </label>
@@ -69,7 +69,7 @@ export function RouteTab({ draft, set }: TabProps) {
               id="route-origin"
               value={originCity}
               onChange={(e) => setOrigin(e.target.value)}
-              className="on-dark mt-2 h-11 w-full rounded-full border border-white/15 bg-ink px-4 text-sm"
+              className="mt-2 h-11 w-full rounded-full border border-input bg-paper px-4 text-sm text-ivory"
             >
               <option value="__none__">None — route starts at the first stop</option>
               {CITY_PRESETS.map((c) => (
@@ -86,7 +86,7 @@ export function RouteTab({ draft, set }: TabProps) {
           </div>
         )}
         {stops.map((s, i) => (
-          <div key={i} className={cn("rounded-2xl border p-3", s.current ? "border-signal/60 bg-signal/5" : "border-white/10")}>
+          <div key={i} className={cn("rounded-2xl border p-3", s.current ? "border-signal/60 bg-signal/5" : "border-line/10")}>
             <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_80px]">
               <Input aria-label="City" placeholder="City" value={s.city} onChange={(e) => update(i, { city: e.target.value })} />
               <Input aria-label="Country" placeholder="Country" value={s.country} onChange={(e) => update(i, { country: e.target.value })} />
@@ -125,7 +125,7 @@ export function RouteTab({ draft, set }: TabProps) {
           <select
             value=""
             onChange={(e) => addPreset(e.target.value)}
-            className="on-dark h-11 rounded-full border border-white/15 bg-ink px-4 text-sm"
+            className="h-11 rounded-full border border-input bg-paper px-4 text-sm text-ivory"
             aria-label="Add a city preset"
           >
             <option value="">+ Quick add city…</option>
@@ -144,7 +144,7 @@ export function RouteTab({ draft, set }: TabProps) {
         {previewStops.length > 0 ? (
           <RouteMap stops={previewStops} />
         ) : (
-          <p className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-muted-foreground">Add stops with coordinates to preview the map.</p>
+          <p className="rounded-2xl border border-dashed border-line/15 p-8 text-center text-sm text-muted-foreground">Add stops with coordinates to preview the map.</p>
         )}
       </div>
     </div>

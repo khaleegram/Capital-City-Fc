@@ -129,7 +129,7 @@ export function DiaryTab({ journeyId, draft }: TabProps) {
                     type="button"
                     aria-pressed={on}
                     onClick={() => setForm((f) => ({ ...f, mediaIds: on ? f.mediaIds.filter((x) => x !== m.id) : [...f.mediaIds, m.id] }))}
-                    className={`rounded-full border px-3 py-1.5 text-xs ${on ? "border-ivory bg-ivory text-ink" : "border-white/15 text-mist/85"}`}
+                    className={`rounded-full border px-3 py-1.5 text-xs ${on ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/85"}`}
                   >
                     {m.title}
                   </button>
@@ -147,7 +147,7 @@ export function DiaryTab({ journeyId, draft }: TabProps) {
         <h2 className="mb-4 font-mono text-[11px] uppercase tracking-stamp text-mist/70">{entries.length} entries</h2>
         <ol className="space-y-3">
           {entries.map((e) => (
-            <li key={e.id} className="flex gap-3 rounded-2xl border border-white/10 p-3">
+            <li key={e.id} className="flex gap-3 rounded-2xl border border-line/10 p-3">
               {e.imageUrl && (
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl">
                   <Image src={e.imageUrl} alt="" fill sizes="80px" className="object-cover" />
