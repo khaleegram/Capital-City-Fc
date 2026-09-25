@@ -139,7 +139,7 @@ export function MediaBrowser({ media, journeys }: { media: MediaAsset[]; journey
 /** Full-screen vertical reel: swipe up/down, tap to play. */
 function Reel({ items, onClose }: { items: MediaAsset[]; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 bg-black">
+    <div className="on-dark fixed inset-0 z-50 bg-black">
       <button
         type="button"
         onClick={onClose}

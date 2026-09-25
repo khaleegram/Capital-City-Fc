@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 
 function Frame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-svh items-center justify-center overflow-hidden bg-ink p-5">
+    <div className="on-dark relative flex min-h-svh items-center justify-center overflow-hidden bg-ink p-5">
       <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
       <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-navy-deep/80 p-6 backdrop-blur">
         <div className="mb-6 flex items-center gap-3">
@@ -35,7 +35,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
 
   if (loading || (user && adminLoading)) {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-ink">
+      <div className="on-dark flex min-h-svh items-center justify-center bg-ink">
         <Loader2 className="h-6 w-6 animate-spin text-mist" />
       </div>
     )

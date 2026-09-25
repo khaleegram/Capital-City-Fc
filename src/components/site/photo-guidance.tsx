@@ -57,7 +57,7 @@ export function PhotoGuidance({ onContinue, onCancel }: { onContinue: () => void
                 className={
                   example.good
                     ? "absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-signal px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
-                    : "absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/85 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ivory"
+                    : "on-dark absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/85 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ivory"
                 }
               >
                 {example.good ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}

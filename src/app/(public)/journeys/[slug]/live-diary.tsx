@@ -91,7 +91,7 @@ export function LiveDiary({
                   {linked.map((m) => {
                     const poster = mediaPoster(m)
                     return (
-                      <Link key={m.id} href={`/media/${m.id}`} className="relative aspect-video w-48 shrink-0 overflow-hidden rounded-xl border border-line/10 bg-navy-deep">
+                      <Link key={m.id} href={`/media/${m.id}`} className="on-dark relative aspect-video w-48 shrink-0 overflow-hidden rounded-xl border border-line/10 bg-navy-deep">
                         {poster && <Image src={poster} alt="" fill sizes="192px" className="object-cover" />}
                         <span className="absolute inset-0 flex items-center justify-center bg-ink/30">
                           <Play className="h-6 w-6 fill-ivory text-ivory" />

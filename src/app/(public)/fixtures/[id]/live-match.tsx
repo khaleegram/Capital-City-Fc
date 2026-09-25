@@ -93,7 +93,7 @@ export function LiveMatch({
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-3xl border border-line/10 bg-navy-deep p-5 sm:p-8">
+      <div className="on-dark relative overflow-hidden rounded-3xl border border-line/10 bg-navy-deep p-5 sm:p-8">
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
         <div className="relative grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <p className="text-right font-display text-lg font-extrabold uppercase leading-tight font-condensed sm:text-3xl">{teamName}</p>

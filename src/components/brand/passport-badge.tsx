@@ -13,7 +13,7 @@ export function PassportBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-signal/40 bg-ink/80 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ivory backdrop-blur",
+        "on-dark inline-flex items-center gap-1.5 rounded-full border border-signal/40 bg-ink/80 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-ivory backdrop-blur",
         className
       )}
     >

@@ -251,7 +251,7 @@ export function JoinForm() {
 
   if (state === "sent") {
     return (
-      <div className="rounded-3xl border border-line/10 bg-navy-deep p-8 text-center">
+      <div className="on-dark rounded-3xl border border-line/10 bg-navy-deep p-8 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-signal" />
         <h2 className="mt-4 font-display text-3xl font-black uppercase font-condensed">Profile submitted</h2>
         <p className="mx-auto mt-3 max-w-md text-mist/85">

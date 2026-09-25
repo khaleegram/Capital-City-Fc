@@ -60,7 +60,7 @@ export function BottomTabBar() {
       </nav>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="px-5 pt-5">
+        <SheetContent side="bottom" className="on-dark px-5 pt-5">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line/20" aria-hidden />
           <SheetTitle className="font-condensed text-2xl uppercase">{copy.nav.more}</SheetTitle>
           <SheetDescription className="sr-only">More destinations</SheetDescription>

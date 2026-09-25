@@ -147,7 +147,7 @@ export function FilePicker({
                   <Image src={file.url} alt="" fill sizes="200px" className="object-cover object-top" />
                 )}
                 {busyUrl === file.url && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-ink/70">
+                  <div className="on-dark absolute inset-0 flex items-center justify-center bg-ink/70">
                     <Loader2 className="h-5 w-5 animate-spin text-ivory" />
                   </div>
                 )}

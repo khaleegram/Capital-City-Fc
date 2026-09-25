@@ -157,7 +157,7 @@ export function UploadField({
             <button
               type="button"
               onClick={() => input.current?.click()}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/80 text-ivory"
+              className="on-dark flex h-8 w-8 items-center justify-center rounded-full bg-ink/80 text-ivory"
               aria-label="Replace photo"
             >
               <ImagePlus className="h-4 w-4" />
@@ -165,7 +165,7 @@ export function UploadField({
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/80 text-ivory"
+              className="on-dark flex h-8 w-8 items-center justify-center rounded-full bg-ink/80 text-ivory"
               aria-label="Remove"
             >
               <X className="h-4 w-4" />

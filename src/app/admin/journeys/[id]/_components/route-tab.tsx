@@ -125,7 +125,7 @@ export function RouteTab({ draft, set }: TabProps) {
           <select
             value=""
             onChange={(e) => addPreset(e.target.value)}
-            className="h-11 rounded-full border border-white/15 bg-ink px-4 text-sm"
+            className="on-dark h-11 rounded-full border border-white/15 bg-ink px-4 text-sm"
             aria-label="Add a city preset"
           >
             <option value="">+ Quick add city…</option>

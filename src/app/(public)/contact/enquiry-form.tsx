@@ -74,7 +74,7 @@ export function EnquiryForm() {
 
   if (state === "sent") {
     return (
-      <div className="rounded-3xl border border-line/10 bg-navy-deep p-8 text-center">
+      <div className="on-dark rounded-3xl border border-line/10 bg-navy-deep p-8 text-center">
         <CheckCircle2 className="mx-auto h-10 w-10 text-signal" />
         <p className="mt-4 font-display text-3xl font-black uppercase font-condensed">Message received</p>
         <p className="mt-2 text-mist/85">{copy.contact.success}</p>

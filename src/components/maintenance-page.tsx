@@ -6,7 +6,7 @@ import { RouteLine } from "@/components/brand/route-line"
 
 export function MaintenancePage() {
   return (
-    <main className="relative flex min-h-svh flex-col items-center justify-center overflow-hidden bg-ink px-6 text-center">
+    <main className="on-dark relative flex min-h-svh flex-col items-center justify-center overflow-hidden bg-ink px-6 text-center">
       <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-2/3 opacity-60">
         <RouteLine showLabels={false} />

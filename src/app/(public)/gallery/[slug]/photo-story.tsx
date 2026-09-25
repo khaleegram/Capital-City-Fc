@@ -53,7 +53,7 @@ export function PhotoStory({ photos, title }: { photos: GalleryPhoto[]; title: s
       </div>
 
       {open !== null && (
-        <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-[60] flex flex-col bg-black">
+        <div role="dialog" aria-modal="true" aria-label={title} className="on-dark fixed inset-0 z-[60] flex flex-col bg-black">
           <div className="flex items-center justify-between p-3">
             <span className="font-mono text-xs tracking-[0.2em] text-mist/80">
               {String(index + 1).padStart(2, "0")} / {String(photos.length).padStart(2, "0")}

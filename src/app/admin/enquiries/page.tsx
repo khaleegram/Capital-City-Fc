@@ -55,7 +55,7 @@ export default function EnquiriesAdmin() {
             {key === "new" && ` (${items.filter((e) => e.status === "new").length})`}
           </button>
         ))}
-        <select value={role} onChange={(e) => setRole(e.target.value as EnquiryRole | "all")} className="h-9 rounded-full border border-white/15 bg-ink px-3 text-xs">
+        <select value={role} onChange={(e) => setRole(e.target.value as EnquiryRole | "all")} className="on-dark h-9 rounded-full border border-white/15 bg-ink px-3 text-xs">
           <option value="all">All roles</option>
           {Object.entries(copy.contact.roles).map(([k, v]) => (
             <option key={k} value={k}>

@@ -177,7 +177,7 @@ export function EditorSheet({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className={cn("flex w-full flex-col gap-0 p-0 sm:max-w-xl", className)}>
+      <SheetContent side="right" className={cn("on-dark flex w-full flex-col gap-0 p-0 sm:max-w-xl", className)}>
         <SheetHeader className="border-b border-white/10 p-5 text-left">
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}

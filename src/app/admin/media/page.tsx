@@ -200,7 +200,7 @@ export default function MediaAdmin() {
             <div key={m.id} className="overflow-hidden rounded-2xl border border-white/10">
               <button className="relative block aspect-video w-full bg-navy-deep" onClick={() => setDraft({ ...blank(), ...m })}>
                 {(m.poster || youtubePoster(m.url)) && <Image src={(m.poster || youtubePoster(m.url))!} alt="" fill sizes="33vw" className="object-cover" />}
-                {m.duration ? <span className="absolute bottom-2 right-2 rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[10px]">{formatDuration(m.duration)}</span> : null}
+                {m.duration ? <span className="on-dark absolute bottom-2 right-2 rounded bg-ink/80 px-1.5 py-0.5 font-mono text-[10px]">{formatDuration(m.duration)}</span> : null}
                 {m.featured && <Star className="absolute left-2 top-2 h-4 w-4 fill-signal text-signal" />}
               </button>
               <div className="flex items-start gap-2 p-3">

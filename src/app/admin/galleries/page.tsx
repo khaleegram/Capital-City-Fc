@@ -43,7 +43,7 @@ export default function GalleriesAdmin() {
             <Link key={g.id} href={`/admin/galleries/${g.id}`} className="group overflow-hidden rounded-2xl border border-white/10">
               <div className="relative aspect-[4/3] bg-navy-deep">
                 {g.photos?.[0] && <Image src={g.photos[0].url} alt="" fill sizes="33vw" className="object-cover" />}
-                <span className="absolute left-3 top-3 rounded-full bg-ink/80 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]">Ch. {g.chapter ?? "-"}</span>
+                <span className="on-dark absolute left-3 top-3 rounded-full bg-ink/80 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.16em]">Ch. {g.chapter ?? "-"}</span>
               </div>
               <div className="flex items-center gap-2 p-3">
                 <div className="min-w-0 flex-1">
