@@ -357,7 +357,7 @@ export type MediaType =
  * What kind of game a clip belongs to. Deliberately a small fixed set rather than the
  * free-text `Fixture.competition`, so footage can be grouped and filtered consistently.
  */
-export type FixtureKind = "friendly" | "league" | "cup" | "tournament";
+export type FixtureKind = "friendly" | "league" | "cup" | "tournament" | "scouting";
 
 export type MediaAsset = {
   id: string;

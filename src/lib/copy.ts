@@ -118,6 +118,7 @@ export const copy = {
       league: "League",
       cup: "Cup",
       tournament: "Tournament",
+      scouting: "Scouting Programme",
     },
     empty: "New footage is on the way.",
   },

@@ -435,7 +435,7 @@ export default function MediaAdmin() {
               <Field label="Year">
                 <Input type="number" value={draft.year ?? ""} onChange={(e) => set({ year: numberOrUndefined(e.target.value) })} />
               </Field>
-              <Field label="Fixture type" hint="Friendly, league, cup or tournament.">
+              <Field label="Fixture type" hint="Friendly, league, cup, tournament or scouting programme.">
                 <NativeSelect<FixtureKind> value={draft.fixtureKind ?? ""} onChange={(v) => set({ fixtureKind: v })} placeholder="Not set" options={KINDS} />
               </Field>
               <Field label="Journey">
