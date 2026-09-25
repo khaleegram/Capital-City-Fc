@@ -2,7 +2,7 @@ import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 import type { Journey, JourneyEntry } from "@/lib/data"
 import { copy } from "@/lib/copy"
-import { routeNodes } from "@/lib/geo"
+import { routeNodes, resolveJourneyOrigin } from "@/lib/geo"
 import { cn, formatDate } from "@/lib/utils"
 import { LiveDot } from "@/components/brand/live-dot"
 import { RouteLine } from "@/components/brand/route-line"
@@ -17,7 +17,9 @@ function daysUntil(date?: string) {
 export function LiveJourneyCard({ journey, latest }: { journey: Journey; latest?: JourneyEntry | null }) {
   const isLive = journey.status === "live"
   const countdown = !isLive ? daysUntil(journey.startDate) : null
-  const nodes = routeNodes(journey.stops, { includeOrigin: journey.kind === "international" })
+  const nodes = routeNodes(journey.stops, {
+    origin: journey.kind === "international" ? resolveJourneyOrigin(journey) : null,
+  })
   const current = journey.stops.find((s) => s.current) ?? journey.stops.filter((s) => s.reached).at(-1)
 
   return (

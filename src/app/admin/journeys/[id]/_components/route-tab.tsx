@@ -2,7 +2,8 @@
 
 import { ArrowDown, ArrowUp, MapPin, Plus, Trash2 } from "lucide-react"
 import type { JourneyStop } from "@/lib/data"
-import { CITY_PRESETS } from "@/lib/geo"
+import { copy } from "@/lib/copy"
+import { CITY_PRESETS, resolveJourneyOrigin } from "@/lib/geo"
 import { cn } from "@/lib/utils"
 import { RouteMap } from "@/components/brand/route-map"
 import { numberOrUndefined } from "@/components/admin/form-kit"
@@ -28,18 +29,62 @@ export function RouteTab({ draft, set }: TabProps) {
     if (p) set({ stops: [...stops, { ...p, reached: false }] })
   }
 
-  const mapStops = stops
+  /** The select always writes either an explicit city or `null`, never "" — see setOrigin. */
+  const originCity = draft.origin === null ? "__none__" : draft.origin?.city ?? copy.brand.origin.city
+  const setOrigin = (city: string) => {
+    if (city === "__none__") return set({ origin: null })
+    const p = CITY_PRESETS.find((c) => c.city === city)
+    set({ origin: p ? { ...p, reached: true } : undefined })
+  }
+
+  const stopsWithCoords = stops
     .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
     .map((s) => ({ city: s.city, country: s.country, code: s.code, lat: s.lat as number, lng: s.lng as number, reached: s.reached, current: s.current }))
+
+  // Mirror the public map, which prepends the departure city for international routes, so
+  // the preview can't disagree with what gets published.
+  const previewOrigin = (() => {
+    const o = draft.kind === "domestic" ? null : resolveJourneyOrigin(draft)
+    if (!o || typeof o.lat !== "number" || typeof o.lng !== "number") return null
+    return { city: o.city, country: o.country, code: o.code, lat: o.lat, lng: o.lng, reached: o.reached, current: o.current }
+  })()
+  const originAlreadyListed = previewOrigin ? stopsWithCoords.some((s) => s.code === previewOrigin.code) : false
+  const previewStops = previewOrigin && !originAlreadyListed ? [previewOrigin, ...stopsWithCoords] : stopsWithCoords
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
           {draft.kind === "international"
-            ? "Cities in travel order. Abuja is added automatically as the origin on the public map."
+            ? "Cities in travel order, starting with the first stop on arrival. The city you pick as the origin is prepended to the route."
             : "For domestic campaigns, use stops for rounds or venues (coordinates optional)."}
         </p>
+
+        {draft.kind === "international" && (
+          <div className="rounded-2xl border border-white/10 p-3">
+            <label htmlFor="route-origin" className="text-sm font-medium">
+              Route origin
+            </label>
+            <select
+              id="route-origin"
+              value={originCity}
+              onChange={(e) => setOrigin(e.target.value)}
+              className="on-dark mt-2 h-11 w-full rounded-full border border-white/15 bg-ink px-4 text-sm"
+            >
+              <option value="__none__">None — route starts at the first stop</option>
+              {CITY_PRESETS.map((c) => (
+                <option key={c.city} value={c.city}>
+                  {c.city}, {c.country}
+                  {c.city === copy.brand.origin.city ? " (club default)" : ""}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Where the squad set off from. Change this for a leg reached from an earlier tournament — Dana Cup
+              2026 began in Gothenburg, not {copy.brand.origin.city}.
+            </p>
+          </div>
+        )}
         {stops.map((s, i) => (
           <div key={i} className={cn("rounded-2xl border p-3", s.current ? "border-signal/60 bg-signal/5" : "border-white/10")}>
             <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_80px]">
@@ -96,8 +141,8 @@ export function RouteTab({ draft, set }: TabProps) {
         <p className="flex items-center gap-2 text-sm font-medium">
           <MapPin className="h-4 w-4" /> Preview
         </p>
-        {mapStops.length > 0 ? (
-          <RouteMap stops={mapStops} />
+        {previewStops.length > 0 ? (
+          <RouteMap stops={previewStops} />
         ) : (
           <p className="rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-muted-foreground">Add stops with coordinates to preview the map.</p>
         )}

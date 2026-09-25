@@ -289,6 +289,13 @@ export type Journey = {
   coverImageUrl?: string;
   summary: string;
   stops: JourneyStop[];
+  /**
+   * Where the route departed from. Omitted falls back to the club's home city (Abuja) for
+   * international journeys. Set it when the squad set off from somewhere else — Dana Cup
+   * 2026 began in Gothenburg, not Nigeria — or to `null` for a route that simply starts at
+   * its first stop.
+   */
+  origin?: JourneyStop | null;
   /** 0–100 */
   progress: number;
   record?: JourneyRecord | null;

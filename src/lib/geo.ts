@@ -1,15 +1,28 @@
-import type { JourneyStop } from "./data"
+import type { Journey, JourneyStop } from "./data"
 import { copy } from "./copy"
 
 export type RouteNode = { x: number; y: number; label?: string; sub?: string; active?: boolean }
 
-const ORIGIN: JourneyStop = {
+/** The club's home city, and the default departure point for an international route. */
+export const HOME_ORIGIN: JourneyStop = {
   city: copy.brand.origin.city,
   country: "NG",
   code: copy.brand.origin.code,
   lat: copy.brand.origin.lat,
   lng: copy.brand.origin.lng,
   reached: true,
+}
+
+/**
+ * Departure point for a journey's route.
+ *
+ * A route leaves from its own `origin` when one is set. That matters for a leg the squad
+ * reached from an earlier tournament rather than from Nigeria — Dana Cup 2026 started in
+ * Gothenburg. `origin: null` means the route begins at its first stop, with nothing added.
+ */
+export function resolveJourneyOrigin(journey: Pick<Journey, "origin">): JourneyStop | null {
+  if (journey.origin === null) return null
+  return journey.origin ?? HOME_ORIGIN
 }
 
 /** Quick-pick cities for the journey route editor. */
@@ -35,11 +48,15 @@ export const CITY_PRESETS: Required<Pick<JourneyStop, "city" | "country" | "code
 ]
 
 /**
- * Projects journey stops into a 0–100 box for <RouteLine>. International routes
- * always start from Abuja; stops without coordinates are spaced evenly.
+ * Projects journey stops into a 0–100 box for <RouteLine>. `origin` is prepended to the
+ * route unless it is already one of the stops; pass `null` to start at the first stop.
+ * Stops without coordinates are spaced evenly.
  */
-export function routeNodes(stops: JourneyStop[], { includeOrigin = true, pad = 14 } = {}): RouteNode[] {
-  const list = includeOrigin && !stops.some((s) => s.code === ORIGIN.code) ? [ORIGIN, ...stops] : stops
+export function routeNodes(
+  stops: JourneyStop[],
+  { origin = HOME_ORIGIN, pad = 14 }: { origin?: JourneyStop | null; pad?: number } = {}
+): RouteNode[] {
+  const list = origin && !stops.some((s) => s.code === origin.code) ? [origin, ...stops] : stops
   if (list.length === 0) return []
   const geo = list.every((s) => typeof s.lat === "number" && typeof s.lng === "number")
   const lastCurrent = list.findIndex((s) => s.current)

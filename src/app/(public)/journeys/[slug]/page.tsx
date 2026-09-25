@@ -5,6 +5,7 @@ import { notFound } from "next/navigation"
 import { ArrowUpRight, Quote } from "lucide-react"
 import { copy } from "@/lib/copy"
 import type { JourneySquadMember, JourneyStop, Player } from "@/lib/data"
+import { resolveJourneyOrigin } from "@/lib/geo"
 import { cn, formatDate, toDate } from "@/lib/utils"
 import {
   getFixtures,
@@ -42,15 +43,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   })
 }
 
-const ORIGIN: JourneyStop = {
-  city: copy.brand.origin.city,
-  country: copy.brand.origin.country,
-  code: copy.brand.origin.code,
-  lat: copy.brand.origin.lat,
-  lng: copy.brand.origin.lng,
-  reached: true,
-}
-
 export default async function JourneyPage({ params }: Props) {
   const { slug } = await params
   const journey = await getJourneyBySlug(slug)
@@ -79,7 +71,11 @@ export default async function JourneyPage({ params }: Props) {
   const isDomestic = journey.kind === "domestic"
   const r = journey.record
 
-  const mapStops = (isDomestic ? journey.stops : [ORIGIN, ...journey.stops]).filter(
+  // Domestic campaigns have no travel origin; international routes start where the squad
+  // actually set off from, which is not always Abuja.
+  const origin = isDomestic ? null : resolveJourneyOrigin(journey)
+
+  const mapStops = (origin ? [origin, ...journey.stops] : journey.stops).filter(
     (s): s is JourneyStop & { lat: number; lng: number } => typeof s.lat === "number" && typeof s.lng === "number"
   )
 
