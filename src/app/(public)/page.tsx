@@ -1,8 +1,6 @@
-import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, ArrowUpRight, Quote } from "lucide-react"
 import { copy } from "@/lib/copy"
-import { TEAM_LOGO_URL } from "@/lib/brand"
 import {
   getJourneyEntries,
   getJourneys,
@@ -64,7 +62,6 @@ export default async function HomePage() {
 
         <div className="container flex flex-1 flex-col justify-end pb-10 pt-4 md:pb-20 md:pt-28">
           <div className="mb-6 hidden items-center gap-3 md:flex">
-            <Image src={TEAM_LOGO_URL} alt="" width={44} height={44} priority className="h-11 w-11" />
             <CoordStamp code={copy.brand.origin.code} lat={copy.brand.origin.lat} lng={copy.brand.origin.lng} />
           </div>
           <p className="font-mono text-[11px] uppercase tracking-stamp text-signal">{copy.home.heroEyebrow}</p>
