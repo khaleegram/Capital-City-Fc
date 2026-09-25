@@ -5,7 +5,7 @@ import { notFound } from "next/navigation"
 import { ArrowUpRight, Quote } from "lucide-react"
 import { copy } from "@/lib/copy"
 import type { JourneySquadMember, JourneyStop, Player } from "@/lib/data"
-import { cn, formatDate } from "@/lib/utils"
+import { cn, formatDate, toDate } from "@/lib/utils"
 import {
   getFixtures,
   getGalleries,
@@ -14,6 +14,8 @@ import {
   getMedia,
   getPlayers,
 } from "@/lib/server/queries"
+import { HOME_CRUMB, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, sportsEventNode } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { ProgressRail, type RailStep } from "@/components/brand/progress-rail"
 import { RouteMap } from "@/components/brand/route-map"
 import { SectionHeading } from "@/components/brand/section-heading"
@@ -30,8 +32,14 @@ type Props = { params: Promise<{ slug: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const j = await getJourneyBySlug(slug)
-  if (!j) return { title: "Journey not found" }
-  return { title: j.title, description: j.subtitle || j.summary.slice(0, 160) }
+  if (!j) return { title: "Journey not found", robots: { index: false, follow: true } }
+  return detailMetadata({
+    path: `/journeys/${slug}`,
+    title: j.title,
+    description: j.subtitle || j.summary.slice(0, 160),
+    keywords: [...detailKeywords("journeysDetail"), j.season, ...j.stops.map((s) => s.city)].filter((k): k is string => !!k),
+    // No `image`: this route ships a branded `opengraph-image.tsx` card.
+  })
 }
 
 const ORIGIN: JourneyStop = {
@@ -86,6 +94,25 @@ export default async function JourneyPage({ params }: Props) {
 
   return (
     <article>
+      {/* Tournament games, then the journey itself — Google reads these as events. */}
+      <JsonLd
+        data={jsonLdGraph(
+          ...journey.matches.slice(0, 8).map((m) =>
+            sportsEventNode({
+              key: m.id,
+              name: `Capital City FC vs ${m.opponent}`,
+              path: `/journeys/${slug}`,
+              startDate: toDate(m.date)?.toISOString(),
+              venue: m.venue,
+              competition: [journey.title, m.stage].filter(Boolean).join(" · "),
+              opponent: m.opponent,
+              homeScore: m.scoreFor ?? undefined,
+              awayScore: m.scoreAgainst ?? undefined,
+            })
+          ),
+          breadcrumbNode([HOME_CRUMB, { name: copy.journeys.eyebrow, path: "/journeys" }, { name: journey.title, path: `/journeys/${slug}` }])
+        )}
+      />
       {/* Header */}
       <header className="relative overflow-hidden pb-10 pt-24 md:pb-16 md:pt-32">
         {journey.coverImageUrl ? (

@@ -6,6 +6,8 @@ import { copy } from "@/lib/copy"
 import type { StaffGroup } from "@/lib/data"
 import { TEAM_LOGO_URL } from "@/lib/brand"
 import { getAchievements, getJourneys, getProofStats, getStaff } from "@/lib/server/queries"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { ProofStrip } from "@/components/site/proof-strip"
 import { SectionHeading } from "@/components/brand/section-heading"
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button"
 
 export const revalidate = 60
 
-export const metadata: Metadata = { title: copy.club.eyebrow, description: copy.club.body }
+export const metadata: Metadata = pageMetadata("club", "/club")
 
 const GROUP_LABEL: Record<StaffGroup, string> = {
   management: "Management",
@@ -34,6 +36,7 @@ export default async function ClubPage() {
 
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/club", name: PAGE_SEO.club.title, description: PAGE_SEO.club.description, type: "AboutPage" })} />
       <PageHero eyebrow={copy.club.eyebrow} title={copy.club.title} body={copy.club.body}>
         <CoordStamp code={copy.brand.origin.code} lat={copy.brand.origin.lat} lng={copy.brand.origin.lng} />
       </PageHero>

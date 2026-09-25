@@ -1,6 +1,8 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { ArrowRight, ArrowUpRight, Quote } from "lucide-react"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, jsonLdGraph, pageMetadata, pageNode } from "@/lib/seo"
 import {
   getJourneyEntries,
   getJourneys,
@@ -21,8 +23,11 @@ import { ProofStrip } from "@/components/site/proof-strip"
 import { PathwaySteps } from "@/components/site/pathway-steps"
 import { LiveJourneyCard } from "@/components/site/live-journey-card"
 import { JourneyCard, MediaCard, PlacementCard, PlayerCard, ViewAllTile } from "@/components/site/cards"
+import { JsonLd } from "@/components/seo/json-ld"
 
 export const revalidate = 60
+
+export const metadata: Metadata = pageMetadata("home", "/")
 
 export default async function HomePage() {
   const [team, proof, journeys, placements, players, media] = await Promise.all([
@@ -49,6 +54,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <JsonLd data={jsonLdGraph(pageNode({ path: "/", name: PAGE_SEO.home.title, description: PAGE_SEO.home.description }))} />
       {/* ───────── Hero ───────── */}
       <section className="on-dark relative flex min-h-[100svh] flex-col overflow-hidden bg-ink">
         <HeroMedia image={team.heroImageUrl} video={team.heroVideoUrl} />

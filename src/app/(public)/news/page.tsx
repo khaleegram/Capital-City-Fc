@@ -2,15 +2,17 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { formatDate } from "@/lib/utils"
 import { getNews } from "@/lib/server/queries"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { EmptyNote } from "@/components/site/cards"
 import { Reveal } from "@/components/brand/reveal"
 
 export const revalidate = 60
 
-export const metadata: Metadata = { title: copy.stories.eyebrow, description: copy.stories.title }
+export const metadata: Metadata = pageMetadata("news", "/news")
 
 export default async function StoriesPage() {
   const news = await getNews()
@@ -18,6 +20,7 @@ export default async function StoriesPage() {
 
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/news", name: PAGE_SEO.news.title, description: PAGE_SEO.news.description, type: "CollectionPage" })} />
       <PageHero eyebrow={copy.stories.eyebrow} title={copy.stories.title} />
       <div className="container space-y-10 py-8 md:py-14">
         {!lead && <EmptyNote>{copy.stories.empty}</EmptyNote>}

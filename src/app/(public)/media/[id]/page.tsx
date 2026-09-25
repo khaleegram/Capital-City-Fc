@@ -3,8 +3,10 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowUpRight, Route, Users } from "lucide-react"
 import { copy } from "@/lib/copy"
-import { formatDate, formatDuration } from "@/lib/utils"
+import { embedUrlFor, formatDate, formatDuration, toDate } from "@/lib/utils"
 import { getFixtures, getJourneys, getMedia, getMediaAsset } from "@/lib/server/queries"
+import { HOME_CRUMB, SOCIAL_CARD, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, videoNode } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { VideoPlayer } from "@/components/site/video-player"
 import { MediaCard, mediaPoster } from "@/components/site/cards"
 import { Badge } from "@/components/ui/badge"
@@ -16,13 +18,15 @@ type Props = { params: Promise<{ id: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const m = await getMediaAsset(id)
-  if (!m) return { title: "Not found" }
+  if (!m) return { title: "Not found", robots: { index: false, follow: true } }
   const poster = mediaPoster(m)
-  return {
+  return detailMetadata({
+    path: `/media/${id}`,
     title: m.title,
-    description: m.description?.slice(0, 160),
-    openGraph: poster ? { images: [{ url: poster }] } : undefined,
-  }
+    description: m.description?.slice(0, 160) || undefined,
+    keywords: [...detailKeywords("mediaDetail"), copy.media.categories[m.type]],
+    image: poster ? { url: poster, alt: m.title } : SOCIAL_CARD,
+  })
 }
 
 export default async function MediaAssetPage({ params }: Props) {
@@ -46,8 +50,25 @@ export default async function MediaAssetPage({ params }: Props) {
     .slice(0, 6)
     .map((r) => r.m)
 
+  const embed = embedUrlFor(asset.url)
+
   return (
     <article className="pt-16 md:pt-24">
+      <JsonLd
+        data={jsonLdGraph(
+          videoNode({
+            name: asset.title,
+            path: `/media/${id}`,
+            description: asset.description,
+            thumbnailUrl: mediaPoster(asset),
+            uploadDate: toDate(asset.createdAt)?.toISOString(),
+            durationSeconds: asset.duration,
+            contentUrl: embed ? undefined : asset.url,
+            embedUrl: embed,
+          }),
+          breadcrumbNode([HOME_CRUMB, { name: copy.media.eyebrow, path: "/media" }, { name: asset.title, path: `/media/${id}` }])
+        )}
+      />
       <div className="container grid gap-8 lg:grid-cols-[1fr_22rem]">
         <div className="min-w-0">
           <div className={asset.vertical ? "mx-auto max-w-sm" : undefined}>

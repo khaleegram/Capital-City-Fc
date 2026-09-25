@@ -3,7 +3,9 @@ import Link from "next/link"
 import { Suspense } from "react"
 import { ArrowUpRight } from "lucide-react"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { getGalleries, getJourneys, getMedia } from "@/lib/server/queries"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { VideoPlayer } from "@/components/site/video-player"
 import { mediaPoster } from "@/components/site/cards"
@@ -11,10 +13,7 @@ import { MediaBrowser } from "./media-browser"
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: copy.media.eyebrow,
-  description: copy.media.body,
-}
+export const metadata: Metadata = pageMetadata("media", "/media")
 
 export default async function MediaPage() {
   const [media, journeys, galleries] = await Promise.all([getMedia(), getJourneys(), getGalleries()])
@@ -22,6 +21,7 @@ export default async function MediaPage() {
 
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/media", name: PAGE_SEO.media.title, description: PAGE_SEO.media.description, type: "CollectionPage" })} />
       <PageHero eyebrow={copy.media.eyebrow} title={copy.media.title} body={copy.media.body}>
         {galleries.length > 0 && (
           <Link href="/gallery" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold">

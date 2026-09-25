@@ -4,6 +4,8 @@ import { notFound } from "next/navigation"
 import { ArrowUpRight } from "lucide-react"
 import { formatDate } from "@/lib/utils"
 import { getGalleryBySlug, getJourneys } from "@/lib/server/queries"
+import { HOME_CRUMB, breadcrumbNode, detailKeywords, detailMetadata, imageGalleryNode, jsonLdGraph } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { ChapterNumber } from "@/components/brand/chapter-number"
 import { GrainOverlay } from "@/components/brand/grain-overlay"
 import { PhotoStory } from "./photo-story"
@@ -15,8 +17,14 @@ type Props = { params: Promise<{ slug: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const g = await getGalleryBySlug(slug)
-  if (!g) return { title: "Not found" }
-  return { title: g.title, description: g.story?.slice(0, 160) }
+  if (!g) return { title: "Not found", robots: { index: false, follow: true } }
+  return detailMetadata({
+    path: `/gallery/${slug}`,
+    title: g.title,
+    description: g.story?.slice(0, 160) || `${g.photos.length} frames from Capital City FC${g.location ? ` · ${g.location}` : ""}.`,
+    keywords: [...detailKeywords("galleryDetail"), g.location].filter((k): k is string => !!k),
+    // No `image`: this route ships a branded `opengraph-image.tsx` card.
+  })
 }
 
 export default async function GalleryPage({ params }: Props) {
@@ -27,6 +35,19 @@ export default async function GalleryPage({ params }: Props) {
 
   return (
     <article>
+      <JsonLd
+        data={jsonLdGraph(
+          imageGalleryNode({
+            name: gallery.title,
+            path: `/gallery/${slug}`,
+            description: gallery.story?.slice(0, 200),
+            datePublished: gallery.date,
+            location: gallery.location,
+            photos: gallery.photos.map((p) => ({ url: p.url, caption: p.caption })),
+          }),
+          breadcrumbNode([HOME_CRUMB, { name: "Photo Stories", path: "/gallery" }, { name: gallery.title, path: `/gallery/${slug}` }])
+        )}
+      />
       <header className="relative overflow-hidden bg-horizon pb-10 pt-24 md:pt-32">
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40 mask-fade-b" />
         <GrainOverlay />

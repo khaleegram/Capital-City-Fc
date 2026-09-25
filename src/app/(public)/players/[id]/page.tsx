@@ -8,6 +8,8 @@ import type { MediaType } from "@/lib/data"
 import { TEAM_LOGO_URL } from "@/lib/brand"
 import { ageFrom, cn, formatDate } from "@/lib/utils"
 import { getGalleries, getJourneys, getMedia, getPlacements, getPlayer } from "@/lib/server/queries"
+import { HOME_CRUMB, athleteNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PassportBadge } from "@/components/brand/passport-badge"
@@ -22,11 +24,14 @@ type Props = { params: Promise<{ id: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const p = await getPlayer(id)
-  if (!p) return { title: "Player not found" }
-  return {
+  if (!p) return { title: "Player not found", robots: { index: false, follow: true } }
+  return detailMetadata({
+    path: `/players/${id}`,
     title: `${p.name} · ${p.position}`,
-    description: p.bio?.slice(0, 160),
-  }
+    description: p.bio?.slice(0, 160) || undefined,
+    keywords: [...detailKeywords("playersDetail"), p.name, `${p.name} Capital City FC`, p.position],
+    // No `image`: this route ships a branded `opengraph-image.tsx` card.
+  })
 }
 
 type TimelineItem = { key: string; date?: string; title: string; caption?: string; href?: string; tone: "origin" | "journey" | "placement" | "now" }
@@ -94,6 +99,22 @@ export default async function PlayerPage({ params }: Props) {
 
   return (
     <article>
+      <JsonLd
+        data={jsonLdGraph(
+          athleteNode({
+            name: player.name,
+            path: `/players/${id}`,
+            bio: player.bio,
+            position: player.position,
+            nationality: player.nationality,
+            heightCm: player.heightCm,
+            jerseyNumber: player.jerseyNumber,
+            imageUrl: player.imageUrl,
+            currentClub,
+          }),
+          breadcrumbNode([HOME_CRUMB, { name: copy.players.eyebrow, path: "/players" }, { name: player.name, path: `/players/${id}` }])
+        )}
+      />
       {/* Hero */}
       <header className="relative overflow-hidden bg-horizon pt-14 md:pt-24">
         <div aria-hidden className="absolute inset-0 bg-grid opacity-40" />

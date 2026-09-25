@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { getJourneyEntries, getJourneys } from "@/lib/server/queries"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { LiveJourneyCard } from "@/components/site/live-journey-card"
 import { EmptyNote } from "@/components/site/cards"
@@ -9,10 +11,7 @@ import { JourneyGrid } from "./journey-grid"
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: copy.journeys.eyebrow,
-  description: copy.journeys.body,
-}
+export const metadata: Metadata = pageMetadata("journeys", "/journeys")
 
 export default async function JourneysPage() {
   const journeys = await getJourneys()
@@ -22,6 +21,7 @@ export default async function JourneysPage() {
 
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/journeys", name: PAGE_SEO.journeys.title, description: PAGE_SEO.journeys.description, type: "CollectionPage" })} />
       <PageHero eyebrow={copy.journeys.eyebrow} title={copy.journeys.title} body={copy.journeys.body} />
       <div className="container space-y-12 py-10 md:py-16">
         {spotlight && (

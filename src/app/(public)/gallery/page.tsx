@@ -2,8 +2,10 @@ import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { formatDate } from "@/lib/utils"
 import { getGalleries } from "@/lib/server/queries"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { ChapterNumber } from "@/components/brand/chapter-number"
 import { Reveal } from "@/components/brand/reveal"
@@ -11,12 +13,13 @@ import { EmptyNote } from "@/components/site/cards"
 
 export const revalidate = 60
 
-export const metadata: Metadata = { title: copy.gallery.eyebrow, description: copy.gallery.title }
+export const metadata: Metadata = pageMetadata("gallery", "/gallery")
 
 export default async function GalleryIndex() {
   const galleries = await getGalleries()
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/gallery", name: PAGE_SEO.gallery.title, description: PAGE_SEO.gallery.description, type: "CollectionPage" })} />
       <PageHero eyebrow={copy.gallery.eyebrow} title={copy.gallery.title} />
       <div className="container space-y-6 py-8 md:space-y-10 md:py-14">
         {galleries.length === 0 && <EmptyNote>{copy.gallery.empty}</EmptyNote>}

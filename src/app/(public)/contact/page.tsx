@@ -2,14 +2,17 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { Mail, MapPin, Phone } from "lucide-react"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { EnquiryForm } from "./enquiry-form"
 
-export const metadata: Metadata = { title: copy.contact.eyebrow, description: copy.contact.body }
+export const metadata: Metadata = pageMetadata("contact", "/contact")
 
 export default function ContactPage() {
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/contact", name: PAGE_SEO.contact.title, description: PAGE_SEO.contact.description, type: "ContactPage" })} />
       <PageHero eyebrow={copy.contact.eyebrow} title={copy.contact.title} body={copy.contact.body} />
       <div className="container grid gap-12 py-10 md:py-16 lg:grid-cols-[1.4fr_1fr]">
         <Suspense>

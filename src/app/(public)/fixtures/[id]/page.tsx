@@ -3,9 +3,11 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowUpRight, Route } from "lucide-react"
 import type { LiveEvent } from "@/lib/data"
-import { formatDate } from "@/lib/utils"
+import { formatDate, toDate } from "@/lib/utils"
 import { listDocs } from "@/lib/server/firestore"
 import { getFixture, getJourneys, getMedia, getRecapForFixture, getTeam } from "@/lib/server/queries"
+import { HOME_CRUMB, SOCIAL_CARD, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, sportsEventNode } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 import { MediaCard } from "@/components/site/cards"
 import { LiveMatch } from "./live-match"
 
@@ -16,8 +18,18 @@ type Props = { params: Promise<{ id: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const f = await getFixture(id)
-  if (!f) return { title: "Match not found" }
-  return { title: `vs ${f.opponent}`, description: `${f.competition} · ${f.venue}` }
+  if (!f) return { title: "Match not found", robots: { index: false, follow: true } }
+  const played = f.status === "FT" || f.status === "HT"
+  const score = played && f.score ? ` ${f.score.home}–${f.score.away}` : ""
+  const when = formatDate(f.date, { day: "numeric", month: "long", year: "numeric" })
+  return detailMetadata({
+    path: `/fixtures/${id}`,
+    title: { absolute: `Capital City FC vs ${f.opponent}${score}` },
+    description: `${f.competition} at ${f.venue}${when ? `, ${when}` : ""}. ${played ? "Result, scorers and match report" : "Kick-off time, squad news and live updates"} for Capital City FC of Abuja.`,
+    keywords: [...detailKeywords("fixturesDetail"), f.opponent, `${f.opponent} Capital City FC`, f.competition],
+    // No match photo exists, so share the branded card.
+    image: SOCIAL_CARD,
+  })
 }
 
 export default async function MatchPage({ params }: Props) {
@@ -35,9 +47,26 @@ export default async function MatchPage({ params }: Props) {
   const journey = journeys.find((j) => j.fixtureIds.includes(id))
   const matchMedia = media.filter((m) => m.fixtureId === id)
   const sortedEvents = events.sort((a, b) => String(b.timestamp ?? "").localeCompare(String(a.timestamp ?? "")))
+  const kickoff = toDate(fixture.date)?.toISOString()
+  const crumb = { name: `vs ${fixture.opponent}`, path: `/fixtures/${id}` }
 
   return (
     <article className="pt-20 md:pt-28">
+      <JsonLd
+        data={jsonLdGraph(
+          sportsEventNode({
+            name: `Capital City FC vs ${fixture.opponent}`,
+            path: `/fixtures/${id}`,
+            startDate: kickoff,
+            venue: fixture.venue,
+            competition: fixture.competition,
+            opponent: fixture.opponent,
+            homeScore: fixture.score?.home,
+            awayScore: fixture.score?.away,
+          }),
+          breadcrumbNode([HOME_CRUMB, { name: "Fixtures", path: "/fixtures" }, crumb])
+        )}
+      />
       <div className="container max-w-4xl space-y-10">
         <header>
           <p className="font-mono text-[11px] uppercase tracking-stamp text-signal">{fixture.competition}</p>

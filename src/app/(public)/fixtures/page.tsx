@@ -1,13 +1,15 @@
 import type { Metadata } from "next"
 import { copy } from "@/lib/copy"
+import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { getFixtures } from "@/lib/server/queries"
+import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { FixtureRow } from "@/components/site/fixture-row"
 import { EmptyNote } from "@/components/site/cards"
 
 export const revalidate = 60
 
-export const metadata: Metadata = { title: copy.fixtures.eyebrow }
+export const metadata: Metadata = pageMetadata("fixtures", "/fixtures")
 
 export default async function FixturesPage() {
   const fixtures = await getFixtures()
@@ -17,6 +19,7 @@ export default async function FixturesPage() {
 
   return (
     <>
+      <JsonLd data={pageGraph({ path: "/fixtures", name: PAGE_SEO.fixtures.title, description: PAGE_SEO.fixtures.description, type: "CollectionPage" })} />
       <PageHero eyebrow={copy.fixtures.eyebrow} title={copy.fixtures.title} />
       <div className="container grid gap-12 py-8 md:py-14 lg:grid-cols-2">
         {fixtures.length === 0 && <EmptyNote>{copy.fixtures.empty}</EmptyNote>}

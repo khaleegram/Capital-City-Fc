@@ -2,12 +2,12 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ClipboardCheck, Eye, UploadCloud } from "lucide-react"
 import { copy } from "@/lib/copy"
+import { pageMetadata } from "@/lib/seo"
 import { PageHero } from "@/components/site/page-hero"
 import { JoinForm } from "./join-form"
 
 export const metadata: Metadata = {
-  title: "Player Sign-Up",
-  description: `Submit your ${copy.brand.name} player profile: position, bio, strengths, highlights and footage.`,
+  ...pageMetadata("join", "/join"),
   // Shared privately with players, so keep it out of search results.
   robots: { index: false, follow: false },
 }
@@ -16,12 +16,12 @@ const STEPS = [
   {
     icon: ClipboardCheck,
     title: "1. You fill this in",
-    body: "Once, from your phone. Name, position, bio, strengths and any footage links you have.",
+    body: "Once, from your phone. Name, position, bio, strengths, plus your photo and any footage you have.",
   },
   {
     icon: UploadCloud,
     title: "2. Staff review it",
-    body: "We check the details, add your official photo and confirm your squad number.",
+    body: "We check the details, confirm your squad number and publish it. If we can't use your submission, the files you uploaded are deleted.",
   },
   {
     icon: Eye,

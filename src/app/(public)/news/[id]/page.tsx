@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react"
 import { copy } from "@/lib/copy"
 import { formatDate } from "@/lib/utils"
 import { getArticle, getNews } from "@/lib/server/queries"
+import { HOME_CRUMB, SOCIAL_CARD, articleNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
+import { JsonLd } from "@/components/seo/json-ld"
 
 export const revalidate = 60
 
@@ -14,12 +16,17 @@ type Props = { params: Promise<{ id: string }> }
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
   const a = await getArticle(id)
-  if (!a) return { title: "Story not found" }
-  return {
+  if (!a) return { title: "Story not found", robots: { index: false, follow: true } }
+  const description = a.content.slice(0, 160)
+  return detailMetadata({
+    path: `/news/${id}`,
     title: a.headline,
-    description: a.content.slice(0, 160),
-    openGraph: a.imageUrl ? { images: [{ url: a.imageUrl }], type: "article" } : { type: "article" },
-  }
+    description,
+    keywords: [...detailKeywords("newsDetail"), ...(a.tags ?? [])],
+    image: a.imageUrl ? { url: a.imageUrl, alt: a.headline } : SOCIAL_CARD,
+    type: "article",
+    publishedTime: a.date,
+  })
 }
 
 export default async function StoryPage({ params }: Props) {
@@ -30,6 +37,20 @@ export default async function StoryPage({ params }: Props) {
 
   return (
     <article className="pt-20 md:pt-28">
+      <JsonLd
+        data={jsonLdGraph(
+          articleNode({
+            headline: article.headline,
+            path: `/news/${id}`,
+            description: article.content.slice(0, 200),
+            imageUrl: article.imageUrl,
+            datePublished: article.date,
+            section: copy.stories.eyebrow,
+            tags: article.tags,
+          }),
+          breadcrumbNode([HOME_CRUMB, { name: copy.stories.eyebrow, path: "/news" }, { name: article.headline, path: `/news/${id}` }])
+        )}
+      />
       <div className="container max-w-3xl">
         <Link href="/news" className="inline-flex min-h-11 items-center gap-1.5 text-sm text-mist/75 hover:text-ivory">
           <ArrowLeft className="h-4 w-4" /> {copy.stories.eyebrow}
