@@ -15,6 +15,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { CoordStamp } from "@/components/brand/coord-stamp"
 import { GrainOverlay } from "@/components/brand/grain-overlay"
+import { artSlot, ArtImagePreload } from "@/components/brand/art-image"
+import { type ArtDirection } from "@/lib/art-direction"
 import { Reveal } from "@/components/brand/reveal"
 import { WorldFlight } from "@/components/brand/world-flight"
 import { SectionHeading, Eyebrow } from "@/components/brand/section-heading"
@@ -52,12 +54,24 @@ export default async function HomePage() {
   )
   const tickerItems = destinations.length ? destinations : ["ABJ Abuja", "GOT Gothenburg", "HJØ Hjørring"]
 
+  // Art direction for the hero. Phones get `heroImageMobileUrl` when the club uploaded one;
+  // otherwise they fall back to the desktop photo, so a single upload still works.
+  const heroArt: ArtDirection | undefined = team.heroImageUrl
+    ? {
+        desktop: artSlot(team.heroImageUrl, { sizes: "100vw", width: 1920, height: 1080, priority: true }),
+        mobile: team.heroImageMobileUrl
+          ? artSlot(team.heroImageMobileUrl, { sizes: "100vw", width: 1080, height: 1920, priority: true })
+          : undefined,
+      }
+    : undefined
+
   return (
     <>
       <JsonLd data={jsonLdGraph(pageNode({ path: "/", name: PAGE_SEO.home.title, description: PAGE_SEO.home.description }))} />
       {/* ───────── Hero ───────── */}
       <section className="on-dark relative flex min-h-[100svh] flex-col overflow-hidden bg-ink">
-        <HeroMedia image={team.heroImageUrl} video={team.heroVideoUrl} />
+        {heroArt && <ArtImagePreload art={heroArt} />}
+        <HeroMedia art={heroArt} video={team.heroVideoUrl} />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/60 via-ink/30 to-ink" />
         <div aria-hidden className="absolute inset-0 bg-grid opacity-50 mask-fade-b" />
         <GrainOverlay opacity={0.07} />

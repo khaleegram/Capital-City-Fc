@@ -27,6 +27,10 @@ export const IMAGE_PROFILES: Record<string, ImageProfile> = {
   news: { kind: "max", max: 1600 },
   journeys: { kind: "max", max: 1600 },
   media: { kind: "max", max: 1600 },
+  // Homepage hero. Absent until now, which meant the club's hero upload bypassed
+  // preparation entirely and a full-size phone photo went to the bucket untouched.
+  // Capped taller than the card profiles because it is drawn full-bleed.
+  team: { kind: "max", max: 2400 },
 }
 
 /**

@@ -105,6 +105,14 @@ export type NewsArticle = {
    * that matches the photo, so the whole thing shows. Listings keep using `imageUrl`.
    */
   heroImageUrl?: string;
+  /**
+   * Optional phone cover for the article hero.
+   *
+   * The hero is full-bleed with `object-cover`, so a wide shot loses most of its frame on a
+   * phone. Supplying a portrait image here gives phones their own photo; leave it empty and
+   * every screen gets `heroImageUrl || imageUrl` instead.
+   */
+  heroImageMobileUrl?: string;
 };
 
 export type Video = {
@@ -196,6 +204,8 @@ export type TeamProfile = {
     maintenanceMode?: boolean;
     heroVideoUrl?: string;
     heroImageUrl?: string;
+    /** Optional phone hero photo. Empty means phones use `heroImageUrl`. */
+    heroImageMobileUrl?: string;
     socials?: { instagram?: string; tiktok?: string; youtube?: string; x?: string };
     /** Manual override; any field left empty falls back to the computed value. */
     proofStats?: Partial<ProofStats> | null;
@@ -287,6 +297,13 @@ export type Journey = {
   startDate?: string;
   endDate?: string;
   coverImageUrl?: string;
+  /**
+   * Optional phone cover for the journey header.
+   *
+   * Same rule as the other heroes: set it to give phones a portrait crop, leave it empty and
+   * phones fall back to `coverImageUrl`. Listings and share cards always use `coverImageUrl`.
+   */
+  coverImageMobileUrl?: string;
   summary: string;
   stops: JourneyStop[];
   /**

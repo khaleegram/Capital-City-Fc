@@ -75,6 +75,21 @@ export function DetailsTab({ journeyId, draft, set }: TabProps) {
         <Field label="Cover image">
           <UploadField value={draft.coverImageUrl} onChange={(url) => set({ coverImageUrl: url ?? "" })} prefix="journeys" aspect="aspect-[4/3]" />
         </Field>
+        <Field
+          label="Mobile cover image (optional)"
+          hint={
+            draft.coverImageMobileUrl
+              ? "Phones use this instead of the cover above."
+              : "Leave empty and phones use the cover above. Portrait, 3:4 to 9:16."
+          }
+        >
+          <UploadField
+            value={draft.coverImageMobileUrl}
+            onChange={(url) => set({ coverImageMobileUrl: url ?? "" })}
+            prefix="journeys"
+            aspect="aspect-[4/5]"
+          />
+        </Field>
         <Field label="Hero video" hint="Pick from media tagged to this journey.">
           <NativeSelect value={draft.heroMediaId ?? ""} onChange={(v) => set({ heroMediaId: v || null })} placeholder="None" options={own.map((m) => [m.id, m.title] as const)} />
         </Field>

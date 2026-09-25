@@ -18,6 +18,7 @@ import {
 import { HOME_CRUMB, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, sportsEventNode } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ProgressRail, type RailStep } from "@/components/brand/progress-rail"
+import { ArtImage } from "@/components/brand/art-image"
 import { RouteMap } from "@/components/brand/route-map"
 import { SectionHeading } from "@/components/brand/section-heading"
 import { TournamentStamp } from "@/components/brand/tournament-stamp"
@@ -112,7 +113,14 @@ export default async function JourneyPage({ params }: Props) {
       {/* Header */}
       <header className="relative overflow-hidden pb-10 pt-24 md:pb-16 md:pt-32">
         {journey.coverImageUrl ? (
-          <Image src={journey.coverImageUrl} alt="" fill priority sizes="100vw" className="object-cover opacity-45" />
+          <ArtImage
+            desktop={journey.coverImageUrl}
+            mobile={journey.coverImageMobileUrl}
+            alt=""
+            priority
+            className="absolute inset-0"
+            imgClassName="h-full w-full object-cover opacity-45"
+          />
         ) : (
           <div className="absolute inset-0 bg-horizon" />
         )}

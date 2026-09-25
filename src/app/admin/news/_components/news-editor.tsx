@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import type { NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; clearHeroImage: boolean }, articleId?: string) => Promise<void>;
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean }, articleId?: string) => Promise<void>;
   articleToEdit?: NewsArticle | null;
   onFinishEditing: () => void;
 }
@@ -42,6 +42,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const [heroPreview, setHeroPreview] = useState<string | null>(null);
   const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
   const [clearHeroImage, setClearHeroImage] = useState(false);
+  const [mobileHeroPreview, setMobileHeroPreview] = useState<string | null>(null);
+  const [mobileHeroImageFile, setMobileHeroImageFile] = useState<File | null>(null);
+  const [clearMobileHeroImage, setClearMobileHeroImage] = useState(false);
 
 
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
@@ -61,6 +64,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       setHeroPreview(articleToEdit.heroImageUrl || null);
       setHeroImageFile(null);
       setClearHeroImage(false);
+      setMobileHeroPreview(articleToEdit.heroImageMobileUrl || null);
+      setMobileHeroImageFile(null);
+      setClearMobileHeroImage(false);
       setBulletPoints("");
       setIsEditing(true);
       setSocialPosts(null);
@@ -80,6 +86,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setHeroPreview(null);
     setHeroImageFile(null);
     setClearHeroImage(false);
+    setMobileHeroPreview(null);
+    setMobileHeroImageFile(null);
+    setClearMobileHeroImage(false);
     setIsEditing(false);
     onFinishEditing();
   }
@@ -168,6 +177,25 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setClearHeroImage(true);
   };
 
+  const handleMobileHeroFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMobileHeroImageFile(file);
+      setClearMobileHeroImage(false);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMobileHeroPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveMobileHero = () => {
+    setMobileHeroPreview(null);
+    setMobileHeroImageFile(null);
+    setClearMobileHeroImage(true);
+  };
+
   const handleGenerateSocial = async () => {
     if (!articleContent.trim()) return
     setIsGeneratingSocial(true)
@@ -188,7 +216,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
 
   const handlePublish = async () => {
     setIsSubmitting(true);
-    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile, heroImageFile: heroImageFile, clearHeroImage }, articleToEdit?.id);
+    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile, heroImageFile: heroImageFile, heroImageMobileFile: mobileHeroImageFile, clearHeroImage, clearHeroImageMobile: clearMobileHeroImage }, articleToEdit?.id);
     setIsSubmitting(false);
     resetForm();
   }
@@ -396,6 +424,35 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                     <Button type="button" variant="outline" size="sm" className="mt-3" onClick={handleRemoveHero} disabled={isLoading}>
                         <X className="mr-2 h-3 w-3" />
                         Remove portrait hero
+                    </Button>
+                )}
+            </div>
+            <div className="mt-6">
+                <Label className="font-semibold">Mobile hero (optional)</Label>
+                <div className="aspect-[4/5] max-w-[200px] mt-2 rounded-lg border-dashed border-2 flex items-center justify-center relative bg-muted/50">
+                    {mobileHeroPreview ? (
+                        <Image src={mobileHeroPreview} alt="Mobile hero preview" layout="fill" objectFit="cover" className="rounded-lg" />
+                    ) : (
+                        <div className="text-center text-muted-foreground">
+                            <UploadCloud className="mx-auto h-8 w-8" />
+                            <p className="mt-1 text-xs">No mobile hero</p>
+                        </div>
+                    )}
+                    <Input
+                        type="file"
+                        accept="image/*"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={handleMobileHeroFileChange}
+                    />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Shown to phones only, in a taller frame. Leave empty and phones use the
+                    portrait hero, or the landscape cover if there is none.
+                </p>
+                {mobileHeroPreview && (
+                    <Button type="button" variant="outline" size="sm" className="mt-3" onClick={handleRemoveMobileHero} disabled={isLoading}>
+                        <X className="mr-2 h-3 w-3" />
+                        Remove mobile hero
                     </Button>
                 )}
             </div>

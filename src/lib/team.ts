@@ -20,6 +20,7 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
     maintenanceMode: !!data.maintenanceMode,
     heroVideoUrl: data.heroVideoUrl,
     heroImageUrl: data.heroImageUrl,
+    heroImageMobileUrl: data.heroImageMobileUrl,
     socials: data.socials,
     proofStats: data.proofStats ?? null,
   }

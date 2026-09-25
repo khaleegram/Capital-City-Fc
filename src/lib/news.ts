@@ -30,7 +30,7 @@ export const uploadNewsImage = async (imageFile: File): Promise<string> => {
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null }) => {
   try {
     let imageUrl = "";
     if (articleData.imageFile) {
@@ -43,12 +43,19 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
         heroImageUrl = await uploadNewsImage(articleData.heroImageFile);
     }
 
+    // Optional phone hero. Leave empty and phones fall back to heroImageUrl / imageUrl.
+    let heroImageMobileUrl = "";
+    if (articleData.heroImageMobileFile) {
+        heroImageMobileUrl = await uploadNewsImage(articleData.heroImageMobileFile);
+    }
+
     await addDoc(newsCollectionRef, {
       headline: articleData.headline,
       content: articleData.content,
       tags: articleData.tags,
       imageUrl: imageUrl,
       heroImageUrl: heroImageUrl,
+      heroImageMobileUrl: heroImageMobileUrl,
       date: new Date().toISOString(),
       createdAt: serverTimestamp(),
     });
@@ -68,7 +75,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
  * @param articleId The ID of the article to update.
  * @param articleData The data to update.
  */
-export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; clearHeroImage?: boolean }) => {
+export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; clearHeroImage?: boolean; clearHeroImageMobile?: boolean }) => {
     try {
         const updateData: any = {
             headline: articleData.headline,
@@ -86,6 +93,13 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
         } else if (articleData.clearHeroImage) {
             // Falls the hero back to the landscape cover.
             updateData.heroImageUrl = "";
+        }
+
+        if (articleData.heroImageMobileFile) {
+            updateData.heroImageMobileUrl = await uploadNewsImage(articleData.heroImageMobileFile);
+        } else if (articleData.clearHeroImageMobile) {
+            // Phones fall back to whichever hero the other two fields resolve to.
+            updateData.heroImageMobileUrl = "";
         }
 
         const articleDocRef = doc(db, "news", articleId);

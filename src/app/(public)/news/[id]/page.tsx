@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils"
 import { getArticle, getNews } from "@/lib/server/queries"
 import { HOME_CRUMB, SOCIAL_CARD, articleNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
+import { ArtImage } from "@/components/brand/art-image"
 
 export const revalidate = 60
 
@@ -24,11 +25,25 @@ const HERO_FRAMES = {
     box: "container mt-8 max-w-5xl",
     frame: "relative -mx-5 aspect-[16/9] overflow-hidden sm:mx-0 sm:rounded-3xl",
     sizes: "(min-width: 1024px) 64rem, 100vw",
+    /**
+     * Phone-first overrides, used only when the article has a separate mobile photo. The
+     * narrow frame gives that photo the portrait shape it was shot in, then hands back to
+     * the landscape frame from `sm` up.
+     */
+    withPhone: {
+      box: "container mt-8 max-w-md sm:max-w-5xl",
+      frame: "relative -mx-5 aspect-[4/5] overflow-hidden sm:mx-0 sm:aspect-[16/9] sm:rounded-3xl",
+    },
   },
   portrait: {
     box: "container mt-8 max-w-md",
     frame: "relative -mx-5 aspect-[4/5] overflow-hidden sm:mx-0 sm:rounded-3xl",
     sizes: "(min-width: 768px) 28rem, 100vw",
+    /** Already 4:5 at every width, so a mobile photo only swaps the file. */
+    withPhone: {
+      box: "container mt-8 max-w-md",
+      frame: "relative -mx-5 aspect-[4/5] overflow-hidden sm:mx-0 sm:rounded-3xl",
+    },
   },
 } as const
 
@@ -55,6 +70,8 @@ export default async function StoryPage({ params }: Props) {
   const more = (await getNews()).filter((n) => n.id !== id).slice(0, 3)
   const heroSrc = article.heroImageUrl || article.imageUrl
   const hero = article.heroImageUrl ? HERO_FRAMES.portrait : HERO_FRAMES.landscape
+  // A separate phone photo unlocks the narrower frame on small screens.
+  const phoneHero = article.heroImageMobileUrl ? hero.withPhone : null
 
   return (
     <article className="pt-20 md:pt-28">
@@ -89,9 +106,18 @@ export default async function StoryPage({ params }: Props) {
         )}
       </div>
       {heroSrc && (
-        <div className={hero.box}>
-          <div className={hero.frame}>
-            <Image src={heroSrc} alt="" fill priority sizes={hero.sizes} className="object-cover" />
+        <div className={phoneHero ? phoneHero.box : hero.box}>
+          <div className={phoneHero ? phoneHero.frame : hero.frame}>
+            <ArtImage
+              desktop={heroSrc}
+              mobile={article.heroImageMobileUrl}
+              alt=""
+              priority
+              sizes={hero.sizes}
+              mobileSizes="100vw"
+              className="absolute inset-0"
+              imgClassName="h-full w-full object-cover"
+            />
           </div>
         </div>
       )}

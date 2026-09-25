@@ -51,6 +51,7 @@ export const getTeam = cached(
       maintenanceMode: !!doc?.maintenanceMode,
       heroVideoUrl: doc?.heroVideoUrl,
       heroImageUrl: doc?.heroImageUrl,
+      heroImageMobileUrl: doc?.heroImageMobileUrl,
       socials: doc?.socials,
       proofStats: doc?.proofStats ?? null,
     }

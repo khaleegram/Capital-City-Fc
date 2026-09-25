@@ -17,6 +17,7 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
     name: profile.name,
     homeVenue: profile.homeVenue,
     heroImageUrl: profile.heroImageUrl ?? "",
+    heroImageMobileUrl: profile.heroImageMobileUrl ?? "",
     heroVideoUrl: profile.heroVideoUrl ?? "",
     instagram: profile.socials?.instagram ?? "",
     tiktok: profile.socials?.tiktok ?? "",
@@ -29,6 +30,7 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
       name: profile.name,
       homeVenue: profile.homeVenue,
       heroImageUrl: profile.heroImageUrl ?? "",
+      heroImageMobileUrl: profile.heroImageMobileUrl ?? "",
       heroVideoUrl: profile.heroVideoUrl ?? "",
       instagram: profile.socials?.instagram ?? "",
       tiktok: profile.socials?.tiktok ?? "",
@@ -46,8 +48,14 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
       await updateTeamProfile({
         name: form.name.trim() || "Capital City FC",
         homeVenue: form.homeVenue.trim(),
-        heroImageUrl: form.heroImageUrl || undefined,
-        heroVideoUrl: form.heroVideoUrl || undefined,
+        /*
+         * Empty strings, not `undefined`. `clean()` drops undefined keys and the write is a
+         * merge, so an omitted key leaves the previous URL in place — removing an image would
+         * look like it saved and then come straight back.
+         */
+        heroImageUrl: form.heroImageUrl,
+        heroImageMobileUrl: form.heroImageMobileUrl,
+        heroVideoUrl: form.heroVideoUrl,
         socials: { instagram: form.instagram, tiktok: form.tiktok, youtube: form.youtube, x: form.x },
       })
       toast({ title: "Saved", description: "Club profile updated on the public site." })
@@ -75,9 +83,29 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
             </Field>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Homepage hero image" hint="Also used as the video poster. Landscape, at least 1600px wide.">
+            <Field
+              label="Homepage hero image"
+              hint="Desktop and tablet. Also used as the video poster. Landscape, at least 1600px wide."
+            >
               <UploadField value={form.heroImageUrl} onChange={(url) => setForm((f) => ({ ...f, heroImageUrl: url ?? "" }))} prefix="team/hero" />
             </Field>
+            <Field
+              label="Mobile hero image (optional)"
+              hint={
+                form.heroImageMobileUrl
+                  ? "Phones use this instead of the hero image beside it."
+                  : "Leave empty and phones use the hero image beside it. Portrait, 3:4 to 9:16."
+              }
+            >
+              <UploadField
+                value={form.heroImageMobileUrl}
+                onChange={(url) => setForm((f) => ({ ...f, heroImageMobileUrl: url ?? "" }))}
+                prefix="team/hero"
+                aspect="aspect-[4/5]"
+              />
+            </Field>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Homepage hero video (optional)" hint="Short, silent loop. Only plays on tap for low-data visitors.">
               <UploadField
                 value={form.heroVideoUrl}
