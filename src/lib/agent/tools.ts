@@ -393,6 +393,269 @@ export const TOOLS: ToolSpec[] = [
       ),
     }),
   },
+
+  /* ── tours and journeys ─────────────────────────────────────────────────── */
+
+  {
+    name: "list_journeys",
+    risk: "read",
+    description:
+      "List the club's tours and tournaments — Gothia Cup, Dana Cup and so on. Returns each journey's id, title, " +
+      "kind, status, dates, how many players are on the squad sheet and how many of them are linked to a profile. " +
+      "Use this before changing a tour, so you act on the real record.",
+    parameters: obj({
+      query: str("Optional title fragment, case-insensitive. e.g. 'Dana'."),
+      status: enums(["upcoming", "live", "completed"], "Optional. Only journeys in this state."),
+    }),
+  },
+  {
+    name: "create_journey",
+    risk: "write",
+    description:
+      "Create a tour or tournament. It is created as a draft, so it is not on the public site until someone " +
+      "publishes it. Add the squad separately with `set_journey_squad`.",
+    parameters: obj(
+      {
+        title: str("The tour's name, e.g. 'Gothia Cup 2027'."),
+        kind: enums(["international", "domestic"], "A trip abroad, or a campaign inside Nigeria."),
+        season: str("Season label, e.g. '2026/27'."),
+        start_date: str("ISO 8601 date the squad travelled, e.g. '2027-07-12'."),
+        end_date: str("ISO 8601 date the tour ended."),
+        summary: str("A short description for the journey page."),
+      },
+      ["title", "kind"]
+    ),
+  },
+  {
+    name: "set_journey_squad",
+    risk: "write",
+    description:
+      "Replace a tour's squad sheet. This is where a tour's players get their appearances and their goals and " +
+      "assists for the whole trip, so it is the tool that fixes tournament statistics. " +
+      "Names that match a player profile are linked automatically and then count; names that match nobody are kept " +
+      "on the sheet but credit nothing, and are reported back so you can say which ones need a profile. " +
+      "Replaces the sheet wholesale — include every member you want on it.",
+    parameters: obj(
+      {
+        journey: str(`The tour. ${REF}`),
+        members: {
+          type: "array",
+          description: "The full squad sheet.",
+          items: obj(
+            {
+              name: str("The player's name, exactly as it appears on the sheet."),
+              position: enums(["Goalkeeper", "Defender", "Midfielder", "Forward"], "Their position on the sheet."),
+              number: num("Shirt number. Optional."),
+              goals: num("Goals scored across the whole tour. Optional."),
+              assists: num("Assists across the whole tour. Optional."),
+            },
+            ["name", "position"]
+          ),
+        },
+      },
+      ["journey", "members"]
+    ),
+  },
+  {
+    name: "post_journey_entry",
+    risk: "write",
+    description:
+      "Post an entry to a tour's diary. Give the `body` if you already have the words, or give `notes` and it will " +
+      "be written up in the club's voice first — the same writer the tour diary screen uses. " +
+      "Notes must be plain facts; the writer is told never to invent a score, a name or a quote.",
+    parameters: obj(
+      {
+        journey: str(`The tour. ${REF}`),
+        title: str("A short headline. Optional when notes are given — the written entry supplies one."),
+        body: str("The entry text. Use this when the person has already told you what to write."),
+        notes: str(
+          "Rough notes to be written up into the entry. Use this instead of `body` when the person gave you " +
+            "scattered facts to turn into something readable."
+        ),
+        location: str("Where the squad is, e.g. 'Gothenburg'."),
+        day: num("Day number of the tour."),
+        attachment: str("Exact file name of a photo to attach, if one was attached to the message."),
+      },
+      ["journey"]
+    ),
+  },
+  {
+    name: "set_journey_status",
+    risk: "write",
+    description:
+      "Change whether a tour is upcoming, live or completed, and optionally its end date. Use this when a trip " +
+      "has finished and needs closing off — the public journey page reads this to decide what to show.",
+    parameters: obj(
+      {
+        journey: str(`The tour. ${REF}`),
+        status: enums(["upcoming", "live", "completed"], "The new state."),
+        end_date: str("Optional ISO 8601 date to set as the end."),
+      },
+      ["journey", "status"]
+    ),
+  },
+
+  /* ── players, placements and club records ───────────────────────────────── */
+
+  {
+    name: "create_player",
+    risk: "write",
+    description:
+      "Add a player to the squad. Created as a draft, so it stays off the public site until someone publishes it. " +
+      "Statistics are not set here — they come from match records, and `set_player_baseline` covers a career total " +
+      "from before the club recorded matches.",
+    parameters: obj(
+      {
+        name: str("The player's full name."),
+        position: enums(["Goalkeeper", "Defender", "Midfielder", "Forward"], "Where they play."),
+        jersey_number: num("Shirt number."),
+        nickname: str("What they are known as. Optional."),
+        dob: str("Date of birth, ISO 8601. Optional."),
+        nationality: str("Optional."),
+        bio: str("A short biography. Optional."),
+        image_attachment: str("Exact file name of a photo attached to the message, if there is one."),
+      },
+      ["name", "position", "jersey_number"]
+    ),
+  },
+  {
+    name: "update_player",
+    risk: "write",
+    description:
+      "Change details on an existing player profile. Only the fields you pass are changed. Use this to fix a " +
+      "spelling, add a biography, change a shirt number, mark someone injured or on loan, or publish a profile.",
+    parameters: obj(
+      {
+        player: str(`The player. ${REF}`),
+        name: str("A corrected full name. Optional."),
+        nickname: str("Optional."),
+        position: str("Optional."),
+        jersey_number: num("Optional."),
+        status: enums(["Active", "Injured", "On Loan", "Former Player"], "Optional."),
+        strong_foot: enums(["Left", "Right", "Both"], "Optional."),
+        height_cm: num("Optional."),
+        nationality: str("Optional."),
+        bio: str("Optional."),
+        current_club: str("Set when the player has moved on. Optional."),
+        squad_status: str("Their standing in the pathway, if they have one. Optional."),
+        image_attachment: str("Exact file name of a photo attached to the message, to replace their picture."),
+        publish: bool("Set true to put the profile on the public site, false to pull it back to a draft."),
+      },
+      ["player"]
+    ),
+  },
+  {
+    name: "add_placement",
+    risk: "write",
+    description:
+      "Record a player moving to, trialling with or signing for another club — the proof of the pathway. " +
+      "Created unpublished, so it goes on the public record only once someone approves it.",
+    parameters: obj(
+      {
+        player: str(`The player. ${REF}`),
+        club: str("The club they have joined or are trialling with."),
+        country: str("The club's country."),
+        type: enums(["signed", "loan", "trial"], "What kind of move this is."),
+        league: str("Optional."),
+        date: str("ISO 8601 date of the move. Optional."),
+        source_url: str("A link confirming it, if there is one. Optional."),
+        verified: bool("Set true when the person has confirmed it is real. Defaults to false."),
+      },
+      ["player", "club", "country", "type"]
+    ),
+  },
+  {
+    name: "add_achievement",
+    risk: "write",
+    description: "Add a trophy, an unbeaten run or a milestone to the club's record. Created unpublished.",
+    parameters: obj(
+      {
+        title: str("What was achieved, e.g. 'Gothia Cup quarter-finalists'."),
+        year: num("The year it happened."),
+        kind: enums(["trophy", "unbeaten", "milestone"], "What sort of achievement this is."),
+        competition: str("Optional."),
+        detail: str("One or two sentences of context. Optional."),
+        journey: str(`The tour it belongs to, if any. ${REF}`),
+      },
+      ["title", "year", "kind"]
+    ),
+  },
+  {
+    name: "add_staff_member",
+    risk: "write",
+    description: "Add a member of staff — coaching, management, operations or medical. Created unpublished.",
+    parameters: obj(
+      {
+        name: str("Their name."),
+        role: str("Their title, e.g. 'Head Coach'."),
+        group: enums(["management", "coaching", "operations", "medical"], "Which part of the club they belong to."),
+        rank: num("Order within their group; lower shows first. Optional."),
+        bio: str("Optional."),
+        quote: str("Optional."),
+        licences: strings("Coaching licences or badges. Optional."),
+      },
+      ["name", "role", "group"]
+    ),
+  },
+
+  /* ── galleries ──────────────────────────────────────────────────────────── */
+
+  {
+    name: "create_gallery",
+    risk: "write",
+    description:
+      "Create a photo gallery — a chapter of the club's story, usually from a tour. " +
+      "The people attach the photos in the composer and you name them; you cannot upload anything yourself. " +
+      "Created unpublished, so nothing is public until someone approves it.",
+    parameters: obj(
+      {
+        title: str("The gallery's title."),
+        story: str("A short piece of writing about the pictures. Optional."),
+        location: str("Where the photos were taken. Optional."),
+        date: str("ISO 8601 date. Optional."),
+        journey: str(`The tour it belongs to, if any. ${REF}`),
+        attachments: strings(
+          "Exact file names of the photos to include, as listed in the message. List every one you were told about."
+        ),
+        caption: str("A caption applied to the photos. Optional."),
+      },
+      ["title"]
+    ),
+  },
+
+  /* ── writing help ───────────────────────────────────────────────────────── */
+
+  {
+    name: "write_social_posts",
+    risk: "read",
+    description:
+      "Write the club's social media posts for a story — one for Twitter and one for Instagram, with hashtags. " +
+      "Takes the article it should be about, or text you give it. Returns the posts as text for the person to " +
+      "copy; it does not publish them anywhere.",
+    parameters: obj({
+      article: str(`An existing article to write about. ${REF}`),
+      text: str("Text to write the posts from, if there is no article."),
+    }),
+  },
+
+  /* ── looking things up ──────────────────────────────────────────────────── */
+
+  {
+    name: "lookup_club",
+    risk: "read",
+    description:
+      "Look up a football club outside the club's own records, to confirm who an opponent is, which country and " +
+      "city they are from, or which competition they play in. Reads Wikipedia and returns the summary and a link. " +
+      "Use it when someone names an opponent the database does not know, or asks about a club. " +
+      "Treat what comes back as background: it is not club data, so never use it as the source for a score, a " +
+      "lineup or a statistic, and say where it came from.",
+    parameters: obj(
+      {
+        query: str("The club's name, and the country if the name is a common one — e.g. 'Malmö FF Sweden'."),
+      },
+      ["query"]
+    ),
+  },
 ]
 
 export const TOOL_BY_NAME = new Map(TOOLS.map((t) => [t.name, t]))

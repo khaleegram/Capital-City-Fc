@@ -35,21 +35,23 @@
  */
 
 import { collection, doc, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { auth, db } from "@/lib/firebase"
 import { addFixtureAndArticle, deleteFixture, postLiveUpdate, updateFixture } from "@/lib/fixtures"
 import { addNewsArticle, deleteNewsArticle, setArticlePublished } from "@/lib/news"
 import {
   backfillMatchArticles,
   syncMatchArticle,
 } from "@/lib/match-hub"
-import { syncAllRecords, syncFixtureRecords } from "@/lib/match-sync"
+import { syncAllRecords, syncFixtureRecords, syncJourneyRecords } from "@/lib/match-sync"
 import { recomputePlayerStats } from "@/lib/player-matches-client"
 import { isUndoable, listActions, undoAction } from "./journal"
 import { refreshPublic, notifyAll } from "@/lib/admin-client"
+import { generateJourneyEntry } from "@/ai/flows/generate-journey-entry"
+import { generateSocialPost } from "@/ai/flows/generate-social-post"
 import { getTeamProfile } from "@/lib/team"
 import { saveDoc } from "@/lib/collections"
 import { toDate } from "@/lib/utils"
-import type { Fixture, FixtureKind, NewsArticle, Player } from "@/lib/data"
+import type { Achievement, Fixture, FixtureKind, Journey, JourneySquadMember, NewsArticle, Placement, Player, StaffMember } from "@/lib/data"
 import type { ToolOutcome } from "./tools"
 import type { Journal } from "./journal"
 
@@ -161,6 +163,26 @@ async function resolveFixture(ref: string): Promise<FixtureRow> {
   return pickOne(fixtures, ref, describeFixture, "fixture")
 }
 
+/**
+ * By id, then by title.
+ *
+ * A tour is usually referred to by name — "the Dana Cup" — and there can be several in a season, so
+ * an ambiguous reference lists the candidates rather than picking one. Published and draft tours
+ * are both reachable: most of the work on a tour happens while it is still a draft.
+ */
+async function resolveJourney(ref: string): Promise<Journey & { id: string }> {
+  const snap = await getDocs(collection(db, "journeys"))
+  const journeys = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Journey & { id: string })
+  const byId = journeys.find((j) => j.id === ref)
+  if (byId) return byId
+  return pickOne(
+    journeys,
+    ref,
+    (j) => `${j.title}${j.season ? ` ${j.season}` : ""}${j.status ? ` (${j.status})` : ""}`,
+    "journey"
+  )
+}
+
 async function allPlayers(): Promise<(Player & { id: string })[]> {
   const snap = await getDocs(collection(db, "players"))
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Player & { id: string })
@@ -174,10 +196,24 @@ async function allPlayers(): Promise<(Player & { id: string })[]> {
  * squad list yet.
  */
 async function resolvePlayer(ref: string): Promise<Player & { id: string }> {
-  const players = (await allPlayers()).filter((p) => p.published !== false)
-  const byId = players.find((p) => p.id === ref)
+  const all = await allPlayers()
+  /*
+   * A published profile is preferred, and a draft is a fallback rather than excluded.
+   *
+   * Preferring the published one keeps a goal or a lineup attributed to the real squad profile when
+   * a name is shared with an unreviewed sign-up. Falling back at all matters because a player the
+   * assistant has just created is a draft, and refusing to find it would make `create_player`
+   * followed by `update_player` impossible.
+   */
+  const published = all.filter((p) => p.published !== false)
+  const byId = published.find((p) => p.id === ref) ?? all.find((p) => p.id === ref)
   if (byId) return byId
-  return pickOne(players, ref, (p) => p.name, "player")
+  try {
+    return pickOne(published, ref, (p) => p.name, "player")
+  } catch (err) {
+    if (all.length === published.length) throw err
+    return pickOne(all, ref, (p) => `${p.name}${p.published === false ? " (draft)" : ""}`, "player")
+  }
 }
 
 /** Names that matched nothing, reported back rather than silently dropped. */
@@ -256,6 +292,71 @@ function resolveAttachmentSource(a: Record<string, unknown>, ctx: ToolContext): 
     (x) => x.name.toLowerCase().includes(needle) || needle.includes(x.name.toLowerCase())
   )
   return partial?.url ?? ""
+}
+
+/**
+ * Picks the attached photos a gallery should contain, and names the ones that were not there.
+ *
+ * A gallery is the one tool where several files matter, so unlike a single attachment an unmatched
+ * name is not fatal — it is dropped and reported. Including a URL that does not exist would put a
+ * broken image on the public site, which is worse than a gallery that is one photo short and says
+ * so.
+ */
+function pickAttachments(
+  wanted: string[],
+  ctx: ToolContext
+): { photos: Attachment[]; missing: string[] } {
+  // No names given means "all of them", which is the common case when the person attached three
+  // pictures and said "make a gallery from these".
+  if (!wanted.length) return { photos: ctx.attachments.filter((a) => a.type === "image"), missing: [] }
+
+  const photos: Attachment[] = []
+  const missing: string[] = []
+  for (const name of wanted) {
+    const needle = name.toLowerCase()
+    const hit =
+      ctx.attachments.find((a) => a.name.toLowerCase() === needle) ??
+      ctx.attachments.find((a) => a.name.toLowerCase().includes(needle) || needle.includes(a.name.toLowerCase()))
+    if (hit) photos.push(hit)
+    else missing.push(name)
+  }
+  return { photos, missing }
+}
+
+/** Slug for a journey, made unique so a second tour with the same name doesn't collide. */
+async function uniqueJourneySlug(title: string): Promise<string> {
+  const base = slugify(title)
+  const existing = new Set((await getDocs(collection(db, "journeys"))).docs.map((d) => d.data().slug as string))
+  if (!existing.has(base)) return base
+  for (let i = 2; i < 50; i++) if (!existing.has(`${base}-${i}`)) return `${base}-${i}`
+  return `${base}-${Date.now()}`
+}
+
+/** Slug for a gallery, unique for the same reason. */
+async function uniqueGallerySlug(title: string): Promise<string> {
+  const base = slugify(title)
+  const existing = new Set((await getDocs(collection(db, "galleries"))).docs.map((d) => d.data().slug as string))
+  if (!existing.has(base)) return base
+  for (let i = 2; i < 50; i++) if (!existing.has(`${base}-${i}`)) return `${base}-${i}`
+  return `${base}-${Date.now()}`
+}
+
+function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60) || "untitled"
+  )
+}
+
+/** Where a new staff member goes in their group: after everyone already in it. */
+async function nextStaffRank(group: StaffMember["group"]): Promise<number> {
+  const snap = await getDocs(collection(db, "staff"))
+  const ranks = snap.docs.map((d) => d.data()).filter((s) => s.group === group).map((s) => Number(s.rank) || 0)
+  return ranks.length ? Math.max(...ranks) + 1 : 1
 }
 
 export const EXECUTORS: Record<string, ToolExecutor> = {
@@ -933,6 +1034,471 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     }
   },
 
+  /* ── tours and journeys ─────────────────────────────────────────────────── */
+
+  async list_journeys(raw) {
+    const a = args(raw)
+    const q = optString(a, "query")?.toLowerCase()
+    const status = optString(a, "status")
+
+    const snap = await getDocs(collection(db, "journeys"))
+    let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Journey)
+    if (q) rows = rows.filter((j) => `${j.title} ${j.slug ?? ""}`.toLowerCase().includes(q))
+    if (status) rows = rows.filter((j) => j.status === status)
+    rows.sort((x, y) => String(y.startDate ?? "").localeCompare(String(x.startDate ?? "")))
+
+    if (!rows.length) throw new ToolFailure("No journey matched that. Check the name with a broader search.")
+
+    return {
+      ok: true,
+      summary: rows
+        .slice(0, 12)
+        .map(
+          (j) =>
+            `${j.title} — ${j.kind}, ${j.status}, ${j.startDate ?? "no date"}${j.published ? "" : " (draft)"}, ` +
+            `${(j.squad ?? []).length} on the sheet`
+        )
+        .join("\n"),
+      data: rows.slice(0, 12).map((j) => ({
+        id: j.id,
+        title: j.title,
+        kind: j.kind,
+        status: j.status,
+        season: j.season ?? null,
+        startDate: j.startDate ?? null,
+        endDate: j.endDate ?? null,
+        published: j.published,
+        squadSize: (j.squad ?? []).length,
+        // Reported because an unlinked name counts for nothing, which is the usual reason a tour's
+        // statistics look wrong.
+        squadUnlinked: (j.squad ?? []).filter((m) => !m.playerId).length,
+        record: j.record ?? null,
+        matches: (j.matches ?? []).length,
+      })),
+    }
+  },
+
+  async create_journey(raw, ctx) {
+    const a = args(raw)
+    const title = needString(a, "title")
+    const kind = needString(a, "kind") as Journey["kind"]
+    const slug = await uniqueJourneySlug(title)
+
+    const id = await saveDoc("journeys", null, {
+      slug,
+      title,
+      subtitle: "",
+      kind,
+      status: "upcoming",
+      season: optString(a, "season") ?? "",
+      startDate: optString(a, "start_date") ?? "",
+      endDate: optString(a, "end_date") ?? "",
+      summary: optString(a, "summary") ?? "",
+      stops: [],
+      progress: 0,
+      playerIds: [],
+      fixtureIds: [],
+      matches: [],
+      quotes: [],
+      // A draft, like everything else the assistant creates: a tour page is public-facing and goes
+      // past a person before it appears.
+      published: false,
+    })
+    ctx.journal.created("journeys", id)
+    await refreshPublic("journeys")
+
+    return {
+      ok: true,
+      summary: `Created "${title}" (${kind}) as a draft. Add its squad with \`set_journey_squad\`.`,
+      data: { journeyId: id, slug, published: false },
+    }
+  },
+
+  async set_journey_squad(raw, ctx) {
+    const a = args(raw)
+    const journey = await resolveJourney(needString(a, "journey"))
+    const rows = Array.isArray(a.members) ? (a.members as Record<string, unknown>[]) : []
+    if (!rows.length) throw new ToolFailure("`members` must list the squad sheet, and it was empty.")
+
+    const players = await allPlayers()
+    const byName = new Map(players.map((p) => [p.name.trim().toLowerCase(), p.id]))
+
+    /*
+     * Names are linked to profiles by exact name only.
+     *
+     * Deliberately not fuzzy here. On a squad sheet two players can share a name, and a wrong link
+     * misattributes an entire career rather than one match — so anything short of an exact match is
+     * left unlinked and reported, for a person to settle.
+     */
+    const squad: JourneySquadMember[] = rows.map((m, i) => {
+      const name = String(m.name ?? "").trim()
+      return {
+        number: Number(m.number) || i + 1,
+        name,
+        position: (m.position as JourneySquadMember["position"]) ?? "Midfielder",
+        ...(m.goals === undefined ? {} : { goals: Number(m.goals) }),
+        ...(m.assists === undefined ? {} : { assists: Number(m.assists) }),
+        playerId: byName.get(name.toLowerCase()) ?? null,
+      }
+    })
+
+    // Captured before the write; the rebuild on undo restores the tour's contributions from the
+    // squad sheet that was there before.
+    await ctx.journal.capture("journeys", journey.id)
+    ctx.journal.recomputeJourney(journey.id)
+
+    const previous = new Set((journey.squad ?? []).map((m) => (m.playerId ?? "").trim()).filter(Boolean))
+    await saveDoc("journeys", journey.id, { squad })
+    const result = await syncJourneyRecords(journey.id)
+    await refreshPublic("journeys", "players")
+
+    const unlinked = squad.filter((m) => !m.playerId)
+    const newlyLinked = squad.filter((m) => m.playerId && !previous.has(m.playerId))
+    const dropped = [...previous].filter((id) => !squad.some((m) => m.playerId === id))
+
+    return {
+      ok: true,
+      summary:
+        `Set ${journey.title}'s squad sheet: ${squad.length} name${squad.length === 1 ? "" : "s"}, ` +
+        `${squad.length - unlinked.length} linked to a profile. ` +
+        `Statistics rebuilt — ${result.records} records across ${result.playersUpdated} player${result.playersUpdated === 1 ? "" : "s"}.` +
+        (newlyLinked.length ? ` Now credited: ${newlyLinked.map((m) => m.name).join(", ")}.` : "") +
+        (unlinked.length
+          ? ` Not linked to a profile, so they credit nothing: ${unlinked.map((m) => m.name).join(", ")}.`
+          : "") +
+        (dropped.length ? ` ${dropped.length} player(s) came off the sheet and lost their tour appearances.` : ""),
+      data: {
+        journeyId: journey.id,
+        linked: squad.filter((m) => m.playerId).length,
+        unlinked: unlinked.map((m) => m.name),
+        playersUpdated: result.playersUpdated,
+      },
+    }
+  },
+
+  async post_journey_entry(raw, ctx) {
+    const a = args(raw)
+    const journey = await resolveJourney(needString(a, "journey"))
+    const location = optString(a, "location") ?? journey.stops?.at(-1)?.city ?? ""
+    const day = optNumber(a, "day")
+    let title = optString(a, "title")
+    let body = optString(a, "body")
+    const notes = optString(a, "notes")
+
+    // Written up only when there is nothing to post but notes — the same contract as the diary
+    // screen, where the notes field is what the writer is given.
+    let writtenUp = false
+    if (!body && notes) {
+      const token = await auth.currentUser?.getIdToken()
+      if (!token) throw new ToolFailure("Not signed in, so the entry cannot be written up.")
+      const out = await generateJourneyEntry(token, {
+        journeyTitle: journey.title,
+        ...(location ? { location } : {}),
+        ...(day === undefined ? {} : { day }),
+        notes,
+      })
+      body = out.body
+      title = title ?? out.title
+      writtenUp = true
+    }
+
+    if (!title && !body) throw new ToolFailure("Give either `body` or `notes` for the diary entry.")
+    if (!body) body = ""
+
+    const url = resolveAttachmentSource(a, ctx)
+    const entryId = await saveDoc(`journeys/${journey.id}/entries`, null, {
+      day,
+      title: title ?? `Day ${day ?? ""}`.trim(),
+      body,
+      location,
+      mediaIds: [],
+      imageUrl: url,
+    })
+    ctx.journal.created(`journeys/${journey.id}/entries`, entryId)
+    await refreshPublic("journeys")
+
+    return {
+      ok: true,
+      summary:
+        `Posted "${title}" to ${journey.title}'s diary${day === undefined ? "" : ` as day ${day}`}` +
+        (writtenUp ? ", written up from your notes." : ".") +
+        (url ? " With a photo." : "") +
+        (journey.published ? " It is live on the journey page." : " The journey is still a draft, so it is not public yet."),
+      data: { journeyId: journey.id, entryId, writtenUp },
+    }
+  },
+
+  async set_journey_status(raw, ctx) {
+    const a = args(raw)
+    const journey = await resolveJourney(needString(a, "journey"))
+    const status = needString(a, "status") as Journey["status"]
+    const endDate = optString(a, "end_date")
+
+    await ctx.journal.capture("journeys", journey.id)
+    await saveDoc("journeys", journey.id, { status, ...(endDate ? { endDate } : {}) })
+    await refreshPublic("journeys")
+
+    return {
+      ok: true,
+      summary: `${journey.title} is now ${status}.${endDate ? ` End date set to ${endDate}.` : ""}`,
+      data: { journeyId: journey.id, status },
+    }
+  },
+
+  /* ── players, placements and club records ───────────────────────────────── */
+
+  async create_player(raw, ctx) {
+    const a = args(raw)
+    const name = needString(a, "name")
+    const position = needString(a, "position") as Player["position"]
+    const jerseyNumber = needNumber(a, "jersey_number")
+
+    const existing = await allPlayers()
+    if (existing.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())) {
+      throw new ToolFailure(`There is already a player called ${name}. Use \`update_player\` to change that profile.`)
+    }
+
+    const imageUrl = resolveAttachmentSource(a, ctx)
+    const id = await saveDoc("players", null, {
+      name,
+      nickname: optString(a, "nickname") ?? "",
+      position,
+      // Everyone created here is a player; coaches and staff have their own screen and tool.
+      role: "Player" as const,
+      jerseyNumber,
+      imageUrl,
+      bio: optString(a, "bio") ?? "",
+      // Zeroed rather than absent: the totals are `statsBaseline + records`, so a missing object
+      // would read as undefined in the maths rather than as nothing recorded yet.
+      stats: { appearances: 0, goals: 0, assists: 0 },
+      statsBaseline: { appearances: 0, goals: 0, assists: 0 },
+      status: "Active" as const,
+      careerHighlights: [],
+      ...(optString(a, "dob") ? { dob: optString(a, "dob") } : {}),
+      ...(optString(a, "nationality") ? { nationality: optString(a, "nationality") } : {}),
+      published: false,
+    })
+    ctx.journal.created("players", id)
+    await refreshPublic("players", "journeys")
+
+    return {
+      ok: true,
+      summary: `Added ${name} (#${jerseyNumber}, ${position}) as a draft profile. Publish it with \`update_player\` when the details are right.`,
+      data: { playerId: id, published: false },
+    }
+  },
+
+  async update_player(raw, ctx) {
+    const a = args(raw)
+    const player = await resolvePlayer(needString(a, "player"))
+
+    /*
+     * Only the fields that were passed, built up explicitly.
+     *
+     * Spreading the model's arguments would let it write any field on the document, including
+     * `statsBaseline` or `source` — the first would corrupt the statistics the whole design is
+     * built on, and the second would mark a hand-made profile as a self sign-up. The tool takes the
+     * fields a person could set on the profile form and nothing else.
+     */
+    const patch: Record<string, unknown> = {}
+    const put = (key: string, value: unknown) => {
+      if (value !== undefined) patch[key] = value
+    }
+    put("name", optString(a, "name"))
+    put("nickname", optString(a, "nickname"))
+    put("position", optString(a, "position"))
+    put("jerseyNumber", optNumber(a, "jersey_number"))
+    put("status", optString(a, "status"))
+    put("strongFoot", optString(a, "strong_foot"))
+    put("heightCm", optNumber(a, "height_cm"))
+    put("nationality", optString(a, "nationality"))
+    put("bio", optString(a, "bio"))
+    put("currentClub", optString(a, "current_club"))
+    put("squadStatus", optString(a, "squad_status"))
+    if (typeof a.publish === "boolean") put("published", a.publish)
+
+    const image = resolveAttachmentSource(a, ctx)
+    if (image) put("imageUrl", image)
+
+    if (!Object.keys(patch).length) throw new ToolFailure("No changes were given, so nothing was updated.")
+
+    await ctx.journal.capture("players", player.id)
+    await saveDoc("players", player.id, patch)
+    // `published` is not part of the derived statistics, but a changed name or position is
+    // denormalised onto records and the public pages, so everything downstream is refreshed.
+    await refreshPublic("players", "journeys", "proof")
+
+    return {
+      ok: true,
+      summary: `Updated ${player.name}: ${Object.keys(patch)
+        .map((k) => k.replace(/([A-Z])/g, " $1").toLowerCase())
+        .join(", ")}.`,
+      data: { playerId: player.id, changed: Object.keys(patch) },
+    }
+  },
+
+  async add_placement(raw, ctx) {
+    const a = args(raw)
+    const player = await resolvePlayer(needString(a, "player"))
+    const club = needString(a, "club")
+    const country = needString(a, "country")
+    const type = needString(a, "type") as Placement["type"]
+
+    const id = await saveDoc("placements", null, {
+      playerId: player.id,
+      playerName: player.name,
+      playerImageUrl: player.imageUrl ?? "",
+      position: player.position ?? "",
+      club,
+      country,
+      league: optString(a, "league") ?? "",
+      type,
+      date: optString(a, "date") ?? "",
+      verified: a.verified === true,
+      published: false,
+      sourceUrl: optString(a, "source_url") ?? "",
+    })
+    ctx.journal.created("placements", id)
+    await refreshPublic("placements", "proof")
+
+    return {
+      ok: true,
+      summary:
+        `Recorded ${player.name} — ${type} at ${club} (${country}) as an unverified draft. ` +
+        `Someone needs to check it against a source and publish it.`,
+      data: { placementId: id, published: false },
+    }
+  },
+
+  async add_achievement(raw, ctx) {
+    const a = args(raw)
+    const title = needString(a, "title")
+    const year = needNumber(a, "year")
+    const kind = needString(a, "kind") as Achievement["kind"]
+    const journeyRef = optString(a, "journey")
+    const journey = journeyRef ? await resolveJourney(journeyRef) : null
+
+    const id = await saveDoc("achievements", null, {
+      title,
+      year,
+      kind,
+      competition: optString(a, "competition") ?? "",
+      detail: optString(a, "detail") ?? "",
+      journeyId: journey?.id ?? null,
+      published: false,
+    })
+    ctx.journal.created("achievements", id)
+    await refreshPublic("achievements", "proof", "journeys")
+
+    return {
+      ok: true,
+      summary: `Added "${title}" (${year}, ${kind})${journey ? ` to ${journey.title}` : ""} as an unpublished draft.`,
+      data: { achievementId: id },
+    }
+  },
+
+  async add_staff_member(raw, ctx) {
+    const a = args(raw)
+    const name = needString(a, "name")
+    const role = needString(a, "role")
+    const group = needString(a, "group") as StaffMember["group"]
+
+    const id = await saveDoc("staff", null, {
+      name,
+      role,
+      group,
+      // Appended within the group rather than inserted at the top, so adding someone does not
+      // silently reorder a page that was already arranged.
+      rank: optNumber(a, "rank") ?? (await nextStaffRank(group)),
+      imageUrl: "",
+      bio: optString(a, "bio") ?? "",
+      quote: optString(a, "quote") ?? "",
+      licences: stringList(a, "licences"),
+      published: false,
+    })
+    ctx.journal.created("staff", id)
+    await refreshPublic("staff")
+
+    return {
+      ok: true,
+      summary: `Added ${name} — ${role} (${group}) as an unpublished draft.`,
+      data: { staffId: id },
+    }
+  },
+
+  /* ── galleries ──────────────────────────────────────────────────────────── */
+
+  async create_gallery(raw, ctx) {
+    const a = args(raw)
+    const title = needString(a, "title")
+    const journeyRef = optString(a, "journey")
+    const journey = journeyRef ? await resolveJourney(journeyRef) : null
+
+    /*
+     * Photos come from the attachments, matched by the names the model was told.
+     *
+     * Only the ones actually attached can be included, so a name that matches nothing is dropped
+     * and reported instead of becoming a broken image on the public site.
+     */
+    const wanted = stringList(a, "attachments")
+    const { photos, missing } = pickAttachments(wanted, ctx)
+    if (!photos.length) {
+      throw new ToolFailure(
+        "No attached photos matched, so there is nothing to put in the gallery. Ask the person to attach the " +
+          "photos, then call this again with their names."
+      )
+    }
+
+    const caption = optString(a, "caption")
+    const id = await saveDoc("galleries", null, {
+      slug: await uniqueGallerySlug(title),
+      title,
+      story: optString(a, "story") ?? "",
+      location: optString(a, "location") ?? journey?.stops?.at(-1)?.city ?? "",
+      date: optString(a, "date") ?? "",
+      journeyId: journey?.id ?? null,
+      photos: photos.map((p) => ({ url: p.url, ...(caption ? { caption } : {}), playerIds: [] })),
+      published: false,
+    })
+    ctx.journal.created("galleries", id)
+    await refreshPublic("galleries", "journeys")
+
+    return {
+      ok: true,
+      summary:
+        `Created the gallery "${title}" with ${photos.length} photo${photos.length === 1 ? "" : "s"}` +
+        `${journey ? ` from ${journey.title}` : ""} as a draft.` +
+        (missing.length ? ` These were named but not attached, so they are not in it: ${missing.join(", ")}.` : ""),
+      data: { galleryId: id, photos: photos.length, missing },
+    }
+  },
+
+  /* ── writing help ───────────────────────────────────────────────────────── */
+
+  async write_social_posts(raw) {
+    const a = args(raw)
+    const articleRef = optString(a, "article")
+    const given = optString(a, "text")
+
+    let content = given
+    let tags = stringList(a, "tags")
+    if (!content && articleRef) {
+      const article = await resolveArticle(articleRef)
+      content = `${article.headline}\n${article.content}`
+      tags = (article.tags ?? []) as string[]
+    }
+    if (!content) throw new ToolFailure("Give either an `article` to write about or the `text` to work from.")
+
+    const out = await generateSocialPost({ articleContent: content, tags })
+    return {
+      ok: true,
+      summary: `Twitter:\n${out.twitterPost}\n\nInstagram:\n${out.instagramPost}`,
+      // Not written anywhere. The news screen shows these posts for copying, and putting them in
+      // the article record would invent a home for them that nothing reads.
+      data: { twitterPost: out.twitterPost, instagramPost: out.instagramPost },
+    }
+  },
+
   /* ── undo ───────────────────────────────────────────────────────────────── */
 
   async undo_last_change(raw, ctx) {
@@ -983,6 +1549,58 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
       ok: true,
       summary: `${outcome.message} The change reversed was: ${target.summary}`,
       data: { undoneActionId: target.id, tool: target.tool, missing: outcome.missing },
+    }
+  },
+
+  /* ── looking things up ──────────────────────────────────────────────────── */
+
+  async lookup_club(raw) {
+    const query = needString(args(raw), "query")
+
+    /*
+     * The request is proxied rather than made here.
+     *
+     * It goes to a third party and carries this deployment's identity, and the answer is cached
+     * where the cache lives — both reasons it does not belong in the operator's browser. This is
+     * the only tool that leaves the club's own systems.
+     */
+    const res = await fetch("/api/admin/agent/lookup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${await auth.currentUser?.getIdToken()}`,
+      },
+      body: JSON.stringify({ query }),
+    })
+
+    const data = (await res.json().catch(() => ({}))) as {
+      found?: boolean
+      title?: string
+      description?: string
+      extract?: string
+      url?: string
+      error?: string
+    }
+
+    if (!res.ok) throw new ToolFailure(data.error ?? "The lookup failed.")
+    if (!data.found) {
+      throw new ToolFailure(
+        `Nothing on Wikipedia matched "${query}". Try the club's full name with its country, or ask the person.`
+      )
+    }
+
+    return {
+      ok: true,
+      summary:
+        `${data.title}${data.description ? ` — ${data.description}` : ""}\n\n${data.extract}\n\n` +
+        `Source: Wikipedia (${data.url})`,
+      data: {
+        title: data.title,
+        description: data.description,
+        extract: data.extract,
+        url: data.url,
+        source: "Wikipedia",
+      },
     }
   },
 }

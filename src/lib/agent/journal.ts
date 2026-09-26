@@ -49,7 +49,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { syncFixtureRecords } from "@/lib/match-sync"
+import { syncFixtureRecords, syncJourneyRecords } from "@/lib/match-sync"
 import { recomputeMany } from "@/lib/player-matches-client"
 
 export const ACTIONS = "agentActions"
@@ -65,6 +65,15 @@ export type UndoOp =
   | { kind: "restore"; collection: string; id: string; data: Record<string, unknown> | null }
   /** Rebuild a match's derived records from the restored fixture. */
   | { kind: "recompute_fixture"; fixtureId: string }
+  /**
+   * Rebuild a tour's derived records from the restored journey.
+   *
+   * A tour is not a match: its squad sheet carries per-player goals and assists for the whole
+   * trip, and the appearances are the number of matches it played. Undoing a squad-sheet change
+   * therefore restores the journey and re-derives, exactly as a fixture does — but through a
+   * different function, because the two sources are shaped differently.
+   */
+  | { kind: "recompute_journey"; journeyId: string }
   /** Something that cannot be taken back. Recorded so the outcome can say what is missing. */
   | { kind: "irreversible"; why: string }
 
@@ -96,6 +105,8 @@ export type Journal = {
   created(collectionName: string, id: string | null | undefined): void
   /** Rebuild a match's derived records after restoring it. */
   recomputeFixture(fixtureId: string): void
+  /** Rebuild a tour's derived records after restoring it. */
+  recomputeJourney(journeyId: string): void
   /** Note something that cannot be restored. Does not block the rest of the undo. */
   irreversible(why: string): void
 }
@@ -131,6 +142,10 @@ export function beginJournal(): { journal: Journal; ops: UndoOp[] } {
     recomputeFixture(fixtureId) {
       if (ops.some((o) => o.kind === "recompute_fixture" && o.fixtureId === fixtureId)) return
       ops.push({ kind: "recompute_fixture", fixtureId })
+    },
+    recomputeJourney(journeyId) {
+      if (ops.some((o) => o.kind === "recompute_journey" && o.journeyId === journeyId)) return
+      ops.push({ kind: "recompute_journey", journeyId })
     },
     irreversible(why) {
       ops.push({ kind: "irreversible", why })
@@ -255,7 +270,10 @@ export async function undoAction(entry: JournalEntry): Promise<{ ok: boolean; me
    * no longer exists in that form.
    */
   const restores = reversible.filter((o): o is Extract<UndoOp, { kind: "restore" }> => o.kind === "restore").reverse()
-  const rebuilds = reversible.filter((o): o is Extract<UndoOp, { kind: "recompute_fixture" }> => o.kind === "recompute_fixture")
+  const rebuilds = reversible.filter(
+    (o): o is Extract<UndoOp, { kind: "recompute_fixture" | "recompute_journey" }> =>
+      o.kind === "recompute_fixture" || o.kind === "recompute_journey"
+  )
 
   let restored = 0
   try {
@@ -270,11 +288,15 @@ export async function undoAction(entry: JournalEntry): Promise<{ ok: boolean; me
        * appearances for a match that isn't there. `syncFixtureRecords` cannot help: it returns
        * early when the fixture is gone, precisely so it can't wipe a match mid-creation.
        */
-      if (op.collection === "fixtures" && op.data === null) await dropRecordsFor(op.id)
+      if (op.collection === "fixtures" && op.data === null) await dropRecordsFor("fixtureId", op.id)
+      if (op.collection === "journeys" && op.data === null) await dropRecordsFor("journeyId", op.id)
       restored++
     }
 
-    for (const op of rebuilds) await syncFixtureRecords(op.fixtureId)
+    for (const op of rebuilds) {
+      if (op.kind === "recompute_fixture") await syncFixtureRecords(op.fixtureId)
+      else await syncJourneyRecords(op.journeyId)
+    }
 
     await updateDoc(doc(db, ACTIONS, entry.id), { undone: true, undoneAt: serverTimestamp() })
 
@@ -290,9 +312,14 @@ export async function undoAction(entry: JournalEntry): Promise<{ ok: boolean; me
   }
 }
 
-/** Removes player records for a match that no longer exists, and recomputes who they credited. */
-async function dropRecordsFor(fixtureId: string) {
-  const snap = await getDocs(query(collection(db, "playerMatches"), where("fixtureId", "==", fixtureId)))
+/**
+ * Removes the player records a vanished source wrote, and recomputes who they credited.
+ *
+ * A record is only meaningful while its fixture or journey is, so an orphan is not merely untidy —
+ * it keeps crediting an appearance for a match or tour that no longer exists.
+ */
+async function dropRecordsFor(field: "fixtureId" | "journeyId", id: string) {
+  const snap = await getDocs(query(collection(db, "playerMatches"), where(field, "==", id)))
   const affected = new Set<string>()
   for (const d of snap.docs) {
     const playerId = d.data().playerId as string | undefined
