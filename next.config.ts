@@ -15,6 +15,11 @@ const remotePatterns: RemotePatterns = [
   https("placehold.co"),
   https("picsum.photos"),
   https("firebasestorage.googleapis.com"),
+  /*
+   * Country flags, used as a stand-in crest for opponents with no published badge
+   * (see src/lib/flags.ts).
+   */
+  https("flagcdn.com"),
   https("i.ytimg.com"),
   https("img.youtube.com"),
   https("i.vimeocdn.com"),

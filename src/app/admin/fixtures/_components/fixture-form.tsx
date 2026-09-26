@@ -5,7 +5,8 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { addFixtureAndArticle, updateFixture, uploadOpponentLogo } from "@/lib/fixtures"
+import { addFixtureAndArticle, updateFixture, uploadOpponentLogo, resolveOpponentFlag } from "@/lib/fixtures"
+import { COUNTRIES, flagUrl, flagCodeIn, isFlagUrl, type Country } from "@/lib/flags"
 import { generateFixturePreview } from "@/ai/flows/generate-fixture-preview"
 import type { GenerateFixturePreviewOutput } from "@/ai/flows/generate-fixture-preview"
 import type { Fixture, Player, Formation } from "@/lib/data"
@@ -19,7 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Wand2, PlusCircle, Save, UploadCloud, Users, Trash2 } from "lucide-react"
+import { Loader2, Wand2, PlusCircle, Save, UploadCloud, Users, Trash2, Flag } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
@@ -29,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 
 /**
  * Scores stay blank until a match has been played, so an empty pair has to stay distinct
@@ -62,6 +64,31 @@ const fixtureSchema = z.object({
 })
 
 type FixtureFormData = z.infer<typeof fixtureSchema>
+
+/**
+ * A country flag standing in for a crest the opponent hasn't published.
+ *
+ * The opponent name is carried alongside the URL so a flag found for one club can't be
+ * silently applied after the field has been edited to another. `manual` marks a country the
+ * admin picked by hand, which is honoured even when the name is still blank — they chose it,
+ * and the preview shows them what they chose.
+ */
+type FlagFallback = { country: string; url: string; opponent: string; manual?: boolean }
+
+/**
+ * One flag thumbnail in the country picker.
+ *
+ * The 40px size variant, because the list holds every country in the world and pulling a
+ * 320px flag for each would be megabytes to render a list nobody scrolls to the end of.
+ */
+function FlagThumb({ code }: { code: string }) {
+  const src = flagUrl(code, 40)
+  return (
+    <span className="relative flex h-4 w-6 shrink-0 items-center justify-center overflow-hidden rounded-[2px] border border-border/60 bg-muted">
+      {src && <Image src={src} alt="" fill sizes="24px" className="object-cover" />}
+    </span>
+  )
+}
 
 interface FixtureFormProps {
   isOpen: boolean
@@ -138,6 +165,9 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     const [generatedContent, setGeneratedContent] = useState<GenerateFixturePreviewOutput | null>(null)
     const [editedPreview, setEditedPreview] = useState("")
     const [logoPreview, setLogoPreview] = useState<string | null>(null)
+    const [flagFallback, setFlagFallback] = useState<FlagFallback | null>(null)
+    const [isFindingFlag, setIsFindingFlag] = useState(false)
+    const [countryPickerOpen, setCountryPickerOpen] = useState(false)
     const [formations, setFormations] = useState<Formation[]>([])
     const [allPlayers, setAllPlayers] = useState<Player[]>([])
     const [startingXI, setStartingXI] = useState<Player[]>([])
@@ -178,6 +208,7 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
             setStartingXI(fixture.startingXI || []);
             setSubstitutes(fixture.substitutes || []);
             setLogoPreview(fixture.opponentLogoUrl || null);
+            setFlagFallback(null);
         } else {
             reset({
                 opponent: "",
@@ -192,6 +223,7 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
             setStartingXI([]);
             setSubstitutes([]);
             setLogoPreview(null);
+            setFlagFallback(null);
             setGeneratedContent(null);
             setEditedPreview("");
         }
@@ -218,12 +250,77 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
     const dateValue = watch("date")
     const opponentLogoFile = watch("opponentLogo")
 
+    /** A crest chosen in this session, as opposed to one already stored on the fixture. */
+    const uploadedFile = Boolean(opponentLogoFile?.[0])
+    /** A real crest the fixture already carries. A flag doesn't count — flags are replaceable. */
+    const crestOnFixture = Boolean(fixture?.opponentLogoUrl && !isFlagUrl(fixture.opponentLogoUrl))
+    /**
+     * What the box shows. An upload made just now beats everything; otherwise a flag chosen in
+     * this session beats what's already on the fixture, so picking a country visibly replaces
+     * the crest you were just looking at rather than appearing to do nothing.
+     */
+    const previewSrc = uploadedFile ? logoPreview : flagFallback?.url ?? logoPreview
+    /**
+     * Name of the country whose flag is on screen. A flag already stored is only a URL, with no
+     * name kept alongside it, so the name is read back out of the code.
+     */
+    const flagShown = uploadedFile || !isFlagUrl(previewSrc)
+        ? null
+        : flagFallback?.country ?? COUNTRIES.find((c) => c.code === flagCodeIn(previewSrc))?.name ?? null
+
     useEffect(() => {
         if (opponentLogoFile && opponentLogoFile[0]) {
             const file = opponentLogoFile[0]
             setLogoPreview(URL.createObjectURL(file))
         }
     }, [opponentLogoFile])
+
+    /**
+     * Looks up the opponent's country and offers its flag as the crest.
+     *
+     * Manual rather than automatic on blur: it is a model call, and an admin editing a name
+     * letter by letter shouldn't fire one per keystroke. Submit still falls back to it
+     * automatically when nothing was uploaded.
+     */
+    const handleFindFlag = async () => {
+        const { opponent } = watch()
+        if (!opponent || opponent.trim().length < 2) {
+            toast({ variant: "destructive", title: "Opponent needed", description: "Enter the opponent's name first." })
+            return
+        }
+
+        setIsFindingFlag(true)
+        try {
+            const found = await resolveOpponentFlag(opponent.trim())
+            if (!found) {
+                setFlagFallback(null)
+                toast({
+                    variant: "destructive",
+                    title: "Couldn't place that club",
+                    description: `No country was identified for ${opponent}. Upload a crest, or let it fall back to the monogram.`,
+                })
+                return
+            }
+            setFlagFallback(found)
+            toast({ title: `Using the ${found.country} flag`, description: "Upload a crest to replace it." })
+        } finally {
+            setIsFindingFlag(false)
+        }
+    }
+
+    /**
+     * Records a country the admin chose by hand.
+     *
+     * This is the escape hatch for clubs the lookup can't place — a local opponent with no
+     * footprint anywhere — where the club knows the answer and the model doesn't. It goes
+     * through `flagUrl`, so the selection can only be a real flag.
+     */
+    const handlePickCountry = (country: Country) => {
+        const url = flagUrl(country.code)
+        if (!url) return
+        setFlagFallback({ country: country.name, url, opponent: (watch("opponent") ?? "").trim(), manual: true })
+        setCountryPickerOpen(false)
+    }
 
     const handleGeneratePreview = async () => {
         const formData = watch()
@@ -263,8 +360,33 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
         setIsSubmitting(true);
         try {
             let opponentLogoUrl: string | undefined = fixture?.opponentLogoUrl;
+            const existingIsFlag = isFlagUrl(fixture?.opponentLogoUrl);
+            // A flag belongs to the club it was found for, so renaming the opponent makes an
+            // existing one stale.
+            const renamed = Boolean(fixture && fixture.opponent !== data.opponent.trim());
+
             if (data.opponentLogo && data.opponentLogo[0]) {
+                // A crest the admin uploaded always beats the flag fallback.
                 opponentLogoUrl = await uploadOpponentLogo(data.opponentLogo[0]);
+            } else {
+                const matches = Boolean(
+                    flagFallback && (!flagFallback.opponent || flagFallback.opponent === data.opponent.trim())
+                );
+                // A country chosen by hand wins outright, and may replace a crest — picking it
+                // was a deliberate act and it is the answer for a club the lookup can't place.
+                // A flag the lookup merely guessed is taken only when there is nothing to lose:
+                // a real crest outranks a model's guess about it.
+                const chosen = flagFallback && matches && (flagFallback.manual || !crestOnFixture)
+                    ? flagFallback
+                    : null;
+
+                if (chosen) {
+                    opponentLogoUrl = chosen.url;
+                } else if (!opponentLogoUrl || (existingIsFlag && renamed)) {
+                    // Either nothing to show, or only a flag that belonged to a different club:
+                    // ask. A real crest is never replaced — only an upload or a manual pick.
+                    opponentLogoUrl = (await resolveOpponentFlag(data.opponent.trim()))?.url ?? opponentLogoUrl;
+                }
             }
 
             // `opponentLogo` is a raw FileList — writing it to Firestore throws. Drop it;
@@ -300,6 +422,7 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
             setGeneratedContent(null)
             setEditedPreview("")
             setLogoPreview(null)
+            setFlagFallback(null)
             setIsOpen(false)
         } catch (error) {
             console.error(error)
@@ -344,8 +467,20 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                   <div>
                     <Label>Opponent Logo</Label>
                     <div className="aspect-square rounded-lg border-2 border-dashed flex items-center justify-center relative bg-muted/30 mt-1">
-                      {logoPreview ? (
-                        <Image src={logoPreview} alt="Logo preview" fill className="object-contain p-3" />
+                      {previewSrc ? (
+                        <>
+                          <Image
+                            src={previewSrc}
+                            alt="Logo preview"
+                            fill
+                            className="object-contain p-3"
+                          />
+                          {flagShown && (
+                            <span className="absolute inset-x-1 bottom-1 rounded bg-background/85 px-1.5 py-0.5 text-center text-[10px] font-medium text-muted-foreground">
+                              {flagShown} flag
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <div className="text-center text-muted-foreground p-4">
                           <UploadCloud className="mx-auto h-10 w-10" />
@@ -354,6 +489,73 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                       )}
                       <Input type="file" accept="image/*" {...register("opponentLogo")} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                     </div>
+                    {/* Hidden once a crest was uploaded in this session: the upload has won, and
+                        offering a flag underneath it would only be a way to undo it by accident. */}
+                    {!uploadedFile && (
+                      <div className="mt-2 space-y-2">
+                        <Popover open={countryPickerOpen} onOpenChange={setCountryPickerOpen}>
+                          <PopoverTrigger asChild>
+                            <Button type="button" variant="outline" size="sm" className="w-full">
+                              <Flag className="mr-2 h-4 w-4" />
+                              Use a country flag
+                            </Button>
+                          </PopoverTrigger>
+                          {/* Focus goes straight into the search box rather than to the panel, so
+                              the control does the thing it looks like it does: open it and type. */}
+                          <PopoverContent
+                            className="w-72 p-0"
+                            align="end"
+                            onOpenAutoFocus={(e) => e.preventDefault()}
+                          >
+                            <Command>
+                              <CommandInput autoFocus placeholder="Type a country..." />
+                              <CommandList>
+                                <CommandEmpty>No country found.</CommandEmpty>
+                                <CommandGroup>
+                                  {COUNTRIES.map((c) => (
+                                    <CommandItem
+                                      key={c.code}
+                                      // cmdk filters against this, so both the English name and the
+                                      // ISO code match: "nigeria" and "ng" both find Nigeria.
+                                      value={`${c.name} ${c.code}`}
+                                      onSelect={() => handlePickCountry(c)}
+                                      className="gap-2"
+                                    >
+                                      <FlagThumb code={c.code} />
+                                      <span className="truncate">{c.name}</span>
+                                      <span className="ml-auto font-mono text-[10px] uppercase text-muted-foreground">
+                                        {c.code}
+                                      </span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        {/* The model's guess is offered only where there is nothing to lose. Over an
+                            existing crest, replacing it should be deliberate, so that route is the
+                            picker alone. */}
+                        {!crestOnFixture && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="w-full"
+                            onClick={handleFindFlag}
+                            disabled={isFindingFlag}
+                          >
+                            {isFindingFlag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                            Find flag automatically
+                          </Button>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {crestOnFixture
+                            ? "Picking a country replaces this fixture's crest with its flag."
+                            : "No crest for this club? A country flag stands in for it when the fixture is saved."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label>Venue</Label>

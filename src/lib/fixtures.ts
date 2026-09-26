@@ -21,6 +21,8 @@ import { db } from "./firebase";
 import { v4 as uuidv4 } from "uuid";
 import type { Fixture, Player } from "./data";
 import { notifyQuietly, uploadFile, deleteFile } from "./admin-client";
+import { resolveOpponentCountry } from "@/ai/flows/resolve-opponent-country";
+import { flagUrl } from "./flags";
 
 const fixturesCollectionRef = collection(db, "fixtures");
 const newsCollectionRef = collection(db, "news");
@@ -33,6 +35,29 @@ const playersCollectionRef = collection(db, "players");
  */
 export const uploadOpponentLogo = async (imageFile: File): Promise<string> => {
   return uploadFile(imageFile, 'fixtures/logos');
+};
+
+/**
+ * Flag fallback for an opponent that has no crest to upload.
+ *
+ * Asks the model which country the club plays in and returns that country's flag, to be
+ * stored in `opponentLogoUrl` like any other crest. Best-effort by design: it returns null
+ * whenever the club can't be placed, the code that comes back isn't a real flag, or the call
+ * itself fails. A fixture must always be saveable without a logo, and the monogram is a
+ * better answer than a wrong flag.
+ */
+export const resolveOpponentFlag = async (
+  opponent: string
+): Promise<{ country: string; url: string; opponent: string } | null> => {
+  try {
+    const { country, countryCode, confidence } = await resolveOpponentCountry({ opponent });
+    if (confidence === 'low') return null;
+    const url = flagUrl(countryCode);
+    return url ? { country, url, opponent } : null;
+  } catch (error) {
+    console.warn('[ccfc] opponent country lookup failed:', error);
+    return null;
+  }
 };
 
 /**
