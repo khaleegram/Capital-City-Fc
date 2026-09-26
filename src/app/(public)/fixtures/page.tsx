@@ -11,6 +11,17 @@ export const revalidate = 60
 
 export const metadata: Metadata = pageMetadata("fixtures", "/fixtures")
 
+/** Section rule with a count: the rule carries the eye across, the count saves the counting. */
+function SectionLabel({ label, count }: { label: string; count: number }) {
+  return (
+    <h2 className="mb-4 flex items-center gap-3 font-mono text-[11px] uppercase tracking-stamp text-mist/70">
+      <span>{label}</span>
+      <span aria-hidden className="h-px flex-1 bg-line/10" />
+      <span className="tabular-nums text-mist/45">{count}</span>
+    </h2>
+  )
+}
+
 export default async function FixturesPage() {
   const fixtures = await getFixtures()
   const live = fixtures.filter((f) => f.status === "LIVE" || f.status === "HT")
@@ -21,22 +32,29 @@ export default async function FixturesPage() {
     <>
       <JsonLd data={pageGraph({ path: "/fixtures", name: PAGE_SEO.fixtures.title, description: PAGE_SEO.fixtures.description, type: "CollectionPage" })} />
       <PageHero eyebrow={copy.fixtures.eyebrow} title={copy.fixtures.title} />
-      <div className="container grid gap-12 py-8 md:py-14 lg:grid-cols-2">
+      {/*
+        One column, not two. Each card is now a full-width docket with a date rail and a
+        centred scoreboard, and at half width the opponent names had nowhere to go but the
+        truncator — which is what the two-column grid was doing to them.
+      */}
+      <div className="container max-w-4xl py-8 md:py-14">
         {fixtures.length === 0 && <EmptyNote>{copy.fixtures.empty}</EmptyNote>}
+
         {(live.length > 0 || upcoming.length > 0) && (
-          <section>
-            <h2 className="mb-4 font-mono text-[11px] uppercase tracking-stamp text-mist/70">{copy.fixtures.upcoming}</h2>
-            <div className="space-y-2">
+          <section className="mb-12">
+            <SectionLabel label={copy.fixtures.upcoming} count={live.length + upcoming.length} />
+            <div className="space-y-2.5">
               {[...live, ...upcoming].map((f) => (
                 <FixtureRow key={f.id} fixture={f} />
               ))}
             </div>
           </section>
         )}
+
         {results.length > 0 && (
           <section>
-            <h2 className="mb-4 font-mono text-[11px] uppercase tracking-stamp text-mist/70">{copy.fixtures.results}</h2>
-            <div className="space-y-2">
+            <SectionLabel label={copy.fixtures.results} count={results.length} />
+            <div className="space-y-2.5">
               {results.map((f) => (
                 <FixtureRow key={f.id} fixture={f} />
               ))}
