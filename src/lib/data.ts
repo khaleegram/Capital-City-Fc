@@ -109,6 +109,9 @@ export type PlayerClubEntry = {
 /** Firestore Timestamp on the client, ISO string once serialized by the server layer. */
 export type DateLike = Timestamp | Date | string;
 
+/** One extra photo on a news article. `caption` is optional and shown under it in the gallery. */
+export type NewsPhoto = { url: string; caption?: string };
+
 export type NewsArticle = {
   id: string;
   headline: string;
@@ -137,6 +140,14 @@ export type NewsArticle = {
    * every screen gets `heroImageUrl || imageUrl` instead.
    */
   heroImageMobileUrl?: string;
+  /**
+   * Extra photos, shown as a gallery under the article body.
+   *
+   * Separate from the three cover fields above, which all resolve to *one* image: a report with
+   * six pictures had nowhere to put five of them. These are the rest of the set, in the order the
+   * writer arranged them.
+   */
+  photos?: NewsPhoto[];
   /**
    * Whether the article is on the public site.
    *

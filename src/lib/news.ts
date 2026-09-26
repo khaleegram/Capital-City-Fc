@@ -59,10 +59,47 @@ export const uploadNewsImage = async (imageFile: File): Promise<string> => {
 };
 
 /**
+ * One extra photo as the editor hands it over.
+ *
+ * Either `url` (already uploaded, kept as-is) or `file` (picked in this session, uploaded on
+ * save). Both are optional rather than a union so the editor can hold one ordered list of
+ * existing and new photos — reordering would otherwise have to splice two arrays apart.
+ */
+export type ArticlePhotoInput = { url?: string; file?: File | null; caption?: string };
+
+/**
+ * Resolves the editor's photo list into what goes on the document.
+ *
+ * Uploads happen here rather than on pick, so a photo the writer removed before saving is never
+ * sent at all. Returns `undefined` only when the caller didn't pass a list, which the update path
+ * reads as "leave the photos untouched" — an empty array is a real instruction to remove them all.
+ */
+const resolvePhotos = async (photos: ArticlePhotoInput[] | undefined) => {
+  if (photos === undefined) return undefined;
+  const resolved = await Promise.all(
+    photos.map(async (photo) => {
+      const url = photo.file ? await uploadNewsImage(photo.file) : photo.url;
+      if (!url) return null;
+      const caption = photo.caption?.trim();
+      return caption ? { url, caption } : { url };
+    })
+  );
+  return resolved.filter((p): p is { url: string; caption?: string } => p !== null);
+};
+
+/** Every image an article owns, so deleting it can reclaim them all. */
+const articleImages = (article: NewsArticle) => [
+  article.imageUrl,
+  article.heroImageUrl,
+  article.heroImageMobileUrl,
+  ...(article.photos ?? []).map((p) => p.url),
+];
+
+/**
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; fixtureId?: string | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
   try {
     let imageUrl = "";
     if (articleData.imageFile) {
@@ -81,6 +118,9 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
         heroImageMobileUrl = await uploadNewsImage(articleData.heroImageMobileFile);
     }
 
+    // The rest of the set, beyond the cover. Omitted entirely when none were added.
+    const photos = await resolvePhotos(articleData.photos);
+
     const ref = await addDoc(newsCollectionRef, {
       headline: articleData.headline,
       content: articleData.content,
@@ -88,6 +128,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       imageUrl: imageUrl,
       heroImageUrl: heroImageUrl,
       heroImageMobileUrl: heroImageMobileUrl,
+      photos: photos ?? [],
       date: new Date().toISOString(),
       /*
        * Linking to a match from here is what makes News a valid starting point.
@@ -127,7 +168,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
  * @param articleId The ID of the article to update.
  * @param articleData The data to update.
  */
-export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; clearHeroImage?: boolean; clearHeroImageMobile?: boolean; fixtureId?: string | null }) => {
+export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; clearHeroImage?: boolean; clearHeroImageMobile?: boolean; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
     try {
         const articleDocRef = doc(db, "news", articleId);
 
@@ -177,6 +218,16 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
             updateData.heroImageMobileUrl = "";
         }
 
+        /*
+         * The gallery is replaced wholesale rather than merged.
+         *
+         * The editor sends the full ordered list every save — existing photos it kept plus the new
+         * ones — so removing one is already expressed by its absence. Merging would leave a removed
+         * photo on the article with no way to delete it from the UI.
+         */
+        const photos = await resolvePhotos(articleData.photos);
+        if (photos !== undefined) updateData.photos = photos;
+
         await updateDoc(articleDocRef, updateData);
 
         if (linkChanged) await syncFixtureLink(articleId, articleData.fixtureId ?? null, previousFixtureId);
@@ -205,16 +256,19 @@ export const setArticlePublished = async (articleId: string, published: boolean)
 };
 
 /**
- * Deletes a news article from Firestore and its associated image from Storage.
+ * Deletes a news article from Firestore and its images from Storage.
+ *
+ * Every image the article owns, not just the cover: the hero, the phone hero and the gallery were
+ * all left behind before, so deleting a photo-heavy article silently kept paying for its files.
+ * `deleteFile` ignores an empty URL, so a missing one costs nothing.
+ *
  * @param article The article object to delete.
  */
 export const deleteNewsArticle = async (article: NewsArticle) => {
     try {
         const articleDocRef = doc(db, "news", article.id);
         await deleteDoc(articleDocRef);
-        if (article.imageUrl) {
-          await deleteFile(article.imageUrl);
-        }
+        await Promise.all(articleImages(article).map((url) => deleteFile(url)));
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error deleting news article: ", errorMessage);

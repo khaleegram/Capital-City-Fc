@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react"
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { addNewsArticle, deleteNewsArticle, setArticlePublished, updateNewsArticle } from "@/lib/news"
+import { addNewsArticle, deleteNewsArticle, setArticlePublished, updateNewsArticle, type ArticlePhotoInput } from "@/lib/news"
 import { refreshPublic } from "@/lib/admin-client"
 import { useToast } from "@/hooks/use-toast"
 import type { NewsArticle } from "@/lib/data"
@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { NewsEditor } from "./_components/news-editor"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, FileText, Edit, Trash2, Eye, EyeOff } from "lucide-react"
+import { Loader2, FileText, Edit, Trash2, Eye, EyeOff, Images } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { useAuth } from "@/hooks/use-auth"
@@ -64,6 +64,13 @@ function ArticleCard({
           )}
           {article.fixtureId && (
             <Badge variant="outline" className="border-info/50 text-info text-[10px]">Linked to a match</Badge>
+          )}
+          {/* So a gallery is visible from the list without opening the article. */}
+          {!!article.photos?.length && (
+            <Badge variant="outline" className="text-[10px]">
+              <Images className="mr-1 h-3 w-3" />
+              {article.photos.length} {article.photos.length === 1 ? "photo" : "photos"}
+            </Badge>
           )}
         </div>
         <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
@@ -153,7 +160,7 @@ export default function NewsPage() {
   }, [toast]);
 
   const handlePublish = async (
-    article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; fixtureId?: string | null },
+    article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; photos: ArticlePhotoInput[]; fixtureId?: string | null },
     articleId?: string
   ) => {
     try {

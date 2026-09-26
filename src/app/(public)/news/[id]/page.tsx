@@ -4,7 +4,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { copy } from "@/lib/copy"
-import { formatDate } from "@/lib/utils"
+import { formatDate, cn } from "@/lib/utils"
 import { getArticle, getNews } from "@/lib/server/queries"
 import { HOME_CRUMB, SOCIAL_CARD, articleNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
@@ -72,6 +72,9 @@ export default async function StoryPage({ params }: Props) {
   const hero = article.heroImageUrl ? HERO_FRAMES.portrait : HERO_FRAMES.landscape
   // A separate phone photo unlocks the narrower frame on small screens.
   const phoneHero = article.heroImageMobileUrl ? hero.withPhone : null
+  // Read once: the gallery's layout decisions all branch on the count.
+  const photos = article.photos ?? []
+  const photoCount = photos.length
 
   return (
     <article className="pt-20 md:pt-28">
@@ -82,6 +85,7 @@ export default async function StoryPage({ params }: Props) {
             path: `/news/${id}`,
             description: article.content.slice(0, 200),
             imageUrl: article.imageUrl,
+            imageUrls: article.photos?.map((p) => p.url),
             datePublished: article.date,
             section: copy.stories.eyebrow,
             tags: article.tags,
@@ -125,6 +129,35 @@ export default async function StoryPage({ params }: Props) {
         {article.audioUrl && <audio controls preload="none" src={article.audioUrl} className="w-full" />}
         <div className="whitespace-pre-line text-lg leading-relaxed text-mist/90">{article.content}</div>
       </div>
+      {photoCount > 0 && (
+        <section className="container mt-12 max-w-5xl">
+          <h2 className="mb-5 font-mono text-[11px] uppercase tracking-stamp text-mist/70">
+            Photos{photoCount > 1 ? ` · ${photoCount}` : ""}
+          </h2>
+          {/*
+            Two up on a phone, three from `sm`. A single photo spans the full width instead of
+            sitting in a third of the grid, which is what one wide shot deserves.
+          */}
+          <ul className="grid gap-3 sm:grid-cols-3 sm:gap-4">
+            {photos.map((photo, i) => (
+              <li key={`${photo.url}-${i}`} className={cn(photoCount === 1 && "sm:col-span-3")}>
+                <figure>
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-line/10 bg-navy-deep">
+                    <Image
+                      src={photo.url}
+                      alt={photo.caption ?? ""}
+                      fill
+                      sizes={photoCount === 1 ? "(min-width: 1024px) 64rem, 100vw" : "(min-width: 640px) 33vw, 50vw"}
+                      className="object-cover"
+                    />
+                  </div>
+                  {photo.caption && <figcaption className="mt-2 text-sm text-mist/70">{photo.caption}</figcaption>}
+                </figure>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {more.length > 0 && (
         <aside className="container mt-16 max-w-5xl">
           <h2 className="mb-5 font-mono text-[11px] uppercase tracking-stamp text-mist/70">More stories</h2>

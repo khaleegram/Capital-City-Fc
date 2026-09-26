@@ -475,12 +475,16 @@ export function articleNode(input: {
   path: string
   description?: string
   imageUrl?: string | null
+  /** More images from the article, declared alongside the cover so search engines see the set. */
+  imageUrls?: string[]
   datePublished?: string
   dateModified?: string
   section?: string
   tags?: string[]
 }): JsonLdNode {
   const url = absoluteUrl(input.path)
+  // Deduplicated, and always at least the crest: schema validation dislikes an empty image list.
+  const images = [...new Set([input.imageUrl, ...(input.imageUrls ?? [])].filter(Boolean) as string[])]
   return {
     "@type": "NewsArticle",
     "@id": `${url}#article`,
@@ -491,7 +495,7 @@ export function articleNode(input: {
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     datePublished: input.datePublished || undefined,
     dateModified: input.dateModified || input.datePublished || undefined,
-    image: [absoluteUrl(input.imageUrl || TEAM_LOGO_URL)],
+    image: (images.length ? images : [TEAM_LOGO_URL]).map((src) => absoluteUrl(src)),
     articleSection: input.section,
     keywords: input.tags?.length ? input.tags.join(", ") : undefined,
     inLanguage: SITE_LANGUAGE,

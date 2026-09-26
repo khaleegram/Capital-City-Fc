@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, KeyboardEvent, useEffect } from "react"
-import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy, UploadCloud } from "lucide-react"
+import { Wand2, Loader2, CheckCircle, Pencil, Save, Tags, X, Twitter, Instagram, Copy, UploadCloud, ArrowLeft, ArrowRight, Trash2 } from "lucide-react"
 import { generateNewsArticle } from "@/ai/flows/generate-news-article"
 import { suggestNewsTags } from "@/ai/flows/suggest-news-tags"
 import { generateSocialPost } from "@/ai/flows/generate-social-post"
@@ -20,13 +20,29 @@ import { Field } from "@/components/admin/ui"
 import { NativeSelect } from "@/components/admin/form-kit"
 import { useCollection } from "@/lib/collections"
 import { toDate } from "@/lib/utils"
+import type { ArticlePhotoInput } from "@/lib/news"
 import type { Fixture, NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; fixtureId?: string | null }, articleId?: string) => Promise<void>;
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; photos: ArticlePhotoInput[]; fixtureId?: string | null }, articleId?: string) => Promise<void>;
   articleToEdit?: NewsArticle | null;
   onFinishEditing: () => void;
 }
+
+/**
+ * A photo in the editor's list.
+ *
+ * `url` is set for one already saved on the article and `file`/`preview` for one picked in this
+ * session; exactly one of the two is present. `key` identifies the row while it has no URL yet.
+ */
+type PhotoDraft = { key: string; caption: string; url?: string; file?: File; preview?: string };
+
+/** Existing photos as editor rows, so opening an article shows what it already has. */
+const photosToDrafts = (article: NewsArticle | null | undefined): PhotoDraft[] =>
+  (article?.photos ?? []).map((p) => ({ key: p.url, caption: p.caption ?? "", url: p.url, preview: p.url }));
+
+let photoKeySeed = 0;
+const nextPhotoKey = () => `new-${++photoKeySeed}`;
 
 interface SocialPosts {
   twitterPost: string;
@@ -49,6 +65,12 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const [mobileHeroPreview, setMobileHeroPreview] = useState<string | null>(null);
   const [mobileHeroImageFile, setMobileHeroImageFile] = useState<File | null>(null);
   const [clearMobileHeroImage, setClearMobileHeroImage] = useState(false);
+  /*
+   * Extra photos, held as one ordered list of existing and newly-picked entries so the order the
+   * writer sees is the order that gets saved. Each carries a stable `key` because a photo being
+   * uploaded has no URL yet to identify it by.
+   */
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
 
 
   const [isGeneratingArticle, setIsGeneratingArticle] = useState(false)
@@ -79,6 +101,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       setMobileHeroPreview(articleToEdit.heroImageMobileUrl || null);
       setMobileHeroImageFile(null);
       setClearMobileHeroImage(false);
+      setPhotos(photosToDrafts(articleToEdit));
       setBulletPoints("");
       setIsEditing(true);
       setSocialPosts(null);
@@ -102,6 +125,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setMobileHeroPreview(null);
     setMobileHeroImageFile(null);
     setClearMobileHeroImage(false);
+    setPhotos([]);
     setIsEditing(false);
     onFinishEditing();
   }
@@ -209,6 +233,42 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setClearMobileHeroImage(true);
   };
 
+  /**
+   * Adds every file picked in one go.
+   *
+   * `multiple` on the input means a writer can select a whole set from their camera roll at once,
+   * which is the whole point of the field — doing this one file at a time is what they were
+   * already working around.
+   */
+  const handlePhotoFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const added = files.map((file) => ({
+      key: nextPhotoKey(),
+      caption: "",
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setPhotos((current) => [...current, ...added]);
+    // Cleared so picking the same file again still fires a change event.
+    e.target.value = "";
+  };
+
+  const handleRemovePhoto = (key: string) => setPhotos((current) => current.filter((p) => p.key !== key));
+
+  const handlePhotoCaption = (key: string, caption: string) =>
+    setPhotos((current) => current.map((p) => (p.key === key ? { ...p, caption } : p)));
+
+  const handleMovePhoto = (index: number, direction: -1 | 1) => {
+    setPhotos((current) => {
+      const next = [...current];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return current;
+      ;[next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
   const handleGenerateSocial = async () => {
     if (!articleContent.trim()) return
     setIsGeneratingSocial(true)
@@ -229,7 +289,19 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
 
   const handlePublish = async () => {
     setIsSubmitting(true);
-    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile, heroImageFile: heroImageFile, heroImageMobileFile: mobileHeroImageFile, clearHeroImage, clearHeroImageMobile: clearMobileHeroImage, fixtureId }, articleToEdit?.id);
+    await onPublish({
+      headline,
+      content: articleContent,
+      tags: suggestedTags,
+      imageFile,
+      heroImageFile,
+      heroImageMobileFile: mobileHeroImageFile,
+      clearHeroImage,
+      clearHeroImageMobile: clearMobileHeroImage,
+      // `url` for photos already saved, `file` for ones picked now — the library uploads the latter.
+      photos: photos.map(({ url, file, caption }) => ({ url, file, caption })),
+      fixtureId,
+    }, articleToEdit?.id);
     setIsSubmitting(false);
     resetForm();
   }
@@ -497,6 +569,88 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                         Remove mobile hero
                     </Button>
                 )}
+            </div>
+            <div className="mt-6">
+                <Label className="font-semibold">More photos ({photos.length})</Label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Extra pictures for this article, shown as a gallery under the story. Pick as many
+                    as you like at once — the cover above stays separate.
+                </p>
+
+                {photos.length > 0 && (
+                    <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                        {photos.map((photo, index) => (
+                            <li key={photo.key} className="rounded-lg border border-dashed p-2">
+                                <div className="relative aspect-video overflow-hidden rounded bg-muted">
+                                    {photo.preview && (
+                                        <Image src={photo.preview} alt="" fill sizes="(min-width: 640px) 18rem, 100vw" className="object-cover" unoptimized />
+                                    )}
+                                    <span className="absolute left-1.5 top-1.5 rounded bg-background/85 px-1.5 py-0.5 font-mono text-[10px]">
+                                        {index + 1}
+                                    </span>
+                                </div>
+                                <Input
+                                    className="mt-2"
+                                    placeholder="Caption (optional)"
+                                    value={photo.caption}
+                                    onChange={(e) => handlePhotoCaption(photo.key, e.target.value)}
+                                    disabled={isLoading}
+                                />
+                                <div className="mt-2 flex items-center gap-1">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleMovePhoto(index, -1)}
+                                        disabled={index === 0 || isLoading}
+                                        aria-label={`Move photo ${index + 1} earlier`}
+                                    >
+                                        <ArrowLeft className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleMovePhoto(index, 1)}
+                                        disabled={index === photos.length - 1 || isLoading}
+                                        aria-label={`Move photo ${index + 1} later`}
+                                    >
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="ml-auto text-destructive"
+                                        onClick={() => handleRemovePhoto(photo.key)}
+                                        disabled={isLoading}
+                                    >
+                                        <Trash2 className="mr-2 h-3 w-3" />
+                                        Remove
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+
+                <label className="mt-3 flex h-24 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-muted/50 text-center text-muted-foreground hover:border-primary/50">
+                    <span>
+                        <UploadCloud className="mx-auto h-6 w-6" />
+                        <span className="mt-1 block text-xs">Add photos</span>
+                    </span>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="sr-only"
+                        onChange={handlePhotoFilesChange}
+                        disabled={isLoading}
+                    />
+                </label>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Uploaded when you publish, so a photo you remove before then is never sent.
+                </p>
             </div>
         </>
       )}
