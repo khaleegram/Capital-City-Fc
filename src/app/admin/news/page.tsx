@@ -62,6 +62,9 @@ function ArticleCard({
               {article.generatedFrom === "match" ? "Match report" : article.generatedFrom === "preview" ? "Preview" : "Recap"}
             </Badge>
           )}
+          {article.fixtureId && (
+            <Badge variant="outline" className="border-info/50 text-info text-[10px]">Linked to a match</Badge>
+          )}
         </div>
         <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
       </CardHeader>
@@ -150,7 +153,7 @@ export default function NewsPage() {
   }, [toast]);
 
   const handlePublish = async (
-    article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean },
+    article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; fixtureId?: string | null },
     articleId?: string
   ) => {
     try {
@@ -161,7 +164,7 @@ export default function NewsPage() {
         await addNewsArticle(article);
         toast({ title: "Success!", description: "Your article has been published." });
       }
-      await refreshPublic("news");
+      await refreshPublic("news", "fixtures");
       handleFinishEditing();
     } catch (error) {
        console.error("Error publishing article:", error);

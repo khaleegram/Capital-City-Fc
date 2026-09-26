@@ -16,10 +16,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import type { NewsArticle } from "@/lib/data"
+import { Field } from "@/components/admin/ui"
+import { NativeSelect } from "@/components/admin/form-kit"
+import { useCollection } from "@/lib/collections"
+import { toDate } from "@/lib/utils"
+import type { Fixture, NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean }, articleId?: string) => Promise<void>;
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; fixtureId?: string | null }, articleId?: string) => Promise<void>;
   articleToEdit?: NewsArticle | null;
   onFinishEditing: () => void;
 }
@@ -51,7 +55,14 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const [isSuggestingTags, setIsSuggestingTags] = useState(false)
   const [isGeneratingSocial, setIsGeneratingSocial] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  /** The match this article reports on, if any. See the Fixture field below. */
+  const [fixtureId, setFixtureId] = useState<string | null>(null);
+
+  const { items: fixtures, loading: fixturesLoading } = useCollection<Fixture>("fixtures", (a, b) => {
+    // Most recent first, so the match just played is at the top of the list.
+    return (toDate(b.date)?.getTime() ?? 0) - (toDate(a.date)?.getTime() ?? 0)
+  })
+
   const { toast } = useToast()
 
   useEffect(() => {
@@ -59,6 +70,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       setHeadline(articleToEdit.headline);
       setArticleContent(articleToEdit.content);
       setSuggestedTags(articleToEdit.tags || []);
+      setFixtureId(articleToEdit.fixtureId ?? null);
       setImagePreview(articleToEdit.imageUrl);
       setImageFile(null);
       setHeroPreview(articleToEdit.heroImageUrl || null);
@@ -81,6 +93,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setArticleContent("");
     setSuggestedTags([]);
     setSocialPosts(null);
+    setFixtureId(null);
     setImagePreview(null);
     setImageFile(null);
     setHeroPreview(null);
@@ -216,7 +229,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
 
   const handlePublish = async () => {
     setIsSubmitting(true);
-    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile, heroImageFile: heroImageFile, heroImageMobileFile: mobileHeroImageFile, clearHeroImage, clearHeroImageMobile: clearMobileHeroImage }, articleToEdit?.id);
+    await onPublish({ headline, content: articleContent, tags: suggestedTags, imageFile: imageFile, heroImageFile: heroImageFile, heroImageMobileFile: mobileHeroImageFile, clearHeroImage, clearHeroImageMobile: clearMobileHeroImage, fixtureId }, articleToEdit?.id);
     setIsSubmitting(false);
     resetForm();
   }
@@ -314,6 +327,35 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                   </CardContent>
                 </Card>
               </div>
+              {/*
+                * The link to a match.
+                *
+                * Match reports are drafted automatically now, so this exists for the other
+                * direction: a person writing about a match they already know the result of, or
+                * writing up a game by hand instead of accepting the draft. Linking the article
+                * to its fixture is what makes the two agree — the match hub adopts this article
+                * rather than drafting a second one beside it, and the fixture takes the report
+                * with it if it is ever deleted.
+                */}
+              <Field
+                label="Match"
+                hint="Link this report to a fixture. Leave it as Not linked for news that isn't about a match."
+              >
+                <NativeSelect
+                  value={fixtureId ?? ""}
+                  onChange={(v) => setFixtureId(v || null)}
+                  placeholder={fixturesLoading ? "Loading matches…" : "Not linked"}
+                  options={fixtures.map(
+                    (f) =>
+                      [
+                        f.id,
+                        `${f.opponent}${f.score ? ` (${f.score.home}-${f.score.away})` : ""}${
+                          f.status === "FT" ? "" : ` · ${f.status}`
+                        }`,
+                      ] as const
+                  )}
+                />
+              </Field>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               {!isEditing && (

@@ -3,6 +3,7 @@
 import {
   collection,
   addDoc,
+  getDoc,
   serverTimestamp,
   doc,
   updateDoc,
@@ -17,6 +18,38 @@ import { notifyQuietly, uploadFile, deleteFile } from "./admin-client";
 const newsCollectionRef = collection(db, "news");
 
 /**
+ * Keeps the fixture's half of the article link in step.
+ *
+ * An article linked to a match is stored twice, once from each side: `news.fixtureId` and
+ * `fixtures.articleId`. Both are read by something. The match hub looks for an existing article
+ * by `fixtureId` before it writes a report — that check is the only thing stopping a hand-written
+ * report from being joined by a second, machine-written one. And `deleteFixture` follows
+ * `articleId` to take the report with it.
+ *
+ * Leaving one side stale is worse than not linking at all, because the hub would then fail to
+ * recognise the article it should adopt. So the two are always written together, and the old
+ * fixture is cleared when an article moves to a different match.
+ *
+ * Never throws: an article that saved but didn't link can be linked again, whereas a save that
+ * fails over a link has lost the text.
+ */
+const syncFixtureLink = async (articleId: string, next: string | null, previous: string | null) => {
+  try {
+    if (previous && previous !== next) {
+      const oldRef = doc(db, "fixtures", previous);
+      const oldSnap = await getDoc(oldRef);
+      // Only clear it if it still points here — another article may have claimed the fixture.
+      if (oldSnap.exists() && oldSnap.data().articleId === articleId) {
+        await updateDoc(oldRef, { articleId: null });
+      }
+    }
+    if (next) await updateDoc(doc(db, "fixtures", next), { articleId });
+  } catch (error) {
+    console.warn("[ccfc] article saved but not linked to its fixture:", error);
+  }
+};
+
+/**
  * Uploads an image file to Cloudflare R2.
  * @param imageFile The image file to upload.
  * @returns The public URL of the uploaded image.
@@ -29,7 +62,7 @@ export const uploadNewsImage = async (imageFile: File): Promise<string> => {
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; fixtureId?: string | null }) => {
   try {
     let imageUrl = "";
     if (articleData.imageFile) {
@@ -48,7 +81,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
         heroImageMobileUrl = await uploadNewsImage(articleData.heroImageMobileFile);
     }
 
-    await addDoc(newsCollectionRef, {
+    const ref = await addDoc(newsCollectionRef, {
       headline: articleData.headline,
       content: articleData.content,
       tags: articleData.tags,
@@ -56,6 +89,15 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       heroImageUrl: heroImageUrl,
       heroImageMobileUrl: heroImageMobileUrl,
       date: new Date().toISOString(),
+      /*
+       * Linking to a match from here is what makes News a valid starting point.
+       *
+       * A report written by hand for a match that already has a fixture would otherwise be a
+       * stranger to it: the fixture page wouldn't know about it, and the next save of that
+       * fixture would draft a second report beside it. Setting `fixtureId` — and the fixture's
+       * `articleId` back — makes the hub adopt this article instead.
+       */
+      fixtureId: articleData.fixtureId ?? null,
       /*
        * Written through the news editor, so it goes live.
        *
@@ -67,6 +109,8 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       published: true,
       createdAt: serverTimestamp(),
     });
+
+    if (articleData.fixtureId) await syncFixtureLink(ref.id, articleData.fixtureId, null);
 
     // Replaces the old Firestore onCreate trigger. Never throws, so a failed push
     // can't report a published article as a failure.
@@ -83,14 +127,28 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
  * @param articleId The ID of the article to update.
  * @param articleData The data to update.
  */
-export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; clearHeroImage?: boolean; clearHeroImageMobile?: boolean }) => {
+export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; clearHeroImage?: boolean; clearHeroImageMobile?: boolean; fixtureId?: string | null }) => {
     try {
+        const articleDocRef = doc(db, "news", articleId);
+
+        /*
+         * The link may be changing, and moving an article to a different match — or unlinking it
+         * entirely — has to clear the fixture it was on. `undefined` means the caller didn't
+         * touch the link, so the previous value is only needed when it is actually present.
+         */
+        const linkChanged = articleData.fixtureId !== undefined;
+        const previousFixtureId = linkChanged
+            ? ((await getDoc(articleDocRef)).data()?.fixtureId as string | null | undefined) ?? null
+            : null;
+
         const updateData: any = {
             headline: articleData.headline,
             content: articleData.content,
             tags: articleData.tags,
             updatedAt: serverTimestamp(),
         };
+
+        if (linkChanged) updateData.fixtureId = articleData.fixtureId ?? null;
 
         /*
          * Editing an article puts it live.
@@ -119,8 +177,9 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
             updateData.heroImageMobileUrl = "";
         }
 
-        const articleDocRef = doc(db, "news", articleId);
         await updateDoc(articleDocRef, updateData);
+
+        if (linkChanged) await syncFixtureLink(articleId, articleData.fixtureId ?? null, previousFixtureId);
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error updating news article: ", errorMessage);
