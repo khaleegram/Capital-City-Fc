@@ -37,6 +37,10 @@ export const addRecap = async (recapData: Omit<Recap, 'id' | 'createdAt'>, fixtu
         date: new Date().toISOString(),
         recapId: recapRef.id,
         fixtureId: fixture.id,
+        // Written by hand through the recap tool, so it goes live. The public news list filters
+        // on this, so an article written without it would simply never appear.
+        published: true,
+        generatedFrom: "recap",
         createdAt: serverTimestamp(),
         audioUrl: recapData.audioUrl || null,
     });

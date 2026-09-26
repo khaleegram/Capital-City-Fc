@@ -297,7 +297,16 @@ export const getRecapForFixture = cached(
 
 export const getNews = cached(
   async (): Promise<NewsArticle[]> => {
-    const rows = await listDocs<NewsArticle>("news")
+    /*
+     * Drafts are excluded here.
+     *
+     * Match reports are written by the match hub unpublished, so a person can read them before
+     * the club does. The news collection had no such notion before — every article in it was
+     * live — so this filter is what makes a draft a draft. It is paired with a `published` check
+     * in `getArticle`, because a filter on a list query does nothing about a direct document
+     * read of a URL somebody already has.
+     */
+    const rows = await listDocs<NewsArticle>("news", { where: [PUBLISHED] })
     return rows.sort((a, b) => time(b.date) - time(a.date))
   },
   "news",
@@ -305,7 +314,10 @@ export const getNews = cached(
 )
 
 export const getArticle = cached(
-  async (id: string) => getDocById<NewsArticle>("news", id),
+  async (id: string) => {
+    const article = await getDocById<NewsArticle>("news", id)
+    return article?.published === false ? null : article
+  },
   "article",
   [TAGS.news]
 )

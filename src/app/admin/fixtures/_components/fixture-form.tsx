@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { addFixtureAndArticle, updateFixture, uploadOpponentLogo, resolveOpponentFlag } from "@/lib/fixtures"
+import { syncFixtureRecords } from "@/lib/match-sync"
+import { syncMatchArticle } from "@/lib/match-hub"
 import { COUNTRIES, flagUrl, flagCodeIn, isFlagUrl, type Country } from "@/lib/flags"
 import { generateFixturePreview } from "@/ai/flows/generate-fixture-preview"
 import type { GenerateFixturePreviewOutput } from "@/ai/flows/generate-fixture-preview"
@@ -404,18 +406,54 @@ export function FixtureForm({ isOpen, setIsOpen, fixture }: FixtureFormProps) {
                 ...(played ? { score: { home, away }, status: "FT" as const } : {}),
             };
 
+            /*
+             * A finished match now produces its own news report.
+             *
+             * This is the single-entry point the club asked for: put the score in here and the
+             * fixture, the statistics and the news all follow from it. The report is written as
+             * an unpublished draft, so it appears in the news admin to read and publish rather
+             * than going straight onto the site.
+             *
+             * Deliberately after the save and never allowed to fail it — the fixture is already
+             * stored at this point, and a model being unavailable must not make the club think
+             * the result wasn't recorded.
+             */
+            let fixtureId: string | undefined
             if (fixture) {
                 // Update existing fixture
                 await updateFixture(fixture.id, finalFixtureData);
+                fixtureId = fixture.id;
                 toast({ title: "Success", description: "Fixture has been updated." });
             } else {
                 // Add new fixture
-                await addFixtureAndArticle({
+                fixtureId = await addFixtureAndArticle({
                     fixtureData: finalFixtureData,
                     preview: editedPreview,
                     tags: generatedContent!.tags,
                 })
                 toast({ title: "Success", description: "Fixture has been created." })
+            }
+
+            if (fixtureId && played) {
+                // `updateFixture` rebuilds the records itself when a lineup or result changed;
+                // a fixture created here has never been through that path.
+                if (!fixture) {
+                    try {
+                        await syncFixtureRecords(fixtureId)
+                    } catch (err) {
+                        console.warn("[ccfc] player records not built for the new fixture:", err)
+                    }
+                }
+
+                const report = await syncMatchArticle(fixtureId)
+                if (report.created) {
+                    toast({
+                        title: "Match report drafted",
+                        description: `"${report.headline}" is waiting in News as a draft — read it and publish when you're happy.`,
+                    })
+                } else if (report.error && report.error !== "This fixture has no result yet.") {
+                    toast({ variant: "destructive", title: "Result saved, no report", description: report.error })
+                }
             }
             
             reset()

@@ -148,7 +148,13 @@ service cloud.firestore {
     }
 
     match /news/{articleId} {
-      allow read: if true;
+      // Match reports are written by the match hub as drafts, so news is no longer always
+      // public. A draft must be invisible until a person publishes it, which means a public
+      // list query has to carry `published == true` (rules are not filters) — see
+      // src/lib/server/queries.ts, and the migration that flagged the pre-existing articles.
+      // An article written before the field existed has no `published` at all; those were all
+      // migrated to `true`.
+      allow read: if isPublished() || isAdmin();
       allow write: if isAdmin();
     }
 

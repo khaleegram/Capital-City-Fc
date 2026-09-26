@@ -15,6 +15,21 @@ export type Player = {
     goals: number;
     assists: number;
   };
+  /**
+   * The part of `stats` that the match records do *not* explain.
+   *
+   * `stats` is recomputed as `statsBaseline + every playerMatches record`. The baseline is
+   * whatever a human entered that the recorded matches can't account for — a career total from
+   * before the club started recording fixtures, or a spell whose matches were never entered.
+   * Keeping it separate is what lets a recompute run without destroying a hand-entered figure.
+   *
+   * See `src/lib/player-matches.ts` for the full rationale.
+   */
+  statsBaseline?: {
+    appearances: number;
+    goals: number;
+    assists: number;
+  };
   status?: "Active" | "Injured" | "On Loan" | "Former Player";
   strongFoot?: "Left" | "Right" | "Both";
   createdAt: Timestamp;
@@ -113,6 +128,26 @@ export type NewsArticle = {
    * every screen gets `heroImageUrl || imageUrl` instead.
    */
   heroImageMobileUrl?: string;
+  /**
+   * Whether the article is on the public site.
+   *
+   * Match reports are written by the match hub with this `false` — a draft a person reads before
+   * the club does. Everything written through the news editor is `true`. The public news list
+   * filters on it, so an article saved without it is invisible rather than merely unlisted.
+   *
+   * Optional in the type because the articles written before the field existed are still in the
+   * collection; those were migrated to `true`, and `getArticle` treats a missing flag as public.
+   */
+  published?: boolean;
+  /** Which fixture this report came from, so the match and its news stay linked. */
+  fixtureId?: string;
+  /** Which recap produced it, if any. */
+  recapId?: string;
+  /**
+   * Who wrote it. `match` and `preview` are machine-written and may be rewritten by the match
+   * hub; anything else is treated as a person's work and left alone.
+   */
+  generatedFrom?: "match" | "preview" | "recap";
 };
 
 export type Video = {
@@ -165,6 +200,14 @@ export type LiveEvent = {
     score?: string;
     playerName?: string;
     teamName?: string;
+    /**
+     * The scorer, by id.
+     *
+     * `playerName` alone used to be all a goal event carried, which meant attributing a goal to
+     * a player relied on matching a string back to a lineup. The id makes it exact, so the
+     * match records derive from the event rather than from a name lookup that can miss.
+     */
+    scorerPlayer?: { id: string; name: string } | null;
     assistPlayer?: { id: string, name: string };
     subOffPlayer?: { id: string, name: string };
     subOnPlayer?: { id: string, name: string };
@@ -358,6 +401,11 @@ export type MediaType =
  * free-text `Fixture.competition`, so footage can be grouped and filtered consistently.
  */
 export type FixtureKind = "friendly" | "league" | "cup" | "tournament" | "scouting";
+
+/* `PlayerMatch` — one player's participation in one match, the source `Player.stats` is
+   computed from — lives in `src/lib/player-matches.ts`, with the aggregation. Re-exported here
+   so screens and scripts have a single import for the data model. */
+export type { PlayerMatch, PlayerMatchSource, PlayerStats } from "./player-matches";
 
 export type MediaAsset = {
   id: string;

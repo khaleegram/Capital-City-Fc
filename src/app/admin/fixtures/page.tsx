@@ -15,8 +15,10 @@ import { teamLogoUrl } from "@/lib/brand"
 import { deleteFixture } from "@/lib/fixtures"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, Calendar, Edit, Trash2, PlusCircle } from "lucide-react"
+import { Loader2, Calendar, Edit, Trash2, PlusCircle, Newspaper, RefreshCw } from "lucide-react"
 import { FixtureForm } from "./_components/fixture-form"
+import { backfillMatchArticles } from "@/lib/match-hub"
+import { syncAllRecords } from "@/lib/match-sync"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -160,18 +162,85 @@ export default function FixturesPage() {
         }
     };
 
+    /*
+     * The two catch-up jobs.
+     *
+     * Both exist because the app didn't do this for the matches already on the site: every
+     * result here was entered as a bare score, which produced no news and no statistics. These
+     * run the same code a new match runs, over everything that is missing.
+     *
+     * They report progress because each finished match is a model call, and fourteen of them in
+     * silence looks like nothing is happening.
+     */
+    const [job, setJob] = useState<string | null>(null)
+
+    const handleGenerateReports = async () => {
+        setJob("Writing match reports…")
+        try {
+            const result = await backfillMatchArticles((done, total, label) =>
+                setJob(`Writing match reports… ${done}/${total}${label ? ` · ${label}` : ""}`)
+            )
+            toast({
+                title: "Match reports done",
+                description: `${result.created} draft${result.created === 1 ? "" : "s"} written, ${result.skipped} already had one, ${result.failed} failed. They're in News, unpublished.`,
+            })
+        } catch (error) {
+            toast({ variant: "destructive", title: "Could not write reports", description: (error as Error).message })
+        } finally {
+            setJob(null)
+        }
+    }
+
+    const handleRebuildStats = async () => {
+        setJob("Rebuilding player statistics…")
+        try {
+            const result = await syncAllRecords((done, total, label) =>
+                setJob(`Rebuilding player statistics… ${done}/${total}${label ? ` · ${label}` : ""}`)
+            )
+            toast({
+                title: "Statistics rebuilt",
+                description: `${result.records} records from ${result.fixtures} fixtures and ${result.journeys} journeys, across ${result.playersUpdated} player${result.playersUpdated === 1 ? "" : "s"}.`,
+            })
+        } catch (error) {
+            toast({ variant: "destructive", title: "Could not rebuild statistics", description: (error as Error).message })
+        } finally {
+            setJob(null)
+        }
+    };
+
     return (
         <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
             {user && <FixtureForm isOpen={isFormOpen} setIsOpen={setIsFormOpen} fixture={selectedFixture} />}
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-headline font-bold">Fixtures & Results</h1>
-                    <p className="text-muted-foreground mt-2">View upcoming matches and generate previews.</p>
+                    <p className="text-muted-foreground mt-2">
+                        View upcoming matches and generate previews. A result entered here writes the news report and the players' statistics too.
+                    </p>
                 </div>
-                {user && <Button onClick={handleAddNew}>
-                    <PlusCircle className="mr-2" /> Add New Fixture
-                </Button>}
+                {user && (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button variant="outline" onClick={handleGenerateReports} disabled={job !== null}>
+                            {job?.startsWith("Writing") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Newspaper className="mr-2 h-4 w-4" />}
+                            Write missing reports
+                        </Button>
+                        <Button variant="outline" onClick={handleRebuildStats} disabled={job !== null}>
+                            {job?.startsWith("Rebuilding") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                            Rebuild statistics
+                        </Button>
+                        <Button onClick={handleAddNew} disabled={job !== null}>
+                            <PlusCircle className="mr-2" /> Add New Fixture
+                        </Button>
+                    </div>
+                )}
             </div>
+
+            {job && (
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {job}
+                </div>
+            )}
 
             <div className="space-y-4">
                 {isLoading ? (

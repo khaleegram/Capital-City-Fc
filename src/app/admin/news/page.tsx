@@ -4,7 +4,8 @@
 import { useState, useEffect } from "react"
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import { addNewsArticle, deleteNewsArticle, updateNewsArticle } from "@/lib/news"
+import { addNewsArticle, deleteNewsArticle, setArticlePublished, updateNewsArticle } from "@/lib/news"
+import { refreshPublic } from "@/lib/admin-client"
 import { useToast } from "@/hooks/use-toast"
 import type { NewsArticle } from "@/lib/data"
 import Image from "next/image"
@@ -13,15 +14,123 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { NewsEditor } from "./_components/news-editor"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, FileText, Edit, Trash2 } from "lucide-react"
+import { Loader2, FileText, Edit, Trash2, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { useAuth } from "@/hooks/use-auth"
 
+/**
+ * One article in the admin.
+ *
+ * A draft is anything the match hub wrote that nobody has read yet, so the two states are shown
+ * differently: a draft is badged, and getting it onto the site is one button. An article a person
+ * wrote is live already, and unpublishing it is the deliberate act.
+ */
+function ArticleCard({
+  article,
+  onEdit,
+  onDelete,
+  onTogglePublished,
+  busy,
+}: {
+  article: NewsArticle
+  onEdit: (a: NewsArticle) => void
+  onDelete: (a: NewsArticle) => void
+  onTogglePublished: (a: NewsArticle) => void
+  busy: boolean
+}) {
+  const isDraft = article.published === false
+
+  return (
+    <Card className="relative group/article">
+      {article.imageUrl && (
+        <div className="aspect-video relative">
+          <Image src={article.imageUrl} alt={article.headline} fill className="object-cover rounded-t-lg" data-ai-hint="news header" />
+        </div>
+      )}
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="font-headline">{article.headline}</CardTitle>
+          {isDraft ? (
+            <Badge variant="outline" className="border-gold/50 text-gold">Draft</Badge>
+          ) : (
+            <Badge variant="outline">Live</Badge>
+          )}
+          {/* Provenance, so it's clear which articles were machine-written and can be rewritten. */}
+          {article.generatedFrom && (
+            <Badge variant="secondary" className="text-[10px]">
+              {article.generatedFrom === "match" ? "Match report" : article.generatedFrom === "preview" ? "Preview" : "Recap"}
+            </Badge>
+          )}
+        </div>
+        <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {article.audioUrl && (
+          <div className="mb-4">
+            <audio controls className="w-full">
+              <source src={article.audioUrl} type="audio/wav" />
+              Your browser does not support the audio element.
+            </audio>
+          </div>
+        )}
+        <p className="text-sm text-foreground whitespace-pre-line line-clamp-4">{article.content}</p>
+      </CardContent>
+      <CardFooter className="flex-wrap">
+        {article.tags && article.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-4 border-t w-full">
+            {article.tags.map((tag, index) => (
+              <Badge key={index} variant="secondary">{tag}</Badge>
+            ))}
+          </div>
+        )}
+      </CardFooter>
+      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover/article:opacity-100 transition-opacity">
+        <Button
+          size="icon"
+          variant={isDraft ? "default" : "outline"}
+          className="h-8 w-8"
+          disabled={busy}
+          onClick={() => onTogglePublished(article)}
+          title={isDraft ? "Publish — makes it visible on the site" : "Unpublish — pulls it off the site"}
+        >
+          {isDraft ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+          <span className="sr-only">{isDraft ? "Publish" : "Unpublish"}</span>
+        </Button>
+        <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => onEdit(article)}>
+          <Edit className="h-4 w-4" />
+          <span className="sr-only">Edit</span>
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="icon" variant="destructive" className="h-8 w-8">
+              <Trash2 className="h-4 w-4" />
+              <span className="sr-only">Delete</span>
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this news article.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDelete(article)}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </Card>
+  )
+}
+
 export default function NewsPage() {
-  const [publishedArticles, setPublishedArticles] = useState<NewsArticle[]>([]);
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [articleToEdit, setArticleToEdit] = useState<NewsArticle | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -29,7 +138,7 @@ export default function NewsPage() {
     const q = query(collection(db, "news"), orderBy("date", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const articlesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as NewsArticle));
-      setPublishedArticles(articlesData);
+      setArticles(articlesData);
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching articles:", error);
@@ -52,6 +161,7 @@ export default function NewsPage() {
         await addNewsArticle(article);
         toast({ title: "Success!", description: "Your article has been published." });
       }
+      await refreshPublic("news");
       handleFinishEditing();
     } catch (error) {
        console.error("Error publishing article:", error);
@@ -59,9 +169,27 @@ export default function NewsPage() {
     }
   };
 
+  const handleTogglePublished = async (article: NewsArticle) => {
+    const next = article.published === false;
+    setBusyId(article.id);
+    try {
+      await setArticlePublished(article.id, next);
+      await refreshPublic("news");
+      toast({
+        title: next ? "Published" : "Unpublished",
+        description: next ? "It's live on the site now." : "Pulled off the site. It's still here as a draft.",
+      })
+    } catch (error) {
+      toast({ variant: "destructive", title: "Error", description: (error as Error).message })
+    } finally {
+      setBusyId(null)
+    }
+  };
+
   const handleDelete = async (article: NewsArticle) => {
     try {
       await deleteNewsArticle(article);
+      await refreshPublic("news");
       toast({ title: "Success", description: "Article deleted." });
     } catch (error) {
       console.error("Error deleting article:", error);
@@ -78,13 +206,39 @@ export default function NewsPage() {
     setArticleToEdit(null);
   };
 
+  const drafts = articles.filter((a) => a.published === false)
+  const live = articles.filter((a) => a.published !== false)
+
+  const renderList = (rows: NewsArticle[], empty: { title: string; body: string }) => (
+    <div className="space-y-6">
+      {rows.length > 0 ? (
+        rows.map((article) => (
+          <ArticleCard
+            key={article.id}
+            article={article}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onTogglePublished={handleTogglePublished}
+            busy={busyId === article.id}
+          />
+        ))
+      ) : (
+        <div className="text-center py-16 rounded-lg bg-muted">
+          <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-medium">{empty.title}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{empty.body}</p>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-headline font-bold">News & Content Creation</h1>
         <p className="text-muted-foreground mt-2">Browse the latest club news or use AI-powered tools to publish new articles.</p>
       </div>
-      
+
       {user && (
           <Card>
             <CardHeader>
@@ -102,88 +256,37 @@ export default function NewsPage() {
             </CardContent>
           </Card>
       )}
-      
-      <Separator />
-       <div>
-        <h2 className="text-2xl font-headline font-bold mb-4">Published Articles</h2>
-        <div className="space-y-6">
-          {isLoading ? (
-             <div className="flex justify-center items-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin" />
-             </div>
-          ) : publishedArticles.length > 0 ? (
-            publishedArticles.map(article => (
-              <Card key={article.id} className="relative group/article">
-                 {article.imageUrl && (
-                    <div className="aspect-video relative">
-                        <Image src={article.imageUrl} alt={article.headline} fill className="object-cover rounded-t-lg" data-ai-hint="news header" />
-                    </div>
-                  )}
-                <CardHeader>
-                  <CardTitle className="font-headline">{article.headline}</CardTitle>
-                   <CardDescription>{new Date(article.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {article.audioUrl && (
-                    <div className="mb-4">
-                      <audio controls className="w-full">
-                        <source src={article.audioUrl} type="audio/wav" />
-                        Your browser does not support the audio element.
-                      </audio>
-                    </div>
-                  )}
-                  <p className="text-sm text-foreground whitespace-pre-line line-clamp-4">{article.content}</p>
-                </CardContent>
-                <CardFooter className="flex-wrap">
-                   {article.tags && article.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-4 border-t w-full">
-                      {article.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary">{tag}</Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardFooter>
-                 {user && (
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover/article:opacity-100 transition-opacity">
-                        <Button size="icon" variant="outline" className="h-8 w-8 bg-background/80" onClick={() => handleEdit(article)}>
-                            <Edit className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="destructive" className="h-8 w-8">
-                                    <Trash2 className="h-4 w-4" />
-                                    <span className="sr-only">Delete</span>
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This action cannot be undone. This will permanently delete this news article.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDelete(article)}>Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                 )}
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-16 rounded-lg bg-muted">
-              <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-medium">No Articles Published</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                  Use the content workflow above to publish your first article.
-              </p>
-            </div>
-          )}
+
+      {isLoading ? (
+        <div className="flex justify-center items-center h-40">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-      </div>
+      ) : (
+        <>
+          {/*
+            * Drafts sit at the top and are visually distinct, because they are work waiting to be
+            * done rather than content on the site. This is where a finished match's report lands.
+            */}
+          {drafts.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <h2 className="text-2xl font-headline font-bold mb-1">Drafts</h2>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Written automatically from finished matches. Read one and hit the eye to put it on the site — editing it publishes it too.
+                </p>
+                {renderList(drafts, { title: "No drafts", body: "Match reports land here when a match gets a result." })}
+              </div>
+            </>
+          )}
+
+          <Separator />
+          <div>
+            <h2 className="text-2xl font-headline font-bold mb-4">Published Articles</h2>
+            {renderList(live, { title: "No Articles Published", body: "Use the content workflow above to publish your first article." })}
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -54,6 +54,8 @@ export default {
         win: 'rgb(var(--brand-win) / <alpha-value>)',
         loss: 'rgb(var(--brand-loss) / <alpha-value>)',
         draw: 'rgb(var(--brand-draw) / <alpha-value>)',
+        info: 'rgb(var(--brand-info) / <alpha-value>)',
+        gold: 'rgb(var(--brand-gold) / <alpha-value>)',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

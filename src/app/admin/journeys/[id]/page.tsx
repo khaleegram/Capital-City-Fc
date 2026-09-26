@@ -7,6 +7,7 @@ import { ArrowLeft, ExternalLink, Flag, Loader2, Radio, Save } from "lucide-reac
 import type { Journey } from "@/lib/data"
 import { removeDoc, saveDoc, useDocument } from "@/lib/collections"
 import { refreshPublic } from "@/lib/admin-client"
+import { syncJourneyRecords, deleteJourneyRecords } from "@/lib/match-sync"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { AdminPage, ConfirmDelete, LoadingBlock } from "@/components/admin/ui"
@@ -80,7 +81,27 @@ export default function JourneyEditor({ params }: { params: Promise<{ id: string
       await refreshPublic("journeys", "proof", "players")
       setDraft({ ...draft, ...patch })
       setDirty(false)
-      toast({ title: "Journey saved" })
+
+      /*
+       * A journey's squad sheet is where its players' appearances and tournament goals come
+       * from, so saving one has to rebuild them. Deliberately after the save and never allowed
+       * to fail it: the journey is stored by this point, and the records can be rebuilt again
+       * from the Fixtures screen at any time.
+       */
+      try {
+        const result = await syncJourneyRecords(id)
+        if (result.playersUpdated > 0) {
+          toast({
+            title: "Journey saved",
+            description: `${result.records} records rebuilt across ${result.playersUpdated} player${result.playersUpdated === 1 ? "" : "s"}.`,
+          })
+        } else {
+          toast({ title: "Journey saved" })
+        }
+      } catch (err) {
+        console.warn("[ccfc] journey saved but records not rebuilt:", err)
+        toast({ title: "Journey saved", description: "Player statistics could not be rebuilt — try Rebuild statistics on the Fixtures screen." })
+      }
     } catch (err) {
       toast({ variant: "destructive", title: "Save failed", description: (err as Error).message })
     } finally {
@@ -157,6 +178,8 @@ export default function JourneyEditor({ params }: { params: Promise<{ id: string
             what={draft.title}
             onConfirm={async () => {
               await removeDoc("journeys", id)
+              // The tour's records go with it, so its players' appearance counts drop back.
+              await deleteJourneyRecords(id).catch((err) => console.warn("[ccfc] journey records not cleared:", err))
               await refreshPublic("journeys", "proof")
               router.push("/admin/journeys")
             }}

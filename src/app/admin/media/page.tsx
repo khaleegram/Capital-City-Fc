@@ -4,10 +4,12 @@ import Image from "next/image"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Clapperboard, Link2, Loader2, Plus, Star, UploadCloud } from "lucide-react"
-import type { FixtureKind, Journey, MediaAsset, MediaType } from "@/lib/data"
+import type { Fixture, FixtureKind, Journey, MediaAsset, MediaType } from "@/lib/data"
 import { copy } from "@/lib/copy"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { deleteFile, refreshPublic, uploadFile } from "@/lib/admin-client"
+import { syncFixtureRecords } from "@/lib/match-sync"
+import { syncMatchArticle } from "@/lib/match-hub"
 import { byNewest, cn, embedUrlFor, formatDate, formatDuration, youtubePoster } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
@@ -266,6 +268,7 @@ function VideoSource({ draft, onChange }: { draft: Draft; onChange: (patch: Part
 export default function MediaAdmin() {
   const { items, loading } = useCollection<MediaAsset>("mediaAssets", byNewest)
   const { items: journeys } = useCollection<Journey>("journeys")
+  const { items: fixtures } = useCollection<Fixture>("fixtures")
   const params = useSearchParams()
   const router = useRouter()
   const { toast } = useToast()
@@ -311,6 +314,35 @@ export default function MediaAdmin() {
       const { id, ...data } = draft
       await saveDoc("mediaAssets", id ?? null, data)
       await refreshPublic("media", "journeys", "players")
+
+      /*
+       * Footage of a match feeds the match, rather than sitting beside it.
+       *
+       * Two things follow from linking a clip to a fixture. Tagged players are credited with
+       * having played — the tags are one of the inputs the fixture's records are derived from —
+       * and the match's report is written if it doesn't have one yet, so a highlight uploaded
+       * before anyone thought to write it up still produces the news.
+       *
+       * Neither is allowed to fail the save.
+       */
+      if (draft.fixtureId) {
+        try {
+          await syncFixtureRecords(draft.fixtureId)
+        } catch (err) {
+          console.warn("[ccfc] tagged players were not credited:", err)
+        }
+
+        const report = await syncMatchArticle(draft.fixtureId)
+        if (report.created) {
+          toast({
+            title: "Media saved — match report drafted",
+            description: `"${report.headline}" is waiting in News as a draft.`,
+          })
+          setDraft(null)
+          return
+        }
+      }
+
       toast({ title: "Media saved" })
       setDraft(null)
     } catch (err) {
@@ -440,6 +472,39 @@ export default function MediaAdmin() {
               </Field>
               <Field label="Journey">
                 <NativeSelect value={draft.journeyId ?? ""} onChange={(v) => set({ journeyId: v || null })} placeholder="None" options={journeys.map((j) => [j.id, j.title] as const)} />
+              </Field>
+              {/*
+                * Which match this footage is of.
+                *
+                * The field existed on the document but nothing in the admin could set it, so
+                * clips were only ever attached to a match by the seeding script. Without it,
+                * tagged players had no match to be credited to and the footage never reached
+                * the match report.
+                */}
+              <Field
+                label="Match"
+                hint="Link this clip to a fixture. Tagged players are credited with the appearance, and the match gets a report."
+                className="sm:col-span-2"
+              >
+                <NativeSelect
+                  value={draft.fixtureId ?? ""}
+                  onChange={(v) => {
+                    const picked = fixtures.find((f) => f.id === v)
+                    set({
+                      fixtureId: v || null,
+                      // Fill the opponent and score from the fixture, so the two can't disagree.
+                      ...(picked
+                        ? {
+                            opponent: picked.opponent ?? draft.opponent,
+                            scoreFor: picked.score?.home ?? draft.scoreFor,
+                            scoreAgainst: picked.score?.away ?? draft.scoreAgainst,
+                          }
+                        : {}),
+                    })
+                  }}
+                  placeholder="Not linked"
+                  options={fixtures.map((f) => [f.id, `${f.opponent ?? f.id}${f.score ? ` (${f.score.home}-${f.score.away})` : ""}`] as const)}
+                />
               </Field>
               <Field label="Opponent" className="sm:col-span-2">
                 <Input value={draft.opponent ?? ""} onChange={(e) => set({ opponent: e.target.value })} placeholder="e.g. Malantarki" />

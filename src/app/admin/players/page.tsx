@@ -1,12 +1,14 @@
 "use client"
 
 import Image from "next/image"
-import { useMemo, useState } from "react"
-import { Loader2, Plus, Search, UserPlus, Users, CircleCheck } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Loader2, Plus, RefreshCw, Search, UserPlus, Users, CircleCheck } from "lucide-react"
 import type { Player, PlayerClubEntry, SquadStatus } from "@/lib/data"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { approveSignupFiles, deleteFile, discardSignupFiles, refreshPublic } from "@/lib/admin-client"
 import { publishSignupMedia } from "@/lib/publish-signup"
+import { getPlayerRecords, recomputePlayerStats } from "@/lib/player-matches-client"
+import { aggregate, summarize, type PlayerMatch } from "@/lib/player-matches"
 import { TEAM_LOGO_URL } from "@/lib/brand"
 import { formatBytes } from "@/lib/signup-limits"
 import { cn } from "@/lib/utils"
@@ -55,7 +57,15 @@ type Draft = {
   jerseyNumber: number
   imageUrl: string
   bio: string
-  stats: { appearances: number; goals: number; assists: number }
+  /**
+   * The editable part of a player's record — what a human vouches for.
+   *
+   * The displayed total is this plus every match record, recomputed on each save. The field is
+   * the baseline rather than the total so that hand-entered figures survive a rebuild: a career
+   * total from before the club recorded fixtures has no match behind it, and rebuilding from
+   * matches alone would delete it. See `src/lib/player-matches.ts`.
+   */
+  statsBaseline: { appearances: number; goals: number; assists: number }
   status: NonNullable<Player["status"]>
   strongFoot: NonNullable<Player["strongFoot"]> | ""
   careerHighlights: string[]
@@ -86,7 +96,7 @@ const blank = (): Draft => ({
   jerseyNumber: 0,
   imageUrl: "",
   bio: "",
-  stats: { appearances: 0, goals: 0, assists: 0 },
+  statsBaseline: { appearances: 0, goals: 0, assists: 0 },
   status: "Active",
   strongFoot: "",
   careerHighlights: [],
@@ -115,10 +125,17 @@ function fromPlayer(p: Player): Draft {
     jerseyNumber: p.jerseyNumber ?? 0,
     imageUrl: p.imageUrl ?? "",
     bio: p.bio ?? "",
-    stats: {
-      appearances: p.stats?.appearances ?? 0,
-      goals: p.stats?.goals ?? 0,
-      assists: p.stats?.assists ?? 0,
+    /*
+     * Only the baseline is editable, so only the baseline is loaded.
+     *
+     * Falling back to `p.stats` here would be wrong for a player whose profile predates the
+     * baseline field: their recorded matches would be counted once through the records and again
+     * through what was loaded into the box. A profile with no baseline simply has none.
+     */
+    statsBaseline: {
+      appearances: p.statsBaseline?.appearances ?? 0,
+      goals: p.statsBaseline?.goals ?? 0,
+      assists: p.statsBaseline?.assists ?? 0,
     },
     status: p.status ?? "Active",
     strongFoot: p.strongFoot ?? "",
@@ -139,6 +156,108 @@ function fromPlayer(p: Player): Draft {
     storageBytes: p.storageBytes ?? 0,
     source: p.source,
   }
+}
+
+/**
+ * Where a player's numbers come from.
+ *
+ * The three inputs above the panel are only the part a human vouches for; the rest is match
+ * records. Without this the form would look like it disagreed with the public page — you type 2
+ * goals and the profile says 6 — so the derived half is shown alongside, itemised by match and
+ * by tournament, with the recompute behind a button for when a number still looks wrong.
+ */
+function PlayerRecordPanel({
+  playerId,
+  baseline,
+}: {
+  playerId: string
+  baseline: { appearances: number; goals: number; assists: number }
+}) {
+  const { toast } = useToast()
+  const [records, setRecords] = useState<PlayerMatch[] | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  /*
+   * Loaded once per player. The rest of the sheet is a controlled form that re-renders on every
+   * keystroke, so fetching here must not be tied to those renders — this reads only when the
+   * player being edited changes, or when the recalculate button asks it to.
+   */
+  useEffect(() => {
+    let cancelled = false
+    getPlayerRecords(playerId)
+      .then((rows) => !cancelled && setRecords(rows))
+      .catch(() => !cancelled && setRecords([]))
+    return () => {
+      cancelled = true
+    }
+  }, [playerId])
+
+  const reload = async () => setRecords(await getPlayerRecords(playerId).catch(() => []))
+
+  const derived = aggregate(records ?? [])
+  const total = {
+    appearances: baseline.appearances + derived.appearances,
+    goals: baseline.goals + derived.goals,
+    assists: baseline.assists + derived.assists,
+  }
+  const lines = summarize(records ?? [])
+
+  const recalculate = async () => {
+    setBusy(true)
+    try {
+      const next = await recomputePlayerStats(playerId)
+      await reload()
+      toast({
+        title: "Recalculated",
+        description: `${next.appearances} apps · ${next.goals} goals · ${next.assists} assists.`,
+      })
+    } catch (err) {
+      toast({ variant: "destructive", title: "Recalculate failed", description: (err as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-4 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-medium">Shown on the profile</p>
+          <p className="text-muted-foreground">
+            <span className="font-mono text-foreground">{total.appearances}</span> apps ·{" "}
+            <span className="font-mono text-foreground">{total.goals}</span> goals ·{" "}
+            <span className="font-mono text-foreground">{total.assists}</span> assists
+            {" — "}
+            {derived.appearances + derived.goals + derived.assists > 0 ? (
+              <>
+                {baseline.appearances + baseline.goals + baseline.assists} entered above +{" "}
+                {derived.appearances + derived.goals + derived.assists} from matches
+              </>
+            ) : (
+              <>all entered above; no matches are recorded for this player</>
+            )}
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={recalculate} disabled={busy}>
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          <span className="ml-1.5">Recalculate</span>
+        </Button>
+      </div>
+
+      {lines.length > 0 && (
+        <ul className="mt-3 space-y-1 border-t pt-3 text-muted-foreground">
+          {lines.map((line) => (
+            <li key={line.label} className="flex items-center justify-between gap-4">
+              <span className="truncate">{line.label}</span>
+              <span className="shrink-0 font-mono text-xs">
+                {line.appearances} apps · {line.goals} G · {line.assists} A
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 export default function PlayersAdmin() {
@@ -236,7 +355,7 @@ export default function PlayersAdmin() {
     setSaving(true)
     try {
       const { id, strongFoot, signupSessionId, signupGallery, signupVideos, storageBytes, source, ...rest } = draft
-      await saveDoc("players", id ?? null, {
+      const playerId = await saveDoc("players", id ?? null, {
         ...rest,
         name: rest.name.trim(),
         nickname: rest.nickname.trim() || undefined,
@@ -249,8 +368,20 @@ export default function PlayersAdmin() {
         currentClub: rest.currentClub.trim() || undefined,
         source,
       })
+
+      /*
+       * The total is derived, never typed.
+       *
+       * `stats` is baseline plus the match records, so it is rebuilt here rather than written
+       * from the form. A brand-new player has no records yet, and this is also what gives them a
+       * `stats` object at all — the public profile reads it unconditionally.
+       */
+      const totals = await recomputePlayerStats(playerId)
       await refreshPublic("players", "journeys")
-      toast({ title: draft.id ? "Player saved" : "Player added" })
+      toast({
+        title: draft.id ? "Player saved" : "Player added",
+        description: `${totals.appearances} apps · ${totals.goals} goals · ${totals.assists} assists, computed from records.`,
+      })
       setDraft(null)
     } catch (err) {
       toast({ variant: "destructive", title: "Save failed", description: (err as Error).message })
@@ -570,16 +701,17 @@ export default function PlayersAdmin() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Appearances">
-                <Input type="number" min={0} value={draft.stats.appearances} onChange={(e) => set("stats", { ...draft.stats, appearances: numberOrUndefined(e.target.value) ?? 0 })} />
+              <Field label="Appearances before CCFC">
+                <Input type="number" min={0} value={draft.statsBaseline.appearances} onChange={(e) => set("statsBaseline", { ...draft.statsBaseline, appearances: numberOrUndefined(e.target.value) ?? 0 })} />
               </Field>
-              <Field label="Goals">
-                <Input type="number" min={0} value={draft.stats.goals} onChange={(e) => set("stats", { ...draft.stats, goals: numberOrUndefined(e.target.value) ?? 0 })} />
+              <Field label="Goals before CCFC">
+                <Input type="number" min={0} value={draft.statsBaseline.goals} onChange={(e) => set("statsBaseline", { ...draft.statsBaseline, goals: numberOrUndefined(e.target.value) ?? 0 })} />
               </Field>
-              <Field label="Assists">
-                <Input type="number" min={0} value={draft.stats.assists} onChange={(e) => set("stats", { ...draft.stats, assists: numberOrUndefined(e.target.value) ?? 0 })} />
+              <Field label="Assists before CCFC">
+                <Input type="number" min={0} value={draft.statsBaseline.assists} onChange={(e) => set("statsBaseline", { ...draft.statsBaseline, assists: numberOrUndefined(e.target.value) ?? 0 })} />
               </Field>
             </div>
+            {draft.id && <PlayerRecordPanel playerId={draft.id} baseline={draft.statsBaseline} />}
 
             <SwitchRow label="Ready for next step" hint="Shows the scout badge on the public card." checked={draft.readyForNextStep} onChange={(v) => set("readyForNextStep", v)} />
             <SwitchRow label="Show on public site" checked={draft.published} onChange={(v) => set("published", v)} />

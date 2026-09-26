@@ -7,8 +7,7 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-} from "firebase/firestore";
-import { db } from "./firebase";
+} from "firebase/firestore";import { db } from "./firebase";
 import { v4 as uuidv4 } from "uuid";
 import { NewsArticle } from "./data";
 import { notifyQuietly, uploadFile, deleteFile } from "./admin-client";
@@ -57,6 +56,15 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       heroImageUrl: heroImageUrl,
       heroImageMobileUrl: heroImageMobileUrl,
       date: new Date().toISOString(),
+      /*
+       * Written through the news editor, so it goes live.
+       *
+       * `published` has to be set explicitly rather than left off. The public news list filters
+       * on it, so an article written without it would be invisible — a silent failure that looks
+       * like the editor did nothing. Match reports, which are machine-written, are the ones that
+       * arrive unpublished.
+       */
+      published: true,
       createdAt: serverTimestamp(),
     });
 
@@ -84,6 +92,15 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
             updatedAt: serverTimestamp(),
         };
 
+        /*
+         * Editing an article puts it live.
+         *
+         * The one case that matters: a match report arrives as a draft, someone reads it in the
+         * news editor and saves it. That save is the approval, so it publishes. Without this the
+         * admin would have to publish and then edit, which is backwards.
+         */
+        updateData.published = true;
+
         if (articleData.imageFile) {
             updateData.imageUrl = await uploadNewsImage(articleData.imageFile);
         }
@@ -108,6 +125,23 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error("Error updating news article: ", errorMessage);
         throw new Error(`Failed to update news article: ${errorMessage}`);
+    }
+};
+
+/**
+ * Publishes or unpublishes an article.
+ *
+ * Separate from `updateNewsArticle` because it is the one write that doesn't touch the text —
+ * unpublishing to pull something back off the site must not depend on the editor's form being
+ * open, and must not rewrite content that a draft round-trip could otherwise disturb.
+ */
+export const setArticlePublished = async (articleId: string, published: boolean) => {
+    try {
+        await updateDoc(doc(db, "news", articleId), { published, updatedAt: serverTimestamp() });
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("Error changing article visibility: ", errorMessage);
+        throw new Error(`Failed to ${published ? "publish" : "unpublish"} article: ${errorMessage}`);
     }
 };
 
