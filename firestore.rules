@@ -248,6 +248,33 @@ service cloud.firestore {
     }
 
     /*
+     * The staff assistant's conversations, and the journal of what it changed.
+     *
+     * Both are staff-only. A conversation contains club data as the assistant read it, and the
+     * journal contains before-images of documents — including unpublished drafts — so neither may
+     * be world-readable.
+     *
+     * The journal is a first-class collection rather than part of the session because undo needs
+     * it to outlive the conversation it came from: a change can be reversed after its chat has
+     * been deleted, and a failed undo must leave the entry intact to try again.
+     *
+     * Writes are validated for shape but not for authority: only staff reach these rules at all,
+     * and the assistant writes with the operator's own permissions, so the fields it can put in a
+     * journal entry are exactly the fields that operator could have written to a collection
+     * themselves. The journal is a record of permitted writes, not a way around them.
+     */
+    match /agentSessions/{sessionId} {
+      allow read, write: if isAdmin();
+      match /messages/{messageId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /agentActions/{actionId} {
+      allow read, write: if isAdmin();
+    }
+
+    /*
      * Push subscriptions for visitors who aren't signed in — the vast majority of them.
      * There is no account to key these on, so the document id is a random UUID the browser
      * generates and keeps in local storage, and the visitor can only ever reach their own.

@@ -261,7 +261,7 @@ export async function syncMatchArticle(
  */
 export async function backfillMatchArticles(
   onProgress?: (done: number, total: number, label: string) => void
-): Promise<{ created: number; skipped: number; failed: number }> {
+): Promise<{ created: number; skipped: number; failed: number; made: { articleId: string; fixtureId: string }[] }> {
   const snap = await getDocs(collection(db, "fixtures"))
   const finished = snap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
@@ -270,16 +270,25 @@ export async function backfillMatchArticles(
   let created = 0
   let skipped = 0
   let failed = 0
+  /**
+   * What was actually written, so the caller can offer to undo it.
+   *
+   * The counts alone were enough for a progress toast, but undoing a backfill means deleting
+   * exactly the articles it made — and nothing about the counts identifies them.
+   */
+  const made: { articleId: string; fixtureId: string }[] = []
 
   for (let i = 0; i < finished.length; i++) {
     const f = finished[i]
     onProgress?.(i, finished.length, f.opponent ?? f.id)
     const result = await syncMatchArticle(f.id)
-    if (result.created) created++
-    else if (result.error) failed++
+    if (result.created && result.articleId) {
+      created++
+      made.push({ articleId: result.articleId, fixtureId: f.id })
+    } else if (result.error) failed++
     else skipped++
   }
   onProgress?.(finished.length, finished.length, "")
 
-  return { created, skipped, failed }
+  return { created, skipped, failed, made }
 }

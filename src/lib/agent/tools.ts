@@ -339,8 +339,59 @@ export const TOOLS: ToolSpec[] = [
     risk: "destructive",
     description:
       "Permanently delete a match, along with its report, its timeline and the player records it produced. " +
-      "Cannot be undone. The person must confirm.",
+      "This is gated: the console asks the person to approve it before anything happens. The deletion can be " +
+      "reversed afterwards from the history, with one exception — the opponent's crest file is removed from " +
+      "storage and cannot be restored.",
     parameters: obj({ fixture: str(`The match. ${REF}`) }, ["fixture"]),
+  },
+
+  /* ── footage ────────────────────────────────────────────────────────────── */
+
+  {
+    name: "attach_footage",
+    risk: "write",
+    description:
+      "Attach footage of a match — a highlight, full match, interview or training clip — and optionally tag the " +
+      "players in it. Tagging credits those players with the appearance, and attaching a clip to a match also " +
+      "produces the match report if one does not exist yet. " +
+      "You cannot upload a file yourself and cannot see one. The person attaches it in the composer, and you refer " +
+      "to it by the exact file name you were told about. If no file was attached, ask them for it instead of " +
+      "calling this tool — or pass a `url` if they gave you a link.",
+    parameters: obj(
+      {
+        fixture: str(`The match the footage is from. ${REF}`),
+        attachment: str("The exact file name of the attachment to use, as listed in the message. Omit if passing `url`."),
+        url: str("A direct video or image link, if the person gave one instead of a file. Omit if passing `attachment`."),
+        title: str("Title for the clip, e.g. 'Capital City 3-1 Mailantarki — highlights'."),
+        players: strings("Names of the players to tag in the clip. They are credited with the appearance."),
+        type: enums(
+          ["fullMatch", "highlight", "training", "playerFocus", "travelDiary", "documentary", "interview", "behindScenes"],
+          "What kind of clip this is. Defaults to 'highlight'."
+        ),
+        description: str("One or two sentences about the clip."),
+        publish: bool("Set true to put the clip on the public site immediately. Defaults to false — a draft."),
+      },
+      ["fixture", "title"]
+    ),
+  },
+
+  /* ── undo ───────────────────────────────────────────────────────────────── */
+
+  {
+    name: "undo_last_change",
+    risk: "write",
+    description:
+      "Reverse a change you made earlier, restoring the affected records to exactly what they were. " +
+      "Use this when the person asks you to undo, revert, take back or roll back something. " +
+      "With no `about`, it reverses the most recent change that can still be reversed in this conversation. " +
+      "It cannot bring back a push notification that was already delivered, and it cannot restore an opponent's " +
+      "crest file deleted with a match.",
+    parameters: obj({
+      about: str(
+        "Optional. Describe or name the change to undo — for example 'the lineup' or 'Mailantarki' — to target an " +
+          "earlier change rather than the most recent one."
+      ),
+    }),
   },
 ]
 

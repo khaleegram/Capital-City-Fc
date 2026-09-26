@@ -303,6 +303,16 @@ export const postLiveUpdate = async (
     const { homeScore, awayScore, status, eventText, eventType, teamName, substitution, goal, playerName, minute } = updateData;
     const fixtureDocRef = doc(db, "fixtures", fixtureId);
     const liveEventsColRef = collection(db, "fixtures", fixtureId, "liveEvents");
+
+    /*
+     * Ids of what this call creates, returned to the caller.
+     *
+     * The assistant's undo needs them: reversing a posted goal means deleting the timeline entry it
+     * added, and reversing a final whistle means removing the report it drafted. Neither id can be
+     * recovered afterwards, so they are handed back rather than left for the caller to guess at.
+     */
+    let createdEventId: string | null = null;
+    let draftedArticleId: string | null = null;
     
     try {
         await runTransaction(db, async (transaction) => {
@@ -345,6 +355,7 @@ export const postLiveUpdate = async (
             transaction.update(fixtureDocRef, fixtureUpdate);
 
             const newEventRef = doc(liveEventsColRef);
+            createdEventId = newEventRef.id;
             transaction.set(newEventRef, {
                 text: eventText,
                 type: eventType,
@@ -386,7 +397,8 @@ export const postLiveUpdate = async (
          */
         if (eventType === "Match End") {
             try {
-                await syncMatchArticle(fixtureId);
+                const report = await syncMatchArticle(fixtureId);
+                if (report.created) draftedArticleId = report.articleId;
             } catch (err) {
                 console.warn("[ccfc] match ended but no report was drafted:", err);
             }
@@ -403,6 +415,7 @@ export const postLiveUpdate = async (
             teamName: teamName || null,
         });
         if (copy) await notifyQuietly(copy.title, copy.body, `/fixtures/${fixtureId}`);
+        return { eventId: createdEventId, articleId: draftedArticleId, articleCreated: Boolean(draftedArticleId) };
     } catch(e) {
         const errorMessage = e instanceof Error ? e.message : String(e);
         console.error("Transaction failed: ", e);

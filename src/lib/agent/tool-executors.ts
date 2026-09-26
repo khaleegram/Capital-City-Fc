@@ -34,7 +34,7 @@
  * the same way but logged, since it means a bug rather than a bad instruction.
  */
 
-import { collection, doc, getDocs, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { addFixtureAndArticle, deleteFixture, postLiveUpdate, updateFixture } from "@/lib/fixtures"
 import { addNewsArticle, deleteNewsArticle, setArticlePublished } from "@/lib/news"
@@ -44,15 +44,30 @@ import {
 } from "@/lib/match-hub"
 import { syncAllRecords, syncFixtureRecords } from "@/lib/match-sync"
 import { recomputePlayerStats } from "@/lib/player-matches-client"
+import { isUndoable, listActions, undoAction } from "./journal"
 import { refreshPublic, notifyAll } from "@/lib/admin-client"
 import { getTeamProfile } from "@/lib/team"
 import { saveDoc } from "@/lib/collections"
 import { toDate } from "@/lib/utils"
-import type { Fixture, NewsArticle, Player } from "@/lib/data"
+import type { Fixture, FixtureKind, NewsArticle, Player } from "@/lib/data"
 import type { ToolOutcome } from "./tools"
+import type { Journal } from "./journal"
 
 /** An expected failure: bad arguments, or a reference that matched nothing. Goes to the model as text. */
 export class ToolFailure extends Error {}
+
+/** A file the person attached to this turn. Already uploaded; the tools only receive its URL. */
+export type Attachment = { name: string; url: string; type: "image" | "video" | "file" }
+
+/**
+ * What every tool is given alongside its arguments.
+ *
+ * `journal` is how a tool describes its own reversal — see `journal.ts`. `attachments` are files
+ * the person added to this message, which is the only way a model can refer to a binary it cannot
+ * see: it names the file, and the executor swaps in the URL that was already uploaded. `sessionId`
+ * lets a tool reach the conversation's own history, which is what undo needs to look back through.
+ */
+export type ToolContext = { journal: Journal; attachments: Attachment[]; sessionId: string | null }
 
 /* ─────────────────────────────── argument helpers ─────────────────────────────── */
 
@@ -191,7 +206,57 @@ async function resolveArticle(ref: string): Promise<NewsArticle> {
 
 /* ─────────────────────────────── the tools ─────────────────────────────── */
 
-export type ToolExecutor = (rawArgs: unknown) => Promise<ToolOutcome>
+export type ToolExecutor = (rawArgs: unknown, ctx: ToolContext) => Promise<ToolOutcome>
+
+/** How much footage is already linked to a match. Drives the "do you have a clip?" question. */
+async function countFootage(fixtureId: string): Promise<number> {
+  const snap = await getDocs(query(collection(db, "mediaAssets"), where("fixtureId", "==", fixtureId)))
+  return snap.size
+}
+
+/**
+ * Maps a fixture's free-text competition to the fixed set clips are grouped by.
+ *
+ * `Fixture.competition` is whatever staff typed ("Dana Cup 2026", "NPFL"), and `MediaAsset.fixtureKind`
+ * is a small enum the public filters depend on. Anything unrecognised becomes a friendly, which is
+ * the safe default: it files the clip under the least specific heading rather than under a wrong one.
+ */
+function kindFromCompetition(competition?: string): FixtureKind {
+  const c = (competition ?? "").toLowerCase()
+  if (c.includes("cup")) return "cup"
+  if (c.includes("league") || c.includes("npfl") || c.includes("premier")) return "league"
+  if (c.includes("tour") || c.includes("dana") || c.includes("gothia")) return "tournament"
+  if (c.includes("scout") || c.includes("trial")) return "scouting"
+  return "friendly"
+}
+
+/**
+ * Works out which URL a footage tool should use.
+ *
+ * Two ways in, because the person may do either: attach a file in the composer (which is already
+ * uploaded by the time this runs) or paste a link. The attachment is matched by name, fuzzily and
+ * case-insensitively, since the model is repeating a filename it was told rather than choosing one.
+ */
+function resolveAttachmentSource(a: Record<string, unknown>, ctx: ToolContext): string {
+  const direct = optString(a, "url")
+  if (direct) return direct
+
+  const wanted = optString(a, "attachment")
+  if (!ctx.attachments.length) return ""
+
+  if (!wanted) {
+    // One file and no name given: using it is what was meant, and asking would be pedantry.
+    return ctx.attachments.length === 1 ? ctx.attachments[0].url : ""
+  }
+
+  const needle = wanted.toLowerCase()
+  const exact = ctx.attachments.find((x) => x.name.toLowerCase() === needle)
+  if (exact) return exact.url
+  const partial = ctx.attachments.find(
+    (x) => x.name.toLowerCase().includes(needle) || needle.includes(x.name.toLowerCase())
+  )
+  return partial?.url ?? ""
+}
 
 export const EXECUTORS: Record<string, ToolExecutor> = {
   /* ── reading ─────────────────────────────────────────────────────────────── */
@@ -329,13 +394,18 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
 
   /* ── matchday ────────────────────────────────────────────────────────────── */
 
-  async record_result(raw) {
+  async record_result(raw, ctx) {
     const a = args(raw)
     const fixture = await resolveFixture(needString(a, "fixture"))
     const scoreFor = needNumber(a, "score_for")
     const scoreAgainst = needNumber(a, "score_against")
     if (scoreFor < 0 || scoreAgainst < 0) throw new ToolFailure("Scores cannot be negative.")
     const notes = optString(a, "notes")
+
+    // Captured before the write, so undo restores this match's previous score and status rather
+    // than guessing at them. The derived records are rebuilt on undo instead of snapshotted.
+    await ctx.journal.capture("fixtures", fixture.id)
+    ctx.journal.recomputeFixture(fixture.id)
 
     // The order matters: the result first, then the records derived from it, then the report
     // derived from both. Each step reads what the previous one wrote.
@@ -348,6 +418,9 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     const report = await syncMatchArticle(fixture.id)
     await refreshPublic("fixtures", "news", "players")
 
+    // A report that did not exist before should not outlive the undo of the result that made it.
+    if (report.created) ctx.journal.created("news", report.articleId)
+
     const reportNote = report.created
       ? ` A match report was drafted: "${report.headline}" — it is in Stories as a draft for review.`
       : report.error
@@ -356,15 +429,30 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
           ? " The match already had a report, which was left in place."
           : ""
 
+    const footage = await countFootage(fixture.id)
+
     return {
       ok: true,
       summary:
         `Recorded full time: Capital City ${scoreFor}–${scoreAgainst} ${fixture.opponent}.${reportNote}`,
-      data: { fixtureId: fixture.id, articleId: report.articleId, articleCreated: report.created },
+      data: {
+        fixtureId: fixture.id,
+        articleId: report.articleId,
+        articleCreated: report.created,
+        footageLinked: footage,
+        /*
+         * Fed to the model as a prompt to ask, not as an instruction it can skip.
+         *
+         * A finished match is meant to end up with both a report and footage, and the app cannot
+         * know whether a clip exists — only the person does. So the assistant is told to ask, and
+         * the answer decides whether anything is attached. Saying no is a valid outcome.
+         */
+        askAboutFootage: footage === 0,
+      },
     }
   },
 
-  async create_fixture(raw) {
+  async create_fixture(raw, ctx) {
     const a = args(raw)
     const opponent = needString(a, "opponent")
     const competition = needString(a, "competition")
@@ -399,16 +487,21 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
       await syncFixtureRecords(id)
       const report = await syncMatchArticle(id)
       await refreshPublic("fixtures", "news", "players")
+      // Undo removes the match and the report it generated; its player records are cleaned up by
+      // the undo itself, since a vanished fixture leaves nothing to derive them from.
+      ctx.journal.created("fixtures", id)
+      if (report.created) ctx.journal.created("news", report.articleId)
       return {
         ok: true,
         summary:
           `Added ${opponent} (${competition}) and recorded it as played ${scoreFor}–${scoreAgainst}.` +
           (report.created ? ` Report drafted: "${report.headline}".` : ""),
-        data: { fixtureId: id, articleId: report.articleId },
+        data: { fixtureId: id, articleId: report.articleId, footageLinked: await countFootage(id) },
       }
     }
 
     await refreshPublic("fixtures")
+    ctx.journal.created("fixtures", id)
     return {
       ok: true,
       summary: `Added the fixture against ${opponent} (${competition}) on ${date.toISOString().slice(0, 10)}.`,
@@ -416,7 +509,7 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     }
   },
 
-  async set_lineup(raw) {
+  async set_lineup(raw, ctx) {
     const a = args(raw)
     const fixture = await resolveFixture(needString(a, "fixture"))
     const xiNames = stringList(a, "starting_xi")
@@ -425,6 +518,11 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
 
     const xi = await resolvePlayerNames(xiNames)
     const subs = await resolvePlayerNames(stringList(a, "substitutes"))
+
+    // Who played changes who gets credited, so the records are re-derived on undo rather than
+    // snapshotted — restoring the XI and rebuilding gives the right totals either way.
+    await ctx.journal.capture("fixtures", fixture.id)
+    ctx.journal.recomputeFixture(fixture.id)
 
     // Written even when some names missed, so a mostly-correct XI is usable — but the misses are
     // reported rather than dropped, because silence there would read as success.
@@ -445,7 +543,7 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     }
   },
 
-  async post_match_event(raw) {
+  async post_match_event(raw, ctx) {
     const a = args(raw)
     const fixture = await resolveFixture(needString(a, "fixture"))
     const eventType = needString(a, "event_type") as
@@ -497,7 +595,13 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
           ? `${subOn} replaces ${subOff}`
           : eventType)
 
-    await postLiveUpdate(fixture.id, {
+    // A live update writes the scoreline onto the match and adds a timeline entry. Both are
+    // recorded: the entry is addressable only through its subcollection path, and the score and
+    // status are restored from the fixture's before-image.
+    await ctx.journal.capture("fixtures", fixture.id)
+    ctx.journal.recomputeFixture(fixture.id)
+
+    const posted = await postLiveUpdate(fixture.id, {
       homeScore,
       awayScore,
       status,
@@ -511,14 +615,50 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     })
     await refreshPublic("fixtures", "players")
 
+    // The timeline entry itself, so undoing a goal removes the goal rather than leaving the
+    // scoreline rolled back with the event still on the page.
+    if (posted?.eventId) ctx.journal.created(`fixtures/${fixture.id}/liveEvents`, posted.eventId)
+    // A final whistle drafts the report; that draft should not outlive the undo of the whistle.
+    if (posted?.articleCreated) ctx.journal.created("news", posted.articleId)
+
+    const footage = await countFootage(fixture.id)
+
     return {
       ok: true,
       summary: `Posted "${text}" at ${minute}' for ${fixture.opponent} — now ${homeScore}–${awayScore} (${status}).`,
-      data: { fixtureId: fixture.id, homeScore, awayScore, status },
+      data: {
+        fixtureId: fixture.id,
+        homeScore,
+        awayScore,
+        status,
+        // Same prompt as recording a result: a finished match should end up with footage, and only
+        // the person knows whether a clip exists.
+        footageLinked: footage,
+        askAboutFootage: eventType === "Match End" && footage === 0,
+      },
     }
   },
 
-  async rebuild_player_stats() {
+  async rebuild_player_stats(_raw, ctx) {
+    /*
+     * The one action whose reversal is a snapshot rather than a re-derivation.
+     *
+     * A rebuild recomputes every player's totals from every source at once, so there is no single
+     * upstream document to restore — the "before" state *is* the collection. Both collections are
+     * small (a squad, and one record per appearance), so capturing them whole is affordable and is
+     * the only exact reversal available.
+     */
+    const players = await getDocs(collection(db, "players"))
+    const records = await getDocs(collection(db, "playerMatches"))
+    ctx.journal.captureAll(
+      "players",
+      players.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+    )
+    ctx.journal.captureAll(
+      "playerMatches",
+      records.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+    )
+
     const result = await syncAllRecords()
     return {
       ok: true,
@@ -529,8 +669,11 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     }
   },
 
-  async write_missing_reports() {
+  async write_missing_reports(_raw, ctx) {
     const result = await backfillMatchArticles()
+    // Each drafted report is recorded so undo removes exactly the ones this run produced, and not
+    // a report that was already there beforehand.
+    for (const made of result.made) ctx.journal.created("news", made.articleId)
     return {
       ok: true,
       summary:
@@ -543,7 +686,7 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
 
   /* ── news ───────────────────────────────────────────────────────────────── */
 
-  async create_article(raw) {
+  async create_article(raw, ctx) {
     const a = args(raw)
     const headline = needString(a, "headline")
     const content = needString(a, "content")
@@ -551,7 +694,13 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     const shouldPublish = a.publish === true
 
     if (shouldPublish) {
+      /*
+       * Publishing goes through the same helper the news editor uses, so the article it creates is
+       * not addressable for undo afterwards. Rather than log a reversal that cannot be applied,
+       * the publication is recorded as genuinely irreversible and the history says so.
+       */
       await addNewsArticle({ headline, content, tags })
+      ctx.journal.irreversible("The published article now exists on the site; its id was not returned.")
       await refreshPublic("news")
       return { ok: true, summary: `Published "${headline}" to the site.`, data: { published: true } }
     }
@@ -573,6 +722,7 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
       generatedFrom: "assistant",
       createdAt: serverTimestamp(),
     })
+    ctx.journal.created("news", ref.id)
     await refreshPublic("news")
     return {
       ok: true,
@@ -581,27 +731,35 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     }
   },
 
-  async publish_article(raw) {
+  async publish_article(raw, ctx) {
     const article = await resolveArticle(needString(args(raw), "article"))
+    // Captured so undo returns it to whatever it was, which is a draft in the normal case.
+    await ctx.journal.capture("news", article.id)
     await setArticlePublished(article.id, true)
     await refreshPublic("news")
     return { ok: true, summary: `"${article.headline}" is now live on the site.`, data: { articleId: article.id } }
   },
 
-  async unpublish_article(raw) {
+  async unpublish_article(raw, ctx) {
     const article = await resolveArticle(needString(args(raw), "article"))
+    await ctx.journal.capture("news", article.id)
     await setArticlePublished(article.id, false)
     await refreshPublic("news")
     return { ok: true, summary: `Pulled "${article.headline}" off the site. It remains as a draft.`, data: { articleId: article.id } }
   },
 
-  async link_article_to_match(raw) {
+  async link_article_to_match(raw, ctx) {
     const a = args(raw)
     const article = await resolveArticle(needString(a, "article"))
     const fixture = await resolveFixture(needString(a, "fixture"))
 
     // Both sides, because each is read by something: the match hub finds the article by
-    // `fixtureId`, and the fixture page follows `articleId`.
+    // `fixtureId`, and the fixture page follows `articleId`. Both are captured, since undo has to
+    // detach whichever link existed before — and an article may already have been linked to a
+    // different match, which un-linking must restore rather than clear.
+    await ctx.journal.capture("news", article.id)
+    await ctx.journal.capture("fixtures", fixture.id)
+
     await updateFixture(fixture.id, { articleId: article.id })
     await saveDoc("news", article.id, { fixtureId: fixture.id })
     await refreshPublic("news", "fixtures")
@@ -615,7 +773,7 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
 
   /* ── players ────────────────────────────────────────────────────────────── */
 
-  async set_player_baseline(raw) {
+  async set_player_baseline(raw, ctx) {
     const a = args(raw)
     const player = await resolvePlayer(needString(a, "player"))
     const before = player.statsBaseline ?? { appearances: 0, goals: 0, assists: 0 }
@@ -625,8 +783,10 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
       assists: optNumber(a, "assists") ?? before.assists ?? 0,
     }
 
+    await ctx.journal.capture("players", player.id)
     await saveDoc("players", player.id, { statsBaseline: baseline })
     // The displayed total is baseline + records, so it has to be recomputed for the change to show.
+    // On undo the same recompute runs again from the restored baseline, so the total follows.
     const total = await recomputePlayerStats(player.id)
     await refreshPublic("players")
 
@@ -642,10 +802,18 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
 
   /* ── comms ──────────────────────────────────────────────────────────────── */
 
-  async send_announcement(raw) {
+  async send_announcement(raw, ctx) {
     const a = args(raw)
     const title = needString(a, "title")
     const body = needString(a, "body")
+    /*
+     * Recorded as irreversible rather than omitted.
+     *
+     * A push that has reached a phone cannot be recalled, and a history entry that silently offers
+     * no undo is worse than one that explains why — the second tells the operator to be careful
+     * *before* sending.
+     */
+    ctx.journal.irreversible("A notification that has already been delivered cannot be recalled.")
     const result = await notifyAll(title, body, optString(a, "url") ?? "/")
     return {
       ok: true,
@@ -656,21 +824,165 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
 
   /* ── destructive ────────────────────────────────────────────────────────── */
 
-  async delete_article(raw) {
+  async delete_article(raw, ctx) {
     const article = await resolveArticle(needString(args(raw), "article"))
+    // The whole document, so undo re-creates it exactly — same id, same content, same publication
+    // state — instead of rewriting it from the summary.
+    await ctx.journal.capture("news", article.id)
     await deleteNewsArticle(article)
     await refreshPublic("news")
     return { ok: true, summary: `Deleted the article "${article.headline}".`, data: { articleId: article.id } }
   },
 
-  async delete_fixture(raw) {
+  async delete_fixture(raw, ctx) {
     const fixture = await resolveFixture(needString(args(raw), "fixture"))
+
+    /*
+     * A match deletion is the widest-reaching action here, so the match itself and its report are
+     * captured — they are gone afterwards and only a copy can bring them back.
+     *
+     * The player records are deliberately *not* captured. They are derived from the match, so undo
+     * restores the match and then rebuilds them, which is both cheaper than storing every record and
+     * more correct: the rebuild also recomputes the affected players' totals, which deleting the
+     * records had just reduced. A snapshot of the records alone would leave those totals wrong.
+     */
+    await ctx.journal.capture("fixtures", fixture.id)
+    if (fixture.articleId) await ctx.journal.capture("news", fixture.articleId)
+    ctx.journal.recomputeFixture(fixture.id)
+
+    // The crest is removed from object storage, which no undo can bring back. Stated up front so
+    // the outcome can say a match came back without its badge.
+    if (fixture.opponentLogoUrl) ctx.journal.irreversible("The opponent's crest file was deleted from storage.")
+
     await deleteFixture(fixture)
     await refreshPublic("fixtures", "news", "players")
     return {
       ok: true,
       summary: `Deleted the match against ${fixture.opponent}, with its report and player records.`,
       data: { fixtureId: fixture.id },
+    }
+  },
+
+  /* ── footage ────────────────────────────────────────────────────────────── */
+
+  async attach_footage(raw, ctx) {
+    const a = args(raw)
+    const fixture = await resolveFixture(needString(a, "fixture"))
+    const title = needString(a, "title")
+
+    /*
+     * The file was uploaded by the composer before this turn began, so the tool only ever handles
+     * a URL. That is not a limitation to work around — a model cannot transmit a binary here, and
+     * pretending otherwise would mean base64 blobs in the transcript, charged per token.
+     */
+    const url = resolveAttachmentSource(a, ctx)
+    if (!url) {
+      throw new ToolFailure(
+        "No file was attached to this message and no `url` was given. Ask the person to attach the clip, " +
+          "then call this again with the file's name."
+      )
+    }
+
+    const type = optString(a, "type") ?? "highlight"
+    const tagged = await resolvePlayerNames(stringList(a, "players"))
+
+    // Footage feeds the match rather than sitting beside it: tags credit appearances, and a match
+    // with a clip but no report gets one. Both mirror what the media screen does on save.
+    const data: Record<string, unknown> = {
+      type,
+      title,
+      description: optString(a, "description") ?? "",
+      url,
+      poster: "",
+      fixtureId: fixture.id,
+      opponent: fixture.opponent,
+      fixtureKind: kindFromCompetition(fixture.competition),
+      scoreFor: fixture.score?.home,
+      scoreAgainst: fixture.score?.away,
+      playerIds: tagged.matched.map((p) => p.id),
+      taggedPlayers: tagged.matched.map((p) => ({ id: p.id, name: p.name })),
+      year: new Date(toDate(fixture.date) ?? Date.now()).getFullYear(),
+      vertical: false,
+      featured: false,
+      published: a.publish === true,
+      journeyId: null,
+      createdAt: serverTimestamp(),
+    }
+
+    const ref = await addDoc(collection(db, "mediaAssets"), data)
+    // Recorded so undo removes the clip; the records it credited are rebuilt by the recompute.
+    ctx.journal.created("mediaAssets", ref.id)
+    ctx.journal.recomputeFixture(fixture.id)
+
+    await syncFixtureRecords(fixture.id)
+    const report = await syncMatchArticle(fixture.id)
+    if (report.created) ctx.journal.created("news", report.articleId)
+    await refreshPublic("media", "fixtures", "news", "players")
+
+    return {
+      ok: true,
+      summary:
+        `Attached "${title}" to the match against ${fixture.opponent}` +
+        (tagged.matched.length
+          ? `, tagging ${tagged.matched.length} player${tagged.matched.length === 1 ? "" : "s"}.`
+          : ", with nobody tagged.") +
+        (tagged.missing.length ? ` Not found in the squad: ${tagged.missing.join(", ")}.` : "") +
+        (a.publish === true ? " It is live on the site." : " It is saved as a draft.") +
+        (report.created ? ` A match report was drafted: "${report.headline}".` : ""),
+      data: { mediaId: ref.id, fixtureId: fixture.id, articleId: report.articleId, tagged: tagged.matched.map((p) => p.name) },
+    }
+  },
+
+  /* ── undo ───────────────────────────────────────────────────────────────── */
+
+  async undo_last_change(raw, ctx) {
+    const a = args(raw)
+    const about = optString(a, "about")
+
+    const recent = await listActions({ sessionId: ctx.sessionId ?? undefined, limit: 25 })
+    if (!recent.length) throw new ToolFailure("There is nothing recorded in this conversation to undo.")
+
+    /*
+     * Targeting by words, not a menu.
+     *
+     * The person says "undo the lineup", and the model passes that through. Searching the tool name
+     * and the outcome's summary — the same sentence the person read in the activity feed — means
+     * the description they actually have in front of them is what finds the entry.
+     */
+    const candidates = recent.filter(isUndoable)
+    if (!candidates.length) {
+      throw new ToolFailure(
+        "Nothing here can be undone — the recent changes were either already reversed or cannot be " +
+          "reversed at all."
+      )
+    }
+
+    let target = candidates[0]
+    if (about) {
+      const needle = about.toLowerCase()
+      const words = needle.split(/[^a-z0-9]+/).filter((w) => w.length > 2)
+      const scored = candidates
+        .map((entry) => {
+          const haystack = `${entry.tool} ${entry.summary}`.toLowerCase()
+          const score = words.reduce((n, w) => n + (haystack.includes(w) ? 1 : 0), 0)
+          return { entry, score }
+        })
+        .sort((x, y) => y.score - x.score)
+      if (scored[0]?.score > 0) target = scored[0].entry
+    }
+
+    const outcome = await undoAction(target)
+    if (!outcome.ok) throw new ToolFailure(outcome.message)
+
+    /*
+     * Deliberately journals nothing, so reversing an undo is not offered as a redo. A single-step
+     * history is what the ledger supports honestly; a redo built on top of "the entry is marked
+     * undone" would be a second, unproven mechanism.
+     */
+    return {
+      ok: true,
+      summary: `${outcome.message} The change reversed was: ${target.summary}`,
+      data: { undoneActionId: target.id, tool: target.tool, missing: outcome.missing },
     }
   },
 }

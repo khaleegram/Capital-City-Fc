@@ -28,7 +28,8 @@
  */
 
 import { auth } from "@/lib/firebase"
-import { EXECUTORS, ToolFailure } from "./tool-executors"
+import { EXECUTORS, ToolFailure, type Attachment, type ToolContext } from "./tool-executors"
+import { beginJournal, isUndoable, recordAction, undoNote } from "./journal"
 import { TOOL_BY_NAME, type AgentMessage, type ToolCall, type ToolOutcome } from "./tools"
 
 /** How many model↔tool rounds one request may take before the loop gives up and says so. */
@@ -45,6 +46,8 @@ export type AgentEvent =
   | { type: "confirm"; call: ToolCall; name: string; label: string; args: unknown; description: string }
   /** The loop stopped without a final answer. */
   | { type: "error"; message: string }
+  /** A change was made and journalled. `id` identifies it for undo. */
+  | { type: "action"; id: string; tool: string; summary: string; undoable: boolean; note: string }
 
 export type AgentRunOptions = {
   /** Prior conversation, minus the system prompt. */
@@ -52,6 +55,10 @@ export type AgentRunOptions = {
   /** The person's new message. */
   input: string
   operator?: { name?: string; role?: string }
+  /** Files the person attached to this message; already uploaded, passed to tools by name. */
+  attachments?: Attachment[]
+  /** Which conversation this belongs to, so its changes can be listed and undone together. */
+  sessionId?: string | null
   /** Gate for irreversible actions. Returning false skips the call and tells the model so. */
   confirm: (request: { name: string; label: string; args: unknown; description: string }) => Promise<boolean>
   onEvent: (event: AgentEvent) => void
@@ -110,12 +117,26 @@ export async function runAgent({
   history,
   input,
   operator,
+  attachments = [],
+  sessionId = null,
   confirm,
   onEvent,
   signal,
 }: AgentRunOptions): Promise<AgentMessage[]> {
+  /*
+   * Attachments are named in the wire transcript but not in what the person sees.
+   *
+   * A model cannot see a file and cannot be handed a binary here, so the only way it can use one
+   * is to be told that it exists and what it is called — then a tool takes the name and the
+   * executor substitutes the URL that was uploaded before the turn began. The note is appended to
+   * the model's copy of the message rather than the operator's, so the transcript stays readable.
+   */
+  const attachmentNote = attachments.length
+    ? `\n\n[Attached and already uploaded: ${attachments.map((a) => `"${a.name}" (${a.type})`).join(", ")}. Refer to these by name.]`
+    : ""
+
   // `assistant` is the running transcript for this request only.
-  const assistant: AgentMessage[] = [{ role: "user", content: input }]
+  const assistant: AgentMessage[] = [{ role: "user", content: input + attachmentNote }]
 
   for (let step = 0; step < MAX_STEPS; step++) {
     let response
@@ -144,6 +165,14 @@ export async function runAgent({
       let outcome: ToolOutcome
       let parsed: unknown = undefined
 
+      /*
+       * A fresh journal per call, because undo reverses one action at a time.
+       *
+       * Batching a turn's changes into a single entry would make "undo that" ambiguous — the
+       * person is asking about the thing they just watched happen, which is one call.
+       */
+      const { journal, ops } = beginJournal()
+
       if (!spec) {
         // A tool that doesn't exist. Reported, not guessed at, so a model that misremembers a
         // name corrects itself on the next turn.
@@ -157,6 +186,7 @@ export async function runAgent({
 
         if (parsed !== undefined) {
           const label = describeCall(call.name, parsed)
+          const ctx = { journal, attachments, sessionId }
 
           if (spec.risk === "destructive") {
             const approved = await confirm({
@@ -172,11 +202,11 @@ export async function runAgent({
               }
             } else {
               onEvent({ type: "tool-start", name: call.name, label, risk: spec.risk, args: parsed })
-              outcome = await execute(call.name, parsed)
+              outcome = await execute(call.name, parsed, ctx)
             }
           } else {
             onEvent({ type: "tool-start", name: call.name, label, risk: spec.risk, args: parsed })
-            outcome = await execute(call.name, parsed)
+            outcome = await execute(call.name, parsed, ctx)
           }
         } else {
           outcome = outcome!
@@ -184,6 +214,34 @@ export async function runAgent({
       }
 
       onEvent({ type: "tool-end", name: call.name, summary: outcome.summary, ok: outcome.ok })
+
+      /*
+       * Journalled only when it actually changed something.
+       *
+       * A failed tool may have written nothing or written partially, and an entry claiming an undo
+       * that would restore documents the tool never touched is worse than no entry — it invites a
+       * click that silently reverts unrelated state.
+       */
+      if (outcome.ok && ops.length) {
+        const id = await recordAction({
+          sessionId,
+          tool: call.name,
+          args: parsed,
+          summary: outcome.summary,
+          ops,
+        })
+        if (id) {
+          onEvent({
+            type: "action",
+            id,
+            tool: call.name,
+            summary: outcome.summary,
+            undoable: isUndoable({ ops, undone: false }),
+            note: undoNote({ ops, undone: false }),
+          })
+        }
+      }
+
       assistant.push({
         role: "tool",
         tool_call_id: call.id,
@@ -206,11 +264,11 @@ export async function runAgent({
 }
 
 /** Runs one tool, converting any throw into an outcome the model can read and act on. */
-async function execute(name: string, parsed: unknown): Promise<ToolOutcome> {
+async function execute(name: string, parsed: unknown, ctx: ToolContext): Promise<ToolOutcome> {
   const executor = EXECUTORS[name]
   if (!executor) return { ok: false, summary: `"${name}" is described but not implemented.` }
   try {
-    return await executor(parsed)
+    return await executor(parsed, ctx)
   } catch (err) {
     if (err instanceof ToolFailure) return { ok: false, summary: err.message }
     // A real bug. Logged for us, reported to the model so it doesn't retry blindly.
