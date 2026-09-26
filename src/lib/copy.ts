@@ -152,6 +152,16 @@ export const copy = {
     achievements: "Honours & Milestones",
   },
 
+  officials: {
+    eyebrow: "The Club",
+    title: "Who Runs The Club.",
+    body:
+      "The officials responsible for Capital City FC — the leadership that directs the programme in Abuja and the route it opens for its players abroad.",
+    roster: "The Officials",
+    back: "The full club",
+    empty: "The club's officials will appear here soon.",
+  },
+
   fixtures: {
     eyebrow: "Fixtures",
     title: "Next Up.",

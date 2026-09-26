@@ -111,7 +111,7 @@ export default async function ClubPage() {
       {groups.length > 0 && (
         <section className="container py-14 md:py-20">
           <Reveal>
-            <SectionHeading eyebrow="People" title={copy.club.management} />
+            <SectionHeading eyebrow="People" title={copy.club.management} href="/club/officials" hrefLabel="Meet the officials" />
           </Reveal>
           <div className="mt-10 space-y-10">
             {groups.map(({ g, people }) => (

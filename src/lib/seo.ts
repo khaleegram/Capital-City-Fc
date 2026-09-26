@@ -288,6 +288,12 @@ export const PAGE_SEO = {
       "Capital City FC is a football club and player-development pathway in Abuja, Nigeria: the seven-month cycle, coaching staff, honours and the route to Europe.",
     keywords: ["Capital City FC club", "about Capital City FC", "Abuja football club", "football academy Abuja", "Nigerian football club pathway", "Capital City FC management", "football development Nigeria"],
   },
+  officials: {
+    title: "Capital City FC Officials | Leadership & Management",
+    description:
+      "The officials who run Capital City FC: the club's president and chief executive, and the management team behind the Abuja programme.",
+    keywords: ["Capital City FC officials", "Capital City FC management", "Capital City FC president", "Capital City FC CEO", "Abuja football club leadership", "football club directors Nigeria"],
+  },
   contact: {
     title: "Contact Capital City FC | Abuja Office & Enquiries",
     description:
@@ -321,7 +327,7 @@ export const PAGE_SEO = {
 } as const
 
 /** Listing pages: full copy available. */
-export type PageSeoKey = "home" | "journeys" | "players" | "media" | "gallery" | "fixtures" | "news" | "club" | "contact" | "join"
+export type PageSeoKey = "home" | "journeys" | "players" | "media" | "gallery" | "fixtures" | "news" | "club" | "officials" | "contact" | "join"
 
 /** Detail pages: titles/descriptions are built from the entity, keywords are shared. */
 export type DetailSeoKey = "fixturesDetail" | "playersDetail" | "mediaDetail" | "newsDetail" | "galleryDetail" | "journeysDetail"
