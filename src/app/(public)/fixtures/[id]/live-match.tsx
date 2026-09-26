@@ -6,6 +6,7 @@ import { ArrowLeftRight, Flag, Goal, Info, Square, Timer } from "lucide-react"
 import { db } from "@/lib/firebase"
 import type { LiveEvent } from "@/lib/data"
 import { cn, toDate } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { LiveDot } from "@/components/brand/live-dot"
 
 type MatchState = {
@@ -110,6 +111,17 @@ export function LiveMatch({
                 </span>
               )}
             </div>
+            {/*
+              The score alone doesn't say which way it went — 2–1 is only good news if you know
+              which side is ours. This is that answer, in the result colours.
+            */}
+            {state.status === "FT" && (
+              <div className="mt-2 flex justify-center">
+                <Badge variant={state.home > state.away ? "win" : state.home === state.away ? "draw" : "loss"}>
+                  {state.home > state.away ? "Won" : state.home === state.away ? "Drawn" : "Lost"}
+                </Badge>
+              </div>
+            )}
           </div>
           <p className="font-display text-lg font-extrabold uppercase leading-tight font-condensed sm:text-3xl">{opponent}</p>
         </div>
@@ -121,10 +133,26 @@ export function LiveMatch({
           <ol className="space-y-2">
             {events.map((e) => {
               const Icon = ICONS[e.type] ?? Info
+              /*
+                Goals and red cards are the two events with an obvious valence, so they are the
+                two that get a colour. Everything else — kick-off, half time, substitutions —
+                is reported neutrally, because a feed where every row is tinted is a feed where
+                the goal doesn't stand out.
+              */
+              const goal = e.type === "Goal"
+              const sentOff = e.type === "Red Card"
               return (
-                <li key={e.id} className={cn("flex gap-3 rounded-2xl border p-3", e.type === "Goal" ? "border-signal/40 bg-signal/10" : "border-line/10")}>
+                <li
+                  key={e.id}
+                  className={cn(
+                    "flex gap-3 rounded-2xl border p-3",
+                    goal && "border-win/40 bg-win/10",
+                    sentOff && "border-loss/40 bg-loss/10",
+                    !goal && !sentOff && "border-line/10"
+                  )}
+                >
                   <span className="w-10 shrink-0 font-mono text-sm font-bold tabular-nums text-signal">{e.minute != null ? `${e.minute}'` : ""}</span>
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-mist" />
+                  <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", goal && "text-win", sentOff && "text-loss", !goal && !sentOff && "text-mist")} />
                   <div className="min-w-0">
                     <p className="text-sm">{e.text}</p>
                     {e.score && <p className="font-mono text-[10px] text-mist/75">{e.score}</p>}

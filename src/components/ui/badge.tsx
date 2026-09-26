@@ -17,6 +17,14 @@ const badgeVariants = cva(
         outline: "border-line/15 text-ivory/80",
         live: "border-live/40 bg-live/15 text-live",
         ivory: "border-line/15 bg-paper text-ivory",
+        /*
+         * Result badges. Tinted rather than filled, matching `live` above: a solid fill would
+         * need a paired foreground colour that flips per theme, and a low-alpha tint carries
+         * on ivory and on navy without one.
+         */
+        win: "border-win/40 bg-win/15 text-win",
+        loss: "border-loss/40 bg-loss/15 text-loss",
+        draw: "border-draw/40 bg-draw/15 text-draw",
       },
     },
     defaultVariants: {

@@ -170,7 +170,21 @@ export default async function JourneyPage({ params }: Props) {
                 ] as const
               ).map(([k, v], i) => (
                 <div key={k} className={cn("px-2 py-3 text-center", i > 0 && "border-l border-line/10")}>
-                  <dd className={cn("font-display text-2xl font-black tabular-nums font-condensed sm:text-4xl", k === "L" && v === 0 && "text-signal")}>{v}</dd>
+                  {/*
+                    Win and loss counts carry their result colours; the totals either side stay
+                    neutral. A zero in the loss column is worth seeing, so it reads green rather
+                    than red — an unbeaten record is the point of that column.
+                  */}
+                  <dd
+                    className={cn(
+                      "font-display text-2xl font-black tabular-nums font-condensed sm:text-4xl",
+                      k === "W" && "text-win",
+                      k === "D" && "text-draw",
+                      k === "L" && (v === 0 ? "text-win" : "text-loss")
+                    )}
+                  >
+                    {v}
+                  </dd>
                   <dt className="font-mono text-[10px] tracking-[0.2em] text-mist/75">{k}</dt>
                 </div>
               ))}
@@ -228,11 +242,11 @@ export default async function JourneyPage({ params }: Props) {
                     <li key={m.id} className="flex items-center gap-3 p-4">
                       <span
                         className={cn(
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold",
-                          res === "W" && "bg-signal text-white",
-                          res === "D" && "bg-line/15 text-ivory",
-                          res === "L" && "border border-line/20 text-mist",
-                          !res && "border border-dashed border-line/20 text-mist/75"
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-bold",
+                          res === "W" && "border-win/40 bg-win/15 text-win",
+                          res === "D" && "border-draw/40 bg-draw/15 text-draw",
+                          res === "L" && "border-loss/40 bg-loss/15 text-loss",
+                          !res && "border-dashed border-line/20 text-mist/75"
                         )}
                       >
                         {res ?? (m.status === "live" ? "•" : "–")}
@@ -246,7 +260,12 @@ export default async function JourneyPage({ params }: Props) {
                         </p>
                         {m.note && <p className="mt-0.5 text-xs text-mist/70">{m.note}</p>}
                       </div>
-                      <span className="font-display text-2xl font-black tabular-nums font-condensed">
+                      <span
+                        className={cn(
+                          "font-display text-2xl font-black tabular-nums font-condensed",
+                          !played && m.status === "live" && "text-live"
+                        )}
+                      >
                         {played ? `${m.scoreFor}–${m.scoreAgainst}` : m.status === "live" ? "LIVE" : ""}
                       </span>
                     </li>

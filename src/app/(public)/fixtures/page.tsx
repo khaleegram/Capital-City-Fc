@@ -5,6 +5,7 @@ import { getFixtures } from "@/lib/server/queries"
 import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
 import { FixtureRow } from "@/components/site/fixture-row"
+import { TeamRecord } from "@/components/site/team-record"
 import { EmptyNote } from "@/components/site/cards"
 
 export const revalidate = 60
@@ -39,6 +40,10 @@ export default async function FixturesPage() {
       */}
       <div className="container max-w-4xl py-8 md:py-14">
         {fixtures.length === 0 && <EmptyNote>{copy.fixtures.empty}</EmptyNote>}
+
+        {/* Reads only the finished matches, so it sits above the list and stays put as the
+            upcoming section comes and goes. */}
+        {results.length > 0 && <TeamRecord fixtures={fixtures} className="mb-12" />}
 
         {(live.length > 0 || upcoming.length > 0) && (
           <section className="mb-12">

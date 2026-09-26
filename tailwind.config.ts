@@ -46,6 +46,14 @@ export default {
         live: {
           DEFAULT: 'rgb(var(--brand-live) / <alpha-value>)',
         },
+        /*
+         * Result and state colours. Fixed meanings rather than accents: a win reads green and
+         * a loss red whichever theme is active, and a draw recedes to neutral. See the token
+         * block in globals.css for why they sit outside `--brand-accent`.
+         */
+        win: 'rgb(var(--brand-win) / <alpha-value>)',
+        loss: 'rgb(var(--brand-loss) / <alpha-value>)',
+        draw: 'rgb(var(--brand-draw) / <alpha-value>)',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

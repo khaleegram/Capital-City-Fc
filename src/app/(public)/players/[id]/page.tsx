@@ -134,7 +134,7 @@ export default async function PlayerPage({ params }: Props) {
           <div className="relative -mt-28 pb-8 md:mt-0 md:pb-12">
             <div className="flex flex-wrap gap-2">
               {latest && <PassportBadge label={latest.club} country={latest.country} />}
-              {player.readyForNextStep && <Badge variant="live">{copy.players.readyBadge}</Badge>}
+              {player.readyForNextStep && <Badge variant="win">{copy.players.readyBadge}</Badge>}
               {player.squadStatus === "alumni" && <Badge variant="outline">Alumni</Badge>}
             </div>
             <p className="mt-4 font-mono text-xs uppercase tracking-stamp text-signal">{player.position}</p>

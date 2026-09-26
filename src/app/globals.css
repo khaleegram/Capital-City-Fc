@@ -27,6 +27,25 @@
     --brand-accent-fg: 255 255 255; /* text and icons sitting on an accent fill */
     --brand-live: 214 31 40; /* red, LIVE indicators only */
 
+    /*
+     * Result colours — the one place the palette steps outside the theme.
+     *
+     * A win is green and a loss is red in every football interface ever written, and a reader
+     * should not have to learn the club's colours to decode a result. So these three are
+     * fixed meanings, not accents, and they deliberately ignore `--brand-accent`, which flips
+     * to ivory on navy and would otherwise turn a win white.
+     *
+     * `--brand-loss` is a deeper, duller red than `--brand-live`: a loss is a fact, a live
+     * match is an alarm. Keeping them a step apart is what stops a column of results reading
+     * as a column of emergencies.
+     *
+     * Draw is neutral rather than a third colour — it is neither good nor bad news, and the
+     * convention in every results table is that it recedes.
+     */
+    --brand-win: 21 122 61; /* green */
+    --brand-loss: 158 32 36; /* deep red, distinct from the live red */
+    --brand-draw: 71 85 105; /* neutral slate, dark enough to hold at 10px on ivory */
+
     --background: 45 26% 95%;
     --foreground: 222 74% 10%;
     --card: 0 0% 100%;
@@ -80,6 +99,14 @@
     --brand-accent-soft: 255 255 255;
     --brand-accent-fg: 7 20 46;
     --brand-live: 255 112 118;
+
+    /*
+     * Result colours lighten on navy so they stay legible on a dark ground, but they keep
+     * their meaning — a green win is still the same green, not the accent.
+     */
+    --brand-win: 110 231 155;
+    --brand-loss: 248 168 168;
+    --brand-draw: 148 163 184;
 
     /*
      * The shadcn variables must flip too. Without this, text that simply inherits `color`

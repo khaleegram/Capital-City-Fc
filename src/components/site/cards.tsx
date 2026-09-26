@@ -63,7 +63,8 @@ export function JourneyCard({ journey, className }: { journey: Journey; classNam
           </div>
           {r && r.played > 0 && (
             <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ivory">
-              P{r.played} · W{r.won} · D{r.drawn} · L{r.lost}
+              P{r.played} · <span className="text-win">W{r.won}</span> · <span className="text-draw">D{r.drawn}</span> ·{" "}
+              <span className="text-loss">L{r.lost}</span>
               {journey.outcome?.badge && <span className="ml-2 text-signal">{journey.outcome.badge}</span>}
             </p>
           )}
@@ -106,7 +107,12 @@ export function PlayerCard({
         </span>
         <div className="absolute left-3 top-3 flex flex-col items-start gap-1.5">
           {placement && <PassportBadge label={placement.club} />}
-          {!placement && player.readyForNextStep && <Badge variant="live">{copy.players.readyBadge}</Badge>}
+          {/*
+            "Ready for the next step" is good news, so it is green. It used `variant="live"`,
+            which put a positive status in the red reserved for a match in progress — the one
+            place on the site where red is supposed to mean urgency.
+          */}
+          {!placement && player.readyForNextStep && <Badge variant="win">{copy.players.readyBadge}</Badge>}
         </div>
         <div className="absolute inset-x-3 bottom-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mist/80">
@@ -135,7 +141,12 @@ export function PlacementCard({ placement, className }: { placement: Placement; 
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
         <div className="absolute left-3 top-3 flex gap-1.5">
-          <Badge variant={placement.type === "signed" ? "default" : "outline"}>{PLACEMENT_LABEL[placement.type]}</Badge>
+          {/*
+            "Signed" is the outcome the whole academy exists to produce, so it is the one that
+            reads green. A loan and a trial are both real progress but neither is the finished
+            thing, so they stay neutral rather than competing with it.
+          */}
+          <Badge variant={placement.type === "signed" ? "win" : "outline"}>{PLACEMENT_LABEL[placement.type]}</Badge>
           {placement.verified && (
             <Badge variant="ivory">
               <BadgeCheck className="h-3 w-3" /> Verified

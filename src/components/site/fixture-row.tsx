@@ -23,16 +23,20 @@ function resultOf(f: F): Result | null {
 /**
  * The left edge doubles as a form guide.
  *
- * A column of these cards is read as a shape before it is read as text: navy rules march down
- * the wins, the neutrals recede. It says "W/D/L" without printing a chip on every card, which
- * keeps the row quiet enough for the opponent name to be the loudest thing on it.
+ * A column of these cards is read as a shape before it is read as text: green rules march down
+ * the wins, red records the losses, the neutrals recede. It says "W/D/L" without printing a
+ * chip on every card, which keeps the row quiet enough for the opponent name to be the loudest
+ * thing on it.
  *
- * Red is reserved for a genuinely live match — `live` is the only token allowed to be urgent.
+ * These are result colours, not accents — see the token block in globals.css. A win is green
+ * whatever the theme, which is why they don't follow `signal`.
+ *
+ * `live` stays the brighter red: a match in progress is urgent, a match already lost is not.
  */
 const SPINE: Record<Result | "upcoming" | "live", string> = {
-  W: "bg-signal",
-  D: "bg-mist/45",
-  L: "bg-line/20",
+  W: "bg-win",
+  D: "bg-draw/45",
+  L: "bg-loss",
   upcoming: "bg-line/12",
   live: "bg-live",
 }
@@ -95,15 +99,15 @@ function Status({ fixture }: { fixture: F }) {
   )
 }
 
-/** Win / draw / loss mark. */
+/** Win / draw / loss mark, in the result colours. */
 function ResultChip({ result }: { result: Result }) {
   return (
     <span
       className={cn(
-        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold",
-        result === "W" && "bg-signal text-signal-foreground",
-        result === "D" && "bg-line/15 text-mist",
-        result === "L" && "border border-line/20 text-mist/80"
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border font-mono text-[11px] font-bold",
+        result === "W" && "border-win/40 bg-win/15 text-win",
+        result === "D" && "border-draw/40 bg-draw/15 text-draw",
+        result === "L" && "border-loss/40 bg-loss/15 text-loss"
       )}
     >
       {result}
