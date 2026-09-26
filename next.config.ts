@@ -35,6 +35,20 @@ const remotePatterns: RemotePatterns = [
    * widening the pattern to all of them costs nothing.
    */
   https("**.r2.dev"),
+  /*
+   * The club's own domains, so an R2 custom domain can be switched on without a code change.
+   *
+   * A custom domain in front of the bucket is the main speed fix for images — r2.dev is
+   * Cloudflare's development endpoint and serves HTTP/1.1 only, with no edge caching. But the
+   * host would arrive through `R2_PUBLIC_URL`, which is exactly the variable that failed to
+   * reach the image allowlist and caused the outage this wildcard exists to prevent.
+   *
+   * These are domains the club owns, so allowing any of their subdomains as an image source
+   * is free of risk and means pointing `cdn.` at the bucket is a DNS change rather than a
+   * config-and-redeploy change.
+   */
+  https("**.capitalcityfc.ng"),
+  https("**.capitalcity.ng"),
 ]
 
 for (const url of [process.env.R2_PUBLIC_URL, process.env.NEXT_PUBLIC_R2_PUBLIC_URL]) {
@@ -53,6 +67,17 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns,
     formats: ["image/avif", "image/webp"],
+    /*
+     * Every image in this app is immutable once uploaded: the uploader names objects with a
+     * random UUID, so replacing a photo writes a new URL rather than overwriting the old one.
+     * The default of four hours with `must-revalidate` therefore bought nothing and cost a
+     * round trip — each returning visitor revalidated every optimised variant, and a cold
+     * optimiser re-fetched and re-encoded from R2.
+     *
+     * A year lets Vercel's cache and the browser hold the encoded variants. Nothing is lost
+     * when an image is replaced, because the replacement is a different URL.
+     */
+    minimumCacheTTL: 31536000,
   },
   experimental: {
     serverActions: {
