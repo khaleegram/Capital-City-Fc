@@ -202,8 +202,8 @@ export function pageMetadata(key: PageSeoKey, path: string): Metadata {
  *
  * Pass `image` for an entity photo and `SOCIAL_CARD` when there is no photo and
  * the route has no `opengraph-image.tsx` of its own. Omit it entirely for routes
- * that *do* ship a card file (`players/[id]`, `journeys/[slug]`, `gallery/[slug]`),
- * so Next can merge the generated card in.
+ * that *do* ship a card file (`players/[id]`, `journeys/[slug]`, `gallery/[slug]`,
+ * `fixtures/[id]`), so Next can merge the generated card in.
  */
 export function detailMetadata({
   path,

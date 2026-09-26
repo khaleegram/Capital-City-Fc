@@ -27,8 +27,29 @@ async function fetchImage(url?: string | null): Promise<string | null> {
 }
 
 /** Branded 1200×630 share card: ink background, optional photo on the right, big condensed title. */
-export async function ogCard({ eyebrow, title, sub, image: imageUrl }: { eyebrow: string; title: string; sub?: string; image?: string | null }) {
+export async function ogCard({
+  eyebrow,
+  title,
+  sub,
+  image: imageUrl,
+  score,
+}: {
+  eyebrow: string
+  title: string
+  sub?: string
+  image?: string | null
+  /**
+   * A result to lead with, e.g. `9–10`. Rendered as a red line above the title.
+   *
+   * Written from Capital City's point of view. The direction is readable from the card itself: the
+   * crest at the top names the club and the title names the opponent, so the score between them
+   * reads as home–away.
+   */
+  score?: string
+}) {
   const [{ logo, display, body }, image] = await Promise.all([loadAssets(), fetchImage(imageUrl)])
+  // Longer titles wrap, so they step down to keep the card balanced rather than filling it.
+  const titleSize = title.length > 40 ? 64 : title.length > 28 ? 84 : 112
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#07142E", color: "#F5F3EE", fontFamily: "Archivo" }}>
@@ -55,7 +76,10 @@ export async function ogCard({ eyebrow, title, sub, image: imageUrl }: { eyebrow
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: 24, color: "#E3262F", letterSpacing: 6, fontWeight: 600 }}>{eyebrow.toUpperCase()}</span>
-            <span style={{ fontFamily: "Archivo Condensed", fontSize: title.length > 28 ? 84 : 112, fontWeight: 900, lineHeight: 0.95, marginTop: 12, textTransform: "uppercase" }}>{title}</span>
+            {score && (
+              <span style={{ fontFamily: "Archivo Condensed", fontSize: 76, fontWeight: 900, lineHeight: 1.05, color: "#E3262F", letterSpacing: 2 }}>{score}</span>
+            )}
+            <span style={{ fontFamily: "Archivo Condensed", fontSize: titleSize, fontWeight: 900, lineHeight: 0.95, marginTop: score ? 4 : 12, textTransform: "uppercase" }}>{title}</span>
             {sub && <span style={{ fontSize: 30, color: "#C9D3E6", marginTop: 20 }}>{sub}</span>}
           </div>
           <div style={{ display: "flex", height: 6, width: 160, background: "#E3262F" }} />

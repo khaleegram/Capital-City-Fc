@@ -6,7 +6,7 @@ import type { LiveEvent } from "@/lib/data"
 import { formatDate, toDate } from "@/lib/utils"
 import { listDocs } from "@/lib/server/firestore"
 import { getFixture, getJourneys, getMedia, getRecapForFixture, getArticleForFixture, getTeam } from "@/lib/server/queries"
-import { HOME_CRUMB, SOCIAL_CARD, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, sportsEventNode } from "@/lib/seo"
+import { HOME_CRUMB, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, sportsEventNode } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
 import { MediaCard } from "@/components/site/cards"
 import { LiveMatch } from "./live-match"
@@ -42,8 +42,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: { absolute: `Capital City FC vs ${f.opponent}${score}` },
     description: `${f.competition} at ${f.venue}${when ? `, ${when}` : ""}. ${played ? "Result, scorers and match report" : "Kick-off time, squad news and live updates"} for Capital City FC of Abuja.`,
     keywords: [...detailKeywords("fixturesDetail"), f.opponent, `${f.opponent} Capital City FC`, f.competition],
-    // No match photo exists, so share the branded card.
-    image: SOCIAL_CARD,
+    // No `image` on purpose. This route ships its own `opengraph-image.tsx`, and Next only merges
+    // that card in when the page's openGraph has no `images` key at all — naming `SOCIAL_CARD` here
+    // would pin the generic club card and the per-match one would never be used.
   })
 }
 
