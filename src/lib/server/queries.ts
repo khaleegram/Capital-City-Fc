@@ -192,10 +192,31 @@ export const getGalleryBySlug = cached(
 export const getPlacements = cached(
   async (): Promise<Placement[]> => {
     const rows = await listDocs<Placement>("placements", { where: [PUBLISHED] })
-    return rows.sort((a, b) => time(b.date) - time(a.date) || byNewest(a, b))
+
+    /*
+     * A placement stores its own copy of the player's photo. That copy is written from
+     * whatever URL the player had at the time, so it goes stale when the photo is replaced
+     * and dies outright when the host it pointed at does. The homepage rail reads the
+     * placement while the player's own page reads the player, so the same person showed a
+     * photo in one place and an empty frame in the other.
+     *
+     * Preferring the linked player's current photo makes the two surfaces read from one
+     * source and removes the drift rather than correcting it each time. The stored value
+     * stays as the fallback for a placement with no `playerId`, or one whose player has no
+     * photo of their own.
+     *
+     * Tagged with `players` as well as `placements`, because a change to a player's photo
+     * now changes what this returns.
+     */
+    const players = await getPlayers()
+    const photoByPlayer = new Map(players.map((p) => [p.id, p.imageUrl]))
+
+    return rows
+      .map((r) => ({ ...r, playerImageUrl: (r.playerId ? photoByPlayer.get(r.playerId) : undefined) || r.playerImageUrl }))
+      .sort((a, b) => time(b.date) - time(a.date) || byNewest(a, b))
   },
   "placements",
-  [TAGS.placements]
+  [TAGS.placements, TAGS.players]
 )
 
 export const getStaff = cached(
