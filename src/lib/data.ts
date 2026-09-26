@@ -145,9 +145,10 @@ export type NewsArticle = {
   recapId?: string;
   /**
    * Who wrote it. `match` and `preview` are machine-written and may be rewritten by the match
-   * hub; anything else is treated as a person's work and left alone.
+   * hub; `assistant` is written by the in-admin AI on a person's instruction; anything else is
+   * treated as a person's work and left alone.
    */
-  generatedFrom?: "match" | "preview" | "recap";
+  generatedFrom?: "match" | "preview" | "recap" | "assistant";
 };
 
 export type Video = {

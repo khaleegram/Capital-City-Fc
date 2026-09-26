@@ -13,6 +13,7 @@ import {
   Route,
   Settings,
   ShieldCheck,
+  Sparkles,
   Trophy,
   Users,
   type LucideIcon,
@@ -51,6 +52,7 @@ export const adminNav: AdminNavGroup[] = [
   {
     label: "Club",
     items: [
+      { href: "/admin/assistant", label: "Assistant", icon: Sparkles },
       { href: "/admin/enquiries", label: "Enquiries", icon: Inbox },
       { href: "/admin/scouting", label: "Scouting AI", icon: Bot },
       { href: "/admin/settings", label: "Settings & proof", icon: Settings },
