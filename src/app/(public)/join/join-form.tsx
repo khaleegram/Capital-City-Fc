@@ -255,7 +255,7 @@ export function JoinForm() {
   if (state === "sent") {
     return (
       <div className="on-dark rounded-3xl border border-line/10 bg-navy-deep p-8 text-center">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-signal" />
+        <CheckCircle2 className="mx-auto h-10 w-10 text-win" />
         <h2 className="mt-4 font-display text-3xl font-black uppercase font-condensed">Profile submitted</h2>
         <p className="mx-auto mt-3 max-w-md text-mist/85">
           Thanks {form.name.trim().split(" ")[0]}. Your details and your files are with the club. A staff member will
@@ -453,7 +453,9 @@ export function JoinForm() {
       </label>
 
       {error && (
-        <p role="alert" className="rounded-xl border border-signal/40 bg-signal/10 px-4 py-3 text-sm text-ivory">
+        /* A failed submission is an error, so it reads red — it was navy, the same colour as
+           every neutral notice on the page, which made it easy to miss. */
+        <p role="alert" className="rounded-xl border border-loss/40 bg-loss/10 px-4 py-3 text-sm text-ivory">
           {error}
         </p>
       )}

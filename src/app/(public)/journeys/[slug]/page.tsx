@@ -110,8 +110,15 @@ export default async function JourneyPage({ params }: Props) {
           breadcrumbNode([HOME_CRUMB, { name: copy.journeys.eyebrow, path: "/journeys" }, { name: journey.title, path: `/journeys/${slug}` }])
         )}
       />
-      {/* Header */}
-      <header className="relative overflow-hidden pb-10 pt-24 md:pb-16 md:pt-32">
+      {/*
+        Header.
+        `on-dark` is load-bearing here, not decoration. The cover photo and the `to-ink` scrim
+        make this a dark hero, but without the class every token inside it resolved to its
+        light-theme value — so the 96px title rendered ink-on-ink at roughly 2.5:1, which is
+        below even the large-text minimum. The subtitle, the dates and the status badge had the
+        same problem. Declaring the boundary is what flips them all back to light at once.
+      */}
+      <header className="on-dark relative overflow-hidden pb-10 pt-24 md:pb-16 md:pt-32">
         {journey.coverImageUrl ? (
           <ArtImage
             desktop={journey.coverImageUrl}

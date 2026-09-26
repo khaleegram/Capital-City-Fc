@@ -16,13 +16,20 @@ export function StorageMeter({ usage, className }: { usage: Usage | null; classN
   const limit = usage?.limitBytes ?? 0
   const pct = limit ? percentUsed(used, limit) : 0
   const tight = pct >= 90
+  /*
+   * The meter is a warning above 90%, so it goes gold. It used to go navy, which is the same
+   * colour as every neutral element around it — the one state that needed to catch the eye was
+   * the one that blended in.
+   */
+  const tone = tight ? "text-gold" : "text-ivory"
+  const fill = tight ? "bg-gold" : "bg-signal/70"
 
   return (
     <div className={cn("rounded-2xl border border-line/10 p-4", className)}>
       <div className="flex items-baseline justify-between gap-3">
         <p className="font-mono text-[10px] uppercase tracking-stamp text-mist/70">Your club storage</p>
         <p className="font-mono text-xs text-mist/85">
-          <span className={cn("font-semibold", tight ? "text-signal" : "text-ivory")}>{formatBytes(used)}</span> of{" "}
+          <span className={cn("font-semibold", tone)}>{formatBytes(used)}</span> of{" "}
           {formatBytes(limit)} used
         </p>
       </div>
@@ -35,7 +42,7 @@ export function StorageMeter({ usage, className }: { usage: Usage | null; classN
         aria-label="Storage used"
       >
         <div
-          className={cn("h-full rounded-full transition-all duration-500", tight ? "bg-signal" : "bg-signal/70")}
+          className={cn("h-full rounded-full transition-all duration-500", fill)}
           style={{ width: `${Math.max(pct, used > 0 ? 2 : 0)}%` }}
         />
       </div>
@@ -200,7 +207,7 @@ export function FilePicker({
 
       {hint && <p className="text-xs text-mist/70">{hint}</p>}
       {error && (
-        <p role="alert" className="rounded-xl border border-signal/40 bg-signal/10 px-3 py-2 text-xs text-ivory">
+        <p role="alert" className="rounded-xl border border-loss/40 bg-loss/10 px-3 py-2 text-xs text-ivory">
           {error}
         </p>
       )}

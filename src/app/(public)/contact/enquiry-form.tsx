@@ -75,7 +75,7 @@ export function EnquiryForm() {
   if (state === "sent") {
     return (
       <div className="on-dark rounded-3xl border border-line/10 bg-navy-deep p-8 text-center">
-        <CheckCircle2 className="mx-auto h-10 w-10 text-signal" />
+        <CheckCircle2 className="mx-auto h-10 w-10 text-win" />
         <p className="mt-4 font-display text-3xl font-black uppercase font-condensed">Message received</p>
         <p className="mt-2 text-mist/85">{copy.contact.success}</p>
       </div>
@@ -105,7 +105,7 @@ export function EnquiryForm() {
       </fieldset>
 
       {playerName && (
-        <p className="rounded-xl border border-signal/40 bg-signal/10 px-4 py-3 text-sm">
+        <p className="rounded-xl border border-info/40 bg-info/10 px-4 py-3 text-sm">
           About: <span className="font-semibold">{playerName}</span>
         </p>
       )}
@@ -139,7 +139,7 @@ export function EnquiryForm() {
           Website <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set("website")} />
         </label>
       </div>
-      {error && <p className="text-sm text-signal-soft">{error}</p>}
+      {error && <p className="text-sm text-loss">{error}</p>}
       <Button type="submit" size="xl" className="w-full sm:w-auto" disabled={state === "sending"}>
         {state === "sending" ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
         Send enquiry

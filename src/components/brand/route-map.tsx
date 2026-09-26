@@ -101,8 +101,13 @@ export function RouteMap({ stops, className }: { stops: MapStop[]; className?: s
         {segments.map((s, i) => (
           <g key={i}>
             <path d={s.d} fill="none" stroke="rgb(245 243 238 / 0.18)" strokeWidth="1" />
+            {/*
+              A leg the club has already travelled is green — it is progress, not an alarm. It
+              was drawn in the brand red, which is the same colour as the live marker, so an
+              already-completed leg looked more urgent than the one in progress.
+            */}
             {s.reached && (
-              <path d={s.d} fill="none" stroke="#E3262F" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" className="animate-route-dash" />
+              <path d={s.d} fill="none" stroke="#157A3D" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" className="animate-route-dash" />
             )}
           </g>
         ))}
@@ -116,7 +121,15 @@ export function RouteMap({ stops, className }: { stops: MapStop[]; className?: s
               {p.current && (
                 <circle cx={p.x} cy={p.y} r="10" fill="#E3262F" opacity="0.3" className="animate-live-pulse" style={{ transformOrigin: `${p.x}px ${p.y}px` }} />
               )}
-              <circle cx={p.x} cy={p.y} r={p.current ? 4.5 : 3.5} fill={p.reached || p.current ? "#E3262F" : "#07142E"} stroke="#F5F3EE" strokeWidth="1.2" />
+              {/* Current position keeps the red beacon; stops already reached are green. */}
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={p.current ? 4.5 : 3.5}
+                fill={p.current ? "#E3262F" : p.reached ? "#157A3D" : "#07142E"}
+                stroke="#F5F3EE"
+                strokeWidth="1.2"
+              />
               <text x={labelX} y={p.y - 4} fontSize="10" fontWeight="700" fill="#F5F3EE" fontFamily="var(--font-display)" textAnchor={anchor}>
                 {p.code || p.city.slice(0, 3).toUpperCase()}
               </text>

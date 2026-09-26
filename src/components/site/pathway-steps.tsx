@@ -32,8 +32,13 @@ export function PathwaySteps() {
                   <span
                     className={cn(
                       "relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-bold transition-colors",
+                      /*
+                        A completed step is green and the current one is the brand navy. They used
+                        to be the same fill, so "the step you're on" and "the steps you've done"
+                        were indistinguishable — the whole point of a numbered track.
+                      */
                       on && "border-signal bg-signal text-white",
-                      done && "border-signal bg-signal text-white",
+                      done && "border-win bg-win text-white",
                       !on && !done && "border-line/15 bg-paper text-mist/75 group-hover:border-line/40"
                     )}
                   >

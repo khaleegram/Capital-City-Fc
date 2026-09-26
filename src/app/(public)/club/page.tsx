@@ -5,6 +5,7 @@ import { ArrowUpRight, Award, Flag, Trophy } from "lucide-react"
 import { copy } from "@/lib/copy"
 import type { StaffGroup } from "@/lib/data"
 import { TEAM_LOGO_URL } from "@/lib/brand"
+import { cn } from "@/lib/utils"
 import { getAchievements, getJourneys, getProofStats, getStaff } from "@/lib/server/queries"
 import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
@@ -164,12 +165,22 @@ export default async function ClubPage() {
           </Reveal>
           <ol className="mt-10 divide-y divide-white/10 overflow-hidden rounded-3xl border border-line/10">
             {achievements.map((a) => {
-              const Icon = a.kind === "trophy" ? Trophy : a.kind === "unbeaten" ? Flag : Award
+              /*
+                The kind is already on the record, so the colour comes from it rather than from
+                a guess: a trophy is gold, an unbeaten run is green, and a milestone — a first
+                cap, a hundred appearances — is informational blue.
+              */
+              const { Icon, tone } =
+                a.kind === "trophy"
+                  ? { Icon: Trophy, tone: "text-gold" }
+                  : a.kind === "unbeaten"
+                    ? { Icon: Flag, tone: "text-win" }
+                    : { Icon: Award, tone: "text-info" }
               const slug = a.journeyId ? journeySlug.get(a.journeyId) : undefined
               const inner = (
                 <div className="flex items-center gap-4 p-4 sm:p-5">
                   <span className="font-display text-3xl font-black tabular-nums text-mist/70 font-condensed">{a.year}</span>
-                  <Icon className="h-5 w-5 shrink-0 text-signal" />
+                  <Icon className={cn("h-5 w-5 shrink-0", tone)} />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">{a.title}</p>
                     {(a.competition || a.detail) && <p className="text-sm text-mist/75">{[a.competition, a.detail].filter(Boolean).join(" · ")}</p>}

@@ -25,6 +25,8 @@ const badgeVariants = cva(
         win: "border-win/40 bg-win/15 text-win",
         loss: "border-loss/40 bg-loss/15 text-loss",
         draw: "border-draw/40 bg-draw/15 text-draw",
+        info: "border-info/40 bg-info/15 text-info",
+        gold: "border-gold/40 bg-gold/15 text-gold",
       },
     },
     defaultVariants: {

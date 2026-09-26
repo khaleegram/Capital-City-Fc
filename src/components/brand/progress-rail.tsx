@@ -42,7 +42,8 @@ export function ProgressRail({
                 className={cn(
                   "absolute left-[11px] top-6 h-[calc(100%-1.5rem)] w-px",
                   !forceVertical && "md:left-6 md:top-[11px] md:h-px md:w-[calc(100%-1.5rem)]",
-                  step.state === "done" ? "bg-signal" : "bg-line/15"
+                  /* A completed leg is green; one still ahead is a hairline. */
+                  step.state === "done" ? "bg-win" : "bg-line/15"
                 )}
               />
             )}
@@ -50,7 +51,8 @@ export function ProgressRail({
               aria-hidden
               className={cn(
                 "relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
-                step.state === "done" && "border-signal bg-signal",
+                /* Done is green, in progress is the brand navy — see PathwaySteps for why. */
+                step.state === "done" && "border-win bg-win",
                 step.state === "current" && "border-signal bg-paper",
                 step.state === "next" && "border-line/20 bg-paper"
               )}

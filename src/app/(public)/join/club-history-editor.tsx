@@ -84,7 +84,7 @@ export function ClubHistoryEditor({
           <div className="flex items-center justify-between gap-2">
             <p className="font-mono text-[10px] uppercase tracking-stamp text-mist/70">
               Club {index + 1}
-              {entry.current && <span className="ml-2 text-signal">· current</span>}
+              {entry.current && <span className="ml-2 text-info">· current</span>}
             </p>
             {value.length > 1 && (
               <button

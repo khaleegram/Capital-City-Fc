@@ -12,10 +12,17 @@ import { TEAM_LOGO_URL } from "@/lib/brand"
 
 /* ───────── Journey ───────── */
 
+/**
+ * Journey status.
+ *
+ * A completed journey is the club's actual output — the thing the whole model exists to produce
+ * — so it reads green rather than grey. An upcoming one is pending, which is gold. Grey for
+ * both, as it was, made "we did this" and "we haven't yet" look identical.
+ */
 export function JourneyStatusBadge({ status }: { status: Journey["status"] }) {
   if (status === "live") return <Badge variant="live"><LiveDot label={copy.journeys.live} /></Badge>
-  if (status === "upcoming") return <Badge variant="outline">{copy.journeys.upcoming}</Badge>
-  return <Badge variant="ivory">{copy.journeys.completed}</Badge>
+  if (status === "upcoming") return <Badge variant="gold">{copy.journeys.upcoming}</Badge>
+  return <Badge variant="win">{copy.journeys.completed}</Badge>
 }
 
 export function JourneyCard({ journey, className }: { journey: Journey; className?: string }) {
@@ -148,7 +155,9 @@ export function PlacementCard({ placement, className }: { placement: Placement; 
           */}
           <Badge variant={placement.type === "signed" ? "win" : "outline"}>{PLACEMENT_LABEL[placement.type]}</Badge>
           {placement.verified && (
-            <Badge variant="ivory">
+            /* Verification is a trust mark, not an achievement — blue keeps it distinct from
+               the green "Signed" chip sitting right beside it. */
+            <Badge variant="info">
               <BadgeCheck className="h-3 w-3" /> Verified
             </Badge>
           )}

@@ -201,9 +201,13 @@ export default async function PlayerPage({ params }: Props) {
                     <span
                       className={cn(
                         "absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-full border-2",
+                        /* Start is the brand; a journey is a plain marker; a placement — the
+                           outcome the academy exists for — is green; where the player is now is
+                           informational blue. */
                         t.tone === "origin" && "border-signal bg-signal text-white",
                         t.tone === "journey" && "border-line/30 bg-paper",
-                        (t.tone === "placement" || t.tone === "now") && "border-signal bg-signal"
+                        t.tone === "placement" && "border-win bg-win",
+                        t.tone === "now" && "border-info bg-info"
                       )}
                     >
                       {(t.tone === "placement" || t.tone === "now") && <Plane className="h-3 w-3 text-white" />}

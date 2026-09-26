@@ -70,7 +70,7 @@ export function LiveDiary({
             <li key={e.id} className="relative pl-8">
               <span className={`absolute left-0 top-1.5 h-[15px] w-[15px] rounded-full border-2 ${i === 0 && live ? "border-signal bg-signal" : "border-line/30 bg-paper"}`} />
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-mist/75">
-                {e.day ? <span className="text-signal">Day {e.day}</span> : null}
+                {e.day ? <span className="text-info">Day {e.day}</span> : null}
                 {e.day ? " · " : ""}
                 {live ? relative(e.createdAt) : formatDate(e.createdAt, { day: "numeric", month: "short", year: "numeric" })}
               </p>

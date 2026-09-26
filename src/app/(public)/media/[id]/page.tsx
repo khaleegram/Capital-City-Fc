@@ -77,10 +77,14 @@ export default async function MediaAssetPage({ params }: Props) {
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <Badge variant="outline">{copy.media.categories[asset.type]}</Badge>
             {asset.fixtureKind ? <Badge variant="outline">{copy.media.fixtureKinds[asset.fixtureKind]}</Badge> : null}
+            {/*
+              A score on its own doesn't say which way it went, and on a page of footage that is
+              the one thing a visitor wants to know. Same win/draw/loss colours as everywhere else.
+            */}
             {asset.scoreFor != null && asset.scoreAgainst != null ? (
-              <span className="font-mono text-xs text-mist/75">
+              <Badge variant={asset.scoreFor > asset.scoreAgainst ? "win" : asset.scoreFor === asset.scoreAgainst ? "draw" : "loss"}>
                 {asset.scoreFor}&ndash;{asset.scoreAgainst}
-              </span>
+              </Badge>
             ) : null}
             {asset.duration ? <span className="font-mono text-xs text-mist/75">{formatDuration(asset.duration)}</span> : null}
             {asset.createdAt && <span className="font-mono text-xs text-mist/75">{formatDate(asset.createdAt)}</span>}

@@ -35,7 +35,8 @@ export default async function MediaPage() {
           <section className="grid gap-5 md:grid-cols-[1.6fr_1fr] md:items-end">
             <VideoPlayer url={featured.url} poster={mediaPoster(featured)} title={featured.title} />
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-stamp text-signal">Featured · {copy.media.categories[featured.type]}</p>
+              {/* "Featured" is an editorial accolade, so it gets the gold. */}
+              <p className="font-mono text-[10px] uppercase tracking-stamp text-gold">Featured · {copy.media.categories[featured.type]}</p>
               <h2 className="mt-2 font-display text-3xl font-black uppercase leading-[0.9] font-condensed sm:text-4xl">{featured.title}</h2>
               {featured.description && <p className="mt-3 line-clamp-4 text-mist/85">{featured.description}</p>}
               <Link href={`/media/${featured.id}`} className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold">

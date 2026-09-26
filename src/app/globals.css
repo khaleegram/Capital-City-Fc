@@ -46,6 +46,20 @@
     --brand-loss: 158 32 36; /* deep red, distinct from the live red */
     --brand-draw: 71 85 105; /* neutral slate, dark enough to hold at 10px on ivory */
 
+    /*
+     * Informational blue and trophy gold.
+     *
+     * Blue is a *signal* blue, deliberately brighter than `--brand-accent`. The accent is a
+     * navy that reads as near-black at small sizes, so it cannot do the job blue normally
+     * does — marking something as information rather than brand. Reach, verification and the
+     * current step on a timeline are what it is for.
+     *
+     * Gold is for silverware and nothing else: trophies, titles, tournaments. It is the only
+     * warm colour in the set, which is what makes a trophy look like a trophy.
+     */
+    --brand-info: 29 78 216; /* blue */
+    --brand-gold: 150 90 6; /* trophy gold */
+
     --background: 45 26% 95%;
     --foreground: 222 74% 10%;
     --card: 0 0% 100%;
@@ -107,6 +121,8 @@
     --brand-win: 110 231 155;
     --brand-loss: 248 168 168;
     --brand-draw: 148 163 184;
+    --brand-info: 147 197 253;
+    --brand-gold: 252 211 77;
 
     /*
      * The shadcn variables must flip too. Without this, text that simply inherits `color`
