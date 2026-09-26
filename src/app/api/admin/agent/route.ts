@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { assertAdmin } from "@/lib/server/verify-admin"
-import { completeChat, hasModelKey, ModelUnavailable, type ChatMessage } from "@/lib/server/agent-model"
+import { completeChat, hasModelKey, ModelUnavailable, toWireToolCalls, type ChatMessage } from "@/lib/server/agent-model"
 import { openAiTools } from "@/lib/agent/tools"
 import { systemPrompt } from "@/lib/agent/system-prompt"
 
@@ -20,12 +20,13 @@ export const runtime = "nodejs"
  * ## Request size is bounded
  *
  * The conversation is attacker-controlled in the sense that it arrives from a browser, and it is
- * paid for on every turn. So it is capped before it reaches the model. The limits are generous for
- * real use — a long working session is nowhere near them — and only exist so a runaway loop cannot
- * bill an unbounded amount.
+ * paid for on every turn. So it is capped before it reaches the model. The character totals are the
+ * real bound; the message count is deliberately loose because one tool call costs two or three
+ * messages, so a working session adds them up quickly and a tight count would cut a conversation
+ * off for no benefit. The browser also trims the history it replays to a token budget.
  */
 
-const MAX_MESSAGES = 60
+const MAX_MESSAGES = 200
 const MAX_CONTENT = 20_000
 const MAX_TOTAL = 200_000
 
@@ -44,6 +45,8 @@ function parseMessages(raw: unknown): ChatMessage[] | { error: string } {
     if (!entry || typeof entry !== "object") return { error: "Each message must be an object." }
     const role = String(entry.role ?? "")
     if (!ROLES.has(role)) return { error: `Unsupported role "${role}".` }
+    // A null or missing content becomes an empty string. The protocol wants a string here, and a
+    // stored transcript can have either.
     const content = typeof entry.content === "string" ? entry.content : ""
     if (content.length > MAX_CONTENT) return { error: "A message was too long." }
     total += content.length
@@ -58,9 +61,11 @@ function parseMessages(raw: unknown): ChatMessage[] | { error: string } {
     }
 
     if (role === "assistant" && Array.isArray(entry.tool_calls) && entry.tool_calls.length) {
-      // Echoed straight back to the model as the assistant's own turn, so the shape has to survive
-      // the round trip intact or the tool results won't line up with their calls.
-      out.push({ role: "assistant", content, tool_calls: entry.tool_calls as unknown[] })
+      // The assistant's own turn, echoed back so the tool results have calls to answer. The shape
+      // has to be correct or the results won't line up with their calls.
+      const calls = toWireToolCalls(entry.tool_calls)
+      if ("error" in calls) return calls
+      out.push({ role: "assistant", content, tool_calls: calls })
       continue
     }
 

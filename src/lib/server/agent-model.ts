@@ -50,11 +50,79 @@ const MODEL = "deepseek-chat"
  */
 const DEFAULT_MAX_TOKENS = 4096
 
+/**
+ * A tool call in the shape the wire protocol requires.
+ *
+ * This is not the shape the app uses internally. The loop and the executors read a flat
+ * `{ id, name, arguments }` (see `ToolCall` below), which is convenient to work with — but OpenAI's
+ * contract, which DeepSeek implements, nests the name and arguments under `type: "function"`.
+ * Sending the flat form makes the model reject the entire request:
+ *
+ *   Failed to deserialize the JSON body into the target type: messages[62]: missing field `type`
+ *
+ * So the transport is where the two vocabularies meet, and this type is the boundary.
+ */
+export type WireToolCall = {
+  id: string
+  type: "function"
+  function: { name: string; arguments: string }
+}
+
 export type ChatMessage =
-  | { role: "system" | "user" | "assistant"; content: string; tool_calls?: unknown[] }
+  | { role: "system" | "user" | "assistant"; content: string; tool_calls?: WireToolCall[] }
   | { role: "tool"; content: string; tool_call_id: string }
 
+/** The app's own shape: flat, and what the loop passes to an executor. */
 export type ToolCall = { id: string; name: string; arguments: string }
+
+/**
+ * Converts the app's flat tool calls into the shape the wire protocol requires.
+ *
+ * The conversation is replayed from what was saved, so this input is stored data rather than
+ * something freshly generated — it may be malformed, and a single bad field fails the *whole*
+ * request with a 422 that names no tool. So every field is coerced rather than trusted:
+ *
+ * - `type: "function"` is added, because the flat app shape has no equivalent. DeepSeek rejects the
+ *   request outright without it, as "missing field `type`".
+ * - `arguments` is forced to a string. A transcript saved before this conversion existed can carry
+ *   `null` here, which fails as "invalid type: null, expected a string".
+ *
+ * Input that is already wire-shaped is accepted too, so a transcript written by either version
+ * replays. Returns an error string rather than throwing, because a malformed transcript is the
+ * operator's problem to see, not an exception to swallow.
+ */
+export function toWireToolCalls(raw: unknown[]): WireToolCall[] | { error: string } {
+  const out: WireToolCall[] = []
+
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") return { error: "A tool call must be an object." }
+    const call = entry as {
+      id?: unknown
+      name?: unknown
+      arguments?: unknown
+      function?: { name?: unknown; arguments?: unknown }
+    }
+
+    const id = typeof call.id === "string" && call.id ? call.id : null
+    const name =
+      typeof call.name === "string" && call.name
+        ? call.name
+        : typeof call.function?.name === "string" && call.function.name
+          ? call.function.name
+          : null
+    if (!id || !name) return { error: "A tool call must carry an id and a name." }
+
+    // `?? {}` catches both null and undefined; anything that is not already a string is encoded.
+    const args = call.arguments ?? call.function?.arguments
+    out.push({
+      id,
+      type: "function",
+      function: { name, arguments: typeof args === "string" ? args : JSON.stringify(args ?? {}) },
+    })
+  }
+
+  return out
+}
 
 export type CompletionResult =
   | { kind: "text"; text: string }
