@@ -295,6 +295,32 @@ export const getRecapForFixture = cached(
   [TAGS.recaps]
 )
 
+/**
+ * The published news article written about a match, if one is linked to it.
+ *
+ * The fixture page's report section has always come from `recaps`, which only exists when a match
+ * was written up through the recap tool. Every report the match hub drafts is a `news` article
+ * instead, so those were readable on the news index and nowhere on the match they were about —
+ * which is where a reader looking for the write-up goes first.
+ *
+ * `published == true` is required rather than filtered afterwards. The rules are not filters, so
+ * a query that leaves it out is rejected outright, and it is also what keeps a draft off the page.
+ *
+ * Tagged `fixtures` as well as `news`, because a match page's contents change when its article
+ * does — that is what `refreshPublic("news", "fixtures")` in the match hub busts.
+ */
+export const getArticleForFixture = cached(
+  async (fixtureId: string): Promise<NewsArticle | null> => {
+    const rows = await listDocs<NewsArticle>("news", {
+      where: [PUBLISHED, ["fixtureId", "==", fixtureId]],
+      limit: 1,
+    })
+    return rows[0] ?? null
+  },
+  "fixture-article",
+  [TAGS.news, TAGS.fixtures]
+)
+
 export const getNews = cached(
   async (): Promise<NewsArticle[]> => {
     /*

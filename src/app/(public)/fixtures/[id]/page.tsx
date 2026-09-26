@@ -5,7 +5,7 @@ import { ArrowUpRight, Route } from "lucide-react"
 import type { LiveEvent } from "@/lib/data"
 import { formatDate, toDate } from "@/lib/utils"
 import { listDocs } from "@/lib/server/firestore"
-import { getFixture, getJourneys, getMedia, getRecapForFixture, getTeam } from "@/lib/server/queries"
+import { getFixture, getJourneys, getMedia, getRecapForFixture, getArticleForFixture, getTeam } from "@/lib/server/queries"
 import { HOME_CRUMB, SOCIAL_CARD, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph, sportsEventNode } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
 import { MediaCard } from "@/components/site/cards"
@@ -14,6 +14,21 @@ import { LiveMatch } from "./live-match"
 export const revalidate = 60
 
 type Props = { params: Promise<{ id: string }> }
+
+/**
+ * The opening paragraph of an article, for the teaser.
+ *
+ * A report written from a match leads with its summary — `bodyWithSummary` puts it in the first
+ * paragraph — so the first paragraph is the lede for exactly the case this section exists for.
+ */
+function ledeOf(content: string): string {
+  return (
+    content
+      .split("\n\n")
+      .map((p) => p.trim())
+      .find((p) => p.length > 0) ?? ""
+  )
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params
@@ -37,9 +52,10 @@ export default async function MatchPage({ params }: Props) {
   const fixture = await getFixture(id)
   if (!fixture) notFound()
 
-  const [team, recap, journeys, media, events] = await Promise.all([
+  const [team, recap, report, journeys, media, events] = await Promise.all([
     getTeam(),
     getRecapForFixture(id),
+    getArticleForFixture(id),
     getJourneys(),
     getMedia(),
     listDocs<Omit<LiveEvent, "timestamp"> & { timestamp?: string }>(`fixtures/${id}/liveEvents`),
@@ -49,6 +65,7 @@ export default async function MatchPage({ params }: Props) {
   const sortedEvents = events.sort((a, b) => String(b.timestamp ?? "").localeCompare(String(a.timestamp ?? "")))
   const kickoff = toDate(fixture.date)?.toISOString()
   const crumb = { name: `vs ${fixture.opponent}`, path: `/fixtures/${id}` }
+  const lede = report ? ledeOf(report.content ?? "") : ""
 
   return (
     <article className="pt-20 md:pt-28">
@@ -96,7 +113,7 @@ export default async function MatchPage({ params }: Props) {
           initialEvents={sortedEvents}
         />
 
-        {recap && (
+        {recap ? (
           <section className="space-y-5">
             <p className="font-mono text-[11px] uppercase tracking-stamp text-mist/70">Match report</p>
             <h2 className="font-display text-4xl font-black uppercase leading-[0.9] font-condensed sm:text-5xl">{recap.headline}</h2>
@@ -107,9 +124,30 @@ export default async function MatchPage({ params }: Props) {
               <p className="font-mono text-xs uppercase tracking-[0.14em] text-mist/70">Scorers: {recap.structuredData.goalScorers.join(", ")}</p>
             )}
           </section>
-        )}
+        ) : report ? (
+          /*
+           * This match's report is a news article rather than a recap.
+           *
+           * Reports are drafted from the result and land in `news`, which the section above has
+           * never read — so every report written since has been readable on the news index and
+           * nowhere on the match it was about. The teaser links through rather than repeating the
+           * text: the article is the one place the report lives, and duplicating it would give
+           * search engines two copies of the same story to choose between.
+           */
+          <section className="space-y-5">
+            <p className="font-mono text-[11px] uppercase tracking-stamp text-mist/70">Match report</p>
+            <h2 className="font-display text-4xl font-black uppercase leading-[0.9] font-condensed sm:text-5xl">{report.headline}</h2>
+            {lede && <p className="line-clamp-3 text-lg text-mist/90">{lede}</p>}
+            <Link
+              href={`/news/${report.id}`}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line/15 px-4 text-sm font-semibold hover:border-line/40"
+            >
+              Read the full report <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </section>
+        ) : null}
 
-        {fixture.notes && !recap && <p className="text-mist/85">{fixture.notes}</p>}
+        {fixture.notes && !recap && !report && <p className="text-mist/85">{fixture.notes}</p>}
 
         {matchMedia.length > 0 && (
           <section>
