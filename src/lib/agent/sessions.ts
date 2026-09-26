@@ -39,6 +39,7 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { clean } from "@/lib/collections"
 import type { AgentMessage } from "./tools"
 
 export const SESSIONS = "agentSessions"
@@ -66,6 +67,10 @@ export type Session = {
  * Batched with the turn rather than written per item: a turn can produce ten items, and ten round
  * trips on every exchange would be felt. Batched writes are also atomic, so a half-saved turn
  * can't leave the view disagreeing with the history.
+ *
+ * Every document goes through `clean` first. It is the same guard `saveDoc` has always applied, but
+ * this writes through a batch rather than `saveDoc`, so it has to be applied by hand — and one
+ * unset optional field would otherwise fail the whole batch. See `collections.ts` for the guard.
  */
 export async function saveTurn(
   sessionId: string,
@@ -77,11 +82,11 @@ export async function saveTurn(
   const messages = collection(db, SESSIONS, sessionId, "messages")
 
   for (const item of items) {
-    batch.set(doc(messages), { ...item, at: serverTimestamp() })
+    batch.set(doc(messages), clean({ ...item, at: serverTimestamp() }) as Record<string, unknown>)
   }
   for (const message of wire) {
     // Tagged so a future change to the wire format can find the transcript it applies to.
-    batch.set(doc(messages), { kind: "wire", message, at: serverTimestamp() })
+    batch.set(doc(messages), clean({ kind: "wire", message, at: serverTimestamp() }) as Record<string, unknown>)
   }
 
   batch.set(

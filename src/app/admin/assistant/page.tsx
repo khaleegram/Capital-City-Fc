@@ -489,9 +489,19 @@ export default function AssistantPage() {
 
     // The visible message says what was attached, so the transcript still makes sense when read
     // back later and the files themselves are long gone from the composer.
+    //
+    // One object, used for both the screen and the saved copy, so the two cannot drift apart.
+    //
+    // The `files` key is omitted rather than set to `undefined` when nothing is attached. Firestore
+    // rejects an `undefined` value outright, and since a turn is saved as a single atomic batch, one
+    // unset optional field loses the whole turn — the reply, the activity log and the wire
+    // transcript a resumed conversation depends on. `{ files?: string[] }` permits an explicit
+    // `files: undefined`, so the type checker cannot catch this.
     const attached = files
-    const attachedNames = attached.length ? attached.map((f) => f.name) : undefined
-    append({ id: nextId(), kind: "user", text, files: attachedNames })
+    const attachedNames = attached.map((f) => f.name)
+    const userItem: StoredItem =
+      attachedNames.length > 0 ? { kind: "user", text, files: attachedNames } : { kind: "user", text }
+    append({ id: nextId(), ...userItem })
     setInput("")
     setFiles([])
     setRunning(true)
@@ -502,7 +512,7 @@ export default function AssistantPage() {
      * Reading it back out of React state afterwards would need the state to have settled, and a
      * turn that is stopped half-way would save a different transcript than the one on screen.
      */
-    const turnItems: StoredItem[] = [{ kind: "user", text, files: attachedNames }]
+    const turnItems: StoredItem[] = [userItem]
     const controller = new AbortController()
     abort.current = controller
 

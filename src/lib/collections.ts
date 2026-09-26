@@ -70,7 +70,12 @@ export function useDocument<T>(path: string | null, id: string | null) {
 
 /** Firestore rejects `undefined`; strip it (deeply) before writing. */
 export function clean<T>(value: T): T {
-  if (Array.isArray(value)) return value.map(clean) as T
+  /*
+   * An array element cannot simply be dropped the way an object key can: that shifts every later
+   * index, so `[a, undefined, b]` would silently become `[a, b]`. `null` holds the position and is
+   * a legal FieldValue, so the shape of the caller's data survives the round trip.
+   */
+  if (Array.isArray(value)) return value.map((entry) => (entry === undefined ? null : clean(entry))) as T
   if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value)) if (v !== undefined) out[k] = clean(v)
