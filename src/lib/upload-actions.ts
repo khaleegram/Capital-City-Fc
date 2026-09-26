@@ -5,8 +5,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { v4 as uuidv4 } from "uuid"
 import { assertAdmin } from "@/lib/server/verify-admin"
 import { r2Storage } from "@/lib/server/r2-storage"
-
-const ALLOWED_PREFIXES = ["media", "galleries", "journeys", "players", "staff", "placements", "news", "team", "fixtures"]
+import { ALLOWED_PREFIXES } from "@/lib/storage-prefixes"
 
 /** Lets the browser pick a backend before uploading, instead of guessing after a failed request. */
 export async function storageBackend(): Promise<"r2" | "firebase"> {

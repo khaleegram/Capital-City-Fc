@@ -7,6 +7,7 @@ import {
   S3Client,
   type S3ClientConfig,
 } from "@aws-sdk/client-s3"
+import { OWNED_PREFIXES } from "@/lib/storage-prefixes"
 
 /**
  * Single source of truth for talking to Cloudflare R2.
@@ -42,14 +43,39 @@ export function publicUrlFor(key: string): string {
   return `${r2Storage().publicUrl}/${key}`
 }
 
-/** Turns a public R2 URL back into its object key. Returns null for anything not in this bucket. */
+/**
+ * Recovers an object's key from its public URL. Returns null for anything not in this bucket.
+ *
+ * Matches on the key's prefix rather than on the configured host, and that distinction is the
+ * point. The host is simply whatever `R2_PUBLIC_URL` happened to be when the URL was written —
+ * it has already moved from an r2.dev endpoint to the club's own domain, and would move again
+ * if the bucket were ever re-hosted. Keys don't move. Matching on the host meant every stored
+ * URL stopped being recognised the moment that variable changed, so deletes silently did
+ * nothing and the bucket quietly accumulated orphans.
+ *
+ * The prefix check also covers what the host check used to: a key is only accepted when it sits
+ * under a prefix the club actually uploads to, so a URL pointing at some other service still
+ * returns null. Callers needing tighter scope add their own check — the public `/join` flow
+ * additionally requires the key to sit under the caller's own session prefix.
+ *
+ * Anything outside those prefixes falls back to the configured host, so behaviour is unchanged
+ * for keys that predate them.
+ */
 export function keyFromPublicUrl(url: string | undefined | null): string | null {
   if (!url) return null
   try {
+    // Derive the key from the parsed path in both branches. Using the pathname rather than
+    // slicing the raw string also drops any query string — a legacy `?alt=media&token=…`
+    // URL used to yield a key with the query still attached, which matched no real object.
+    const key = decodeURIComponent(new URL(url).pathname.replace(/^\/+/, ""))
+    if (!key) return null
+
+    if (OWNED_PREFIXES.some((prefix) => key.startsWith(`${prefix}/`))) return key
+
     const base = r2Storage().publicUrl
-    if (!url.startsWith(`${base}/`)) return null
-    return decodeURIComponent(url.slice(base.length + 1))
+    return url.startsWith(`${base}/`) ? key : null
   } catch {
+    // Unparseable URL, or R2 isn't configured. Either way this owns no key we can act on.
     return null
   }
 }
