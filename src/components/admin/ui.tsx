@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils"
 import { uploadFile } from "@/lib/admin-client"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,10 +63,6 @@ export function LoadingBlock() {
       <Loader2 className="h-6 w-6 animate-spin text-mist" />
     </div>
   )
-}
-
-export function PublishBadge({ published }: { published?: boolean }) {
-  return published ? <Badge variant="ivory">Live</Badge> : <Badge variant="outline">Draft</Badge>
 }
 
 export function ConfirmDelete({ onConfirm, label = "Delete", what = "this item" }: { onConfirm: () => Promise<void> | void; label?: string; what?: string }) {

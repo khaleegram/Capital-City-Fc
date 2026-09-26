@@ -7,7 +7,8 @@ import type { StaffGroup, StaffMember } from "@/lib/data"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { deleteFile, refreshPublic } from "@/lib/admin-client"
 import { useToast } from "@/hooks/use-toast"
-import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
+import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, UploadField } from "@/components/admin/ui"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 import { EditorSheet, ListInput, NativeSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,8 @@ export default function StaffAdmin() {
   const { items, loading } = useCollection<StaffMember>("staff", (a, b) => (a.rank ?? 99) - (b.rank ?? 99))
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [view, setView] = useState<DraftView>("published")
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(items, view)
   const [saving, setSaving] = useState(false)
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
@@ -66,8 +69,20 @@ export default function StaffAdmin() {
         <EmptyState icon={Building2} title="No staff yet" body="Until you add staff here, the public Club page shows coaches from the legacy player list." />
       ) : (
         <div className="space-y-8">
+          <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
+          {/* Every group can be empty on this tab while others are not, so the page needs its own
+              message rather than relying on the per-group `return null`. */}
+          {rows.length === 0 && (
+            <EmptyState
+              icon={Building2}
+              title={view === "drafts" ? "No drafts" : "Nothing published"}
+              body={view === "drafts" ? "Nobody here is waiting to be published." : "Publish a staff member to show them on the Club page."}
+            />
+          )}
           {GROUPS.map(([group, label]) => {
-            const people = items.filter((s) => s.group === group)
+            // The tab narrows each group rather than the whole page, so the section headings and
+            // their order survive switching between Published and Drafts.
+            const people = rows.filter((s) => s.group === group)
             if (!people.length) return null
             return (
               <section key={group}>
@@ -82,7 +97,6 @@ export default function StaffAdmin() {
                         <p className="truncate font-semibold">{s.name}</p>
                         <p className="truncate text-sm text-muted-foreground">{s.role}</p>
                       </button>
-                      <PublishBadge published={s.published} />
                       <ConfirmDelete
                         what={s.name}
                         onConfirm={async () => {

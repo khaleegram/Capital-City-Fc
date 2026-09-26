@@ -10,7 +10,8 @@ import { saveDoc, useCollection } from "@/lib/collections"
 import { slugify } from "@/lib/admin-client"
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { AdminPage, EmptyState, Field, LoadingBlock, PublishBadge } from "@/components/admin/ui"
+import { AdminPage, EmptyState, Field, LoadingBlock } from "@/components/admin/ui"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 import { EditorSheet, NativeSelect } from "@/components/admin/form-kit"
 import { JourneyStatusBadge } from "@/components/site/cards"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,8 @@ export default function JourneysAdmin() {
   const router = useRouter()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
+  const [view, setView] = useState<DraftView>("published")
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(items, view)
   const [title, setTitle] = useState("")
   const [kind, setKind] = useState<JourneyKind>("international")
   const [busy, setBusy] = useState(false)
@@ -70,7 +73,11 @@ export default function JourneysAdmin() {
         <EmptyState icon={Route} title="No journeys yet" body="Create the Gothia Cup, Dana Cup or the Abuja preseason run." />
       ) : (
         <div className="space-y-3">
-          {items.map((j) => (
+          <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
+          {rows.length === 0 ? (
+            <EmptyState icon={Route} title="Nothing here" body="No journeys in this state yet." />
+          ) : (
+            rows.map((j) => (
             <div key={j.id} className="flex items-center gap-4 rounded-2xl border border-line/10 p-3">
               <Link href={`/admin/journeys/${j.id}`} className="flex min-w-0 flex-1 items-center gap-4">
                 <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-navy-deep">
@@ -85,7 +92,6 @@ export default function JourneysAdmin() {
                 </div>
               </Link>
               <JourneyStatusBadge status={j.status} />
-              <PublishBadge published={j.published} />
               {j.status === "live" && (
                 <Button size="sm" asChild>
                   <Link href={`/admin/journeys/${j.id}?tab=diary`}>
@@ -94,7 +100,8 @@ export default function JourneysAdmin() {
                 </Button>
               )}
             </div>
-          ))}
+            ))
+          )}
         </div>
       )}
 

@@ -9,7 +9,8 @@ import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { refreshPublic } from "@/lib/admin-client"
 import { formatDate } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
+import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, UploadField } from "@/components/admin/ui"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 import { EditorSheet, NativeSelect, SwitchRow, useSquad } from "@/components/admin/form-kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,6 +44,8 @@ export default function PlacementsAdmin() {
   const router = useRouter()
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [view, setView] = useState<DraftView>("published")
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(items, view)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -104,35 +107,41 @@ export default function PlacementsAdmin() {
       ) : items.length === 0 ? (
         <EmptyState icon={Plane} title="No placements yet" body="Add the first player signed abroad." />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-line/10">
-          {items.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 border-b border-line/5 p-3 last:border-0">
-              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-navy-deep">
-                {p.playerImageUrl && <Image src={p.playerImageUrl} alt="" fill sizes="48px" className="object-cover" />}
+        <div className="space-y-4">
+          <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
+          {rows.length === 0 ? (
+            <EmptyState icon={Plane} title="Nothing here" body="No placements in this state yet." />
+          ) : (
+          <div className="overflow-hidden rounded-2xl border border-line/10">
+            {rows.map((p) => (
+              <div key={p.id} className="flex items-center gap-4 border-b border-line/5 p-3 last:border-0">
+                <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-navy-deep">
+                  {p.playerImageUrl && <Image src={p.playerImageUrl} alt="" fill sizes="48px" className="object-cover" />}
+                </div>
+                <button className="min-w-0 flex-1 text-left" onClick={() => setDraft({ ...blank(), ...p })}>
+                  <p className="flex items-center gap-2 font-semibold">
+                    {p.playerName}
+                    {p.verified && <BadgeCheck className="h-4 w-4 text-signal" aria-label="Verified" />}
+                  </p>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {p.club} · {p.country}
+                    {p.league ? ` · ${p.league}` : ""} {p.date ? ` · ${formatDate(p.date, { month: "short", year: "numeric" })}` : ""}
+                  </p>
+                </button>
+                <Badge variant="outline" className="hidden capitalize sm:inline-flex">
+                  {p.type}
+                </Badge>
+                <ConfirmDelete
+                  what="this placement"
+                  onConfirm={async () => {
+                    await removeDoc("placements", p.id)
+                    await refreshPublic("placements", "proof")
+                  }}
+                />
               </div>
-              <button className="min-w-0 flex-1 text-left" onClick={() => setDraft({ ...blank(), ...p })}>
-                <p className="flex items-center gap-2 font-semibold">
-                  {p.playerName}
-                  {p.verified && <BadgeCheck className="h-4 w-4 text-signal" aria-label="Verified" />}
-                </p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {p.club} · {p.country}
-                  {p.league ? ` · ${p.league}` : ""} {p.date ? ` · ${formatDate(p.date, { month: "short", year: "numeric" })}` : ""}
-                </p>
-              </button>
-              <Badge variant="outline" className="hidden capitalize sm:inline-flex">
-                {p.type}
-              </Badge>
-              <PublishBadge published={p.published} />
-              <ConfirmDelete
-                what="this placement"
-                onConfirm={async () => {
-                  await removeDoc("placements", p.id)
-                  await refreshPublic("placements", "proof")
-                }}
-              />
-            </div>
-          ))}
+            ))}
+          </div>
+          )}
         </div>
       )}
 

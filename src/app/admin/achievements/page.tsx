@@ -6,7 +6,8 @@ import type { Achievement, Journey } from "@/lib/data"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { refreshPublic } from "@/lib/admin-client"
 import { useToast } from "@/hooks/use-toast"
-import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge } from "@/components/admin/ui"
+import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock } from "@/components/admin/ui"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 import { EditorSheet, NativeSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,8 @@ export default function AchievementsAdmin() {
   const { items: journeys } = useCollection<Journey>("journeys")
   const { toast } = useToast()
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [view, setView] = useState<DraftView>("published")
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(items, view)
   const [saving, setSaving] = useState(false)
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
@@ -65,27 +68,33 @@ export default function AchievementsAdmin() {
       ) : items.length === 0 ? (
         <EmptyState icon={Award} title="No achievements yet" />
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-line/10">
-          {items.map((a) => (
-            <div key={a.id} className="flex items-center gap-4 border-b border-line/5 p-3 last:border-0">
-              <span className="w-14 font-mono text-sm text-mist/70">{a.year}</span>
-              <button className="min-w-0 flex-1 text-left" onClick={() => setDraft({ ...blank(), ...a })}>
-                <p className="truncate font-semibold">{a.title}</p>
-                {a.competition && <p className="truncate text-sm text-muted-foreground">{a.competition}</p>}
-              </button>
-              <Badge variant="outline" className="hidden sm:inline-flex">
-                {KINDS.find(([k]) => k === a.kind)?.[1]}
-              </Badge>
-              <PublishBadge published={a.published} />
-              <ConfirmDelete
-                what={a.title}
-                onConfirm={async () => {
-                  await removeDoc("achievements", a.id)
-                  await refreshPublic("achievements", "proof")
-                }}
-              />
-            </div>
-          ))}
+        <div className="space-y-4">
+          <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
+          {rows.length === 0 ? (
+            <EmptyState icon={Award} title="Nothing here" body="No achievements in this state yet." />
+          ) : (
+          <div className="overflow-hidden rounded-2xl border border-line/10">
+            {rows.map((a) => (
+              <div key={a.id} className="flex items-center gap-4 border-b border-line/5 p-3 last:border-0">
+                <span className="w-14 font-mono text-sm text-mist/70">{a.year}</span>
+                <button className="min-w-0 flex-1 text-left" onClick={() => setDraft({ ...blank(), ...a })}>
+                  <p className="truncate font-semibold">{a.title}</p>
+                  {a.competition && <p className="truncate text-sm text-muted-foreground">{a.competition}</p>}
+                </button>
+                <Badge variant="outline" className="hidden sm:inline-flex">
+                  {KINDS.find(([k]) => k === a.kind)?.[1]}
+                </Badge>
+                <ConfirmDelete
+                  what={a.title}
+                  onConfirm={async () => {
+                    await removeDoc("achievements", a.id)
+                    await refreshPublic("achievements", "proof")
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          )}
         </div>
       )}
 

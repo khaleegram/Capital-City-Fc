@@ -8,13 +8,16 @@ import { Images, Loader2, Plus } from "lucide-react"
 import type { Gallery } from "@/lib/data"
 import { saveDoc, useCollection } from "@/lib/collections"
 import { formatDate } from "@/lib/utils"
-import { AdminPage, EmptyState, LoadingBlock, PublishBadge } from "@/components/admin/ui"
+import { AdminPage, EmptyState, LoadingBlock } from "@/components/admin/ui"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 import { Button } from "@/components/ui/button"
 
 export default function GalleriesAdmin() {
   const { items, loading } = useCollection<Gallery>("galleries", (a, b) => (b.chapter ?? 0) - (a.chapter ?? 0))
   const router = useRouter()
   const [creating, setCreating] = useState(false)
+  const [view, setView] = useState<DraftView>("published")
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(items, view)
 
   const create = async () => {
     setCreating(true)
@@ -38,8 +41,13 @@ export default function GalleriesAdmin() {
       ) : items.length === 0 ? (
         <EmptyState icon={Images} title="No photo stories yet" />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((g) => (
+        <div className="space-y-4">
+          <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
+          {rows.length === 0 ? (
+            <EmptyState icon={Images} title="Nothing here" body="No chapters in this state yet." />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {rows.map((g) => (
             <Link key={g.id} href={`/admin/galleries/${g.id}`} className="group overflow-hidden rounded-2xl border border-line/10">
               <div className="relative aspect-[4/3] bg-navy-deep">
                 {g.photos?.[0] && <Image src={g.photos[0].url} alt="" fill sizes="33vw" className="object-cover" />}
@@ -52,10 +60,11 @@ export default function GalleriesAdmin() {
                     {g.photos?.length ?? 0} photos {g.date ? `· ${formatDate(g.date)}` : ""}
                   </p>
                 </div>
-                <PublishBadge published={g.published} />
               </div>
             </Link>
-          ))}
+              ))}
+            </div>
+          )}
         </div>
       )}
     </AdminPage>

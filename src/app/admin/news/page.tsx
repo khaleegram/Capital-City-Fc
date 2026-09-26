@@ -12,12 +12,12 @@ import Image from "next/image"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { NewsEditor } from "./_components/news-editor"
-import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, FileText, Edit, Trash2, Eye, EyeOff, Images } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { useAuth } from "@/hooks/use-auth"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 
 /**
  * One article in the admin.
@@ -141,6 +141,8 @@ export default function NewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [articleToEdit, setArticleToEdit] = useState<NewsArticle | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Published or Drafts. Published by default, so drafts only appear when asked for. */
+  const [view, setView] = useState<DraftView>("published");
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -216,8 +218,8 @@ export default function NewsPage() {
     setArticleToEdit(null);
   };
 
-  const drafts = articles.filter((a) => a.published === false)
-  const live = articles.filter((a) => a.published !== false)
+  // `rows` is whichever tab is showing; the other two are the counts the tabs need.
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(articles, view)
 
   const renderList = (rows: NewsArticle[], empty: { title: string; body: string }) => (
     <div className="space-y-6">
@@ -272,30 +274,19 @@ export default function NewsPage() {
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
       ) : (
-        <>
+        <div className="space-y-4">
           {/*
-            * Drafts sit at the top and are visually distinct, because they are work waiting to be
-            * done rather than content on the site. This is where a finished match's report lands.
+            * Drafts have their own tab rather than a section pinned above the published list.
+            * They still need to be findable — a finished match's report lands here and nothing
+            * else announces it — which is what the gold count on the tab is for.
             */}
-          {drafts.length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h2 className="text-2xl font-headline font-bold mb-1">Drafts</h2>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  Written automatically from finished matches. Read one and hit the eye to put it on the site — editing it publishes it too.
-                </p>
-                {renderList(drafts, { title: "No drafts", body: "Match reports land here when a match gets a result." })}
-              </div>
-            </>
+          <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
+          {view === "drafts" ? (
+            renderList(rows, { title: "No drafts", body: "Match reports land here when a match gets a result." })
+          ) : (
+            renderList(rows, { title: "No Articles Published", body: "Use the content workflow above to publish your first article." })
           )}
-
-          <Separator />
-          <div>
-            <h2 className="text-2xl font-headline font-bold mb-4">Published Articles</h2>
-            {renderList(live, { title: "No Articles Published", body: "Use the content workflow above to publish your first article." })}
-          </div>
-        </>
+        </div>
       )}
     </div>
   )

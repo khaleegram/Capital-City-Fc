@@ -12,7 +12,8 @@ import { syncFixtureRecords } from "@/lib/match-sync"
 import { syncMatchArticle } from "@/lib/match-hub"
 import { byNewest, cn, embedUrlFor, formatDate, formatDuration, youtubePoster } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
+import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, UploadField } from "@/components/admin/ui"
+import { DraftTabs, useDraftView, type DraftView } from "@/components/admin/draft-tabs"
 import { EditorSheet, NativeSelect, PlayerMultiSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
 import { VideoFrame } from "@/components/site/video-thumb"
 import { Button } from "@/components/ui/button"
@@ -275,6 +276,7 @@ export default function MediaAdmin() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
   const [type, setType] = useState<MediaType | "all">("all")
+  const [view, setView] = useState<DraftView>("published")
   /** Once the title has been typed by hand, auto-fill stops touching it. */
   const titleTouched = useRef(false)
 
@@ -301,7 +303,13 @@ export default function MediaAdmin() {
       if (!titleTouched.current) next.title = autoTitleFor(next) || next.title
       return next
     })
-  const rows = useMemo(() => items.filter((m) => type === "all" || m.type === type), [items, type])
+  /*
+   * The draft tab and the type filter compose, so "drafts of training footage" is a question the
+   * two controls can answer together. `byType` feeds the counts on the tabs, which keeps the tab
+   * numbers in step with whatever type is selected instead of counting the whole library.
+   */
+  const byType = useMemo(() => items.filter((m) => type === "all" || m.type === type), [items, type])
+  const { rows, published: liveCount, drafts: draftCount } = useDraftView(byType, view)
 
   const save = async () => {
     if (!draft) return
@@ -362,7 +370,8 @@ export default function MediaAdmin() {
         </Button>
       }
     >
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
         {([["all", "All"], ...TYPES] as [MediaType | "all", string][]).map(([k, label]) => (
           <button
             key={k}
@@ -380,7 +389,15 @@ export default function MediaAdmin() {
       {loading ? (
         <LoadingBlock />
       ) : rows.length === 0 ? (
-        <EmptyState icon={Clapperboard} title="No media yet" body="Upload match footage or paste a YouTube link." />
+        /*
+         * Which empty state depends on why it's empty. "No media yet" on the Drafts tab of a
+         * library with fifty clips in it would read as though everything had been deleted.
+         */
+        view === "drafts" ? (
+          <EmptyState icon={Clapperboard} title="No drafts" body="Nothing here is waiting to be published." />
+        ) : (
+          <EmptyState icon={Clapperboard} title="No media yet" body="Upload match footage or paste a YouTube link." />
+        )
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((m) => (
@@ -405,7 +422,6 @@ export default function MediaAdmin() {
                     {m.playerIds?.length ? `${m.playerIds.length} tagged` : ""} {formatDate(m.createdAt)}
                   </p>
                 </div>
-                <PublishBadge published={m.published} />
                 <ConfirmDelete
                   what={m.title}
                   onConfirm={async () => {

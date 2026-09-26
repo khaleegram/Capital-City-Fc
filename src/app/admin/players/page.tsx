@@ -15,8 +15,9 @@ import { TEAM_LOGO_URL } from "@/lib/brand"
 import { formatBytes } from "@/lib/signup-limits"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, PublishBadge, UploadField } from "@/components/admin/ui"
+import { AdminPage, ConfirmDelete, EmptyState, Field, LoadingBlock, UploadField } from "@/components/admin/ui"
 import { EditorSheet, ListInput, NativeSelect, SwitchRow, numberOrUndefined } from "@/components/admin/form-kit"
+import { DraftTabs, splitByPublished, type DraftView } from "@/components/admin/draft-tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -269,25 +270,32 @@ export default function PlayersAdmin() {
   const [saving, setSaving] = useState(false)
   const [promoting, setPromoting] = useState(false)
   const [q, setQ] = useState("")
-  const [draftsOnly, setDraftsOnly] = useState(false)
+  const [view, setView] = useState<DraftView>("published")
   const [situationFilter, setSituationFilter] = useState<PlayerSituation | "all">("all")
 
-  const awaitingReview = items.filter((p) => p.published === false)
+  // Counts for the tabs, and the rows for whichever one is showing. Memoised on `items` so the
+  // `shown` memo below isn't invalidated by a fresh pair of arrays on every render.
+  const { published: liveRows, drafts: draftRows } = useMemo(() => splitByPublished(items), [items])
+  const liveCount = liveRows.length
+  const draftCount = draftRows.length
 
   /*
+   * The situation filter narrows the tab you are on, and search narrows that again, so the three
+   * compose: "drafts, left for abroad, called Musa" is a question that can be asked.
+   *
    * Filtering on the derived situation, not on `squadStatus` directly: "left, playing abroad" is
    * a combination of two fields, and asking every caller to remember that `squadStatus: "alumni"`
    * also covers the ones who merely moved inside Nigeria is how the buckets drift apart.
    */
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    const rows = draftsOnly ? items.filter((p) => p.published === false) : items
+    const rows = view === "drafts" ? draftRows : liveRows
     const bySituation = situationFilter === "all" ? rows : rows.filter((p) => situationOf(p) === situationFilter)
     if (!needle) return bySituation
     return bySituation.filter(
       (p) => p.name.toLowerCase().includes(needle) || String(p.jerseyNumber) === needle || (p.nickname ?? "").toLowerCase().includes(needle)
     )
-  }, [items, q, draftsOnly, situationFilter])
+  }, [view, draftRows, liveRows, q, situationFilter])
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
@@ -421,17 +429,12 @@ export default function PlayersAdmin() {
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-mist/60" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, nickname or number" className="pl-9" />
         </div>
-        <button
-          type="button"
-          onClick={() => setDraftsOnly((v) => !v)}
-          aria-pressed={draftsOnly}
-          className={cn(
-            "h-11 rounded-xl border px-4 text-xs font-semibold",
-            draftsOnly ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/80 hover:border-line/40"
-          )}
-        >
-          Awaiting review{awaitingReview.length ? ` (${awaitingReview.length})` : ""}
-        </button>
+        {/*
+          Replaces the old "Awaiting review" toggle. A toggle only had an on and an off, so the
+          published squad and the drafts could never be told apart in one place — and self
+          sign-ups waiting on a person were easy to lose among the published profiles.
+        */}
+        <DraftTabs value={view} onChange={setView} published={liveCount} drafts={draftCount} />
         <div className="flex flex-wrap gap-1.5">
           {([["all", "Everyone"], ["ccfc", "Current squad"], ["nigeria", "Left · Nigeria"], ["abroad", "Left · abroad"]] as const).map(
             ([value, label]) => (
@@ -457,16 +460,16 @@ export default function PlayersAdmin() {
       ) : shown.length === 0 ? (
         <EmptyState
           icon={Users}
-          title={q || draftsOnly ? "No match" : "No players yet"}
+          title={q ? "No match" : view === "drafts" ? "No drafts" : "No players yet"}
           body={
-            draftsOnly
+            view === "drafts"
               ? "Self sign-ups from the /join page land here until you publish them."
               : q
                 ? "Try another name or number."
                 : "Add the first player to the public squad."
           }
           action={
-            !q && !draftsOnly ? (
+            !q && view === "published" ? (
               <Button onClick={() => setDraft(blank())}>
                 <Plus /> Add player
               </Button>
@@ -502,7 +505,6 @@ export default function PlayersAdmin() {
                   {SITUATION_LABEL[situationOf(p)]}
                 </span>
               )}
-              <PublishBadge published={p.published !== false} />
               <ConfirmDelete
                 what={p.name}
                 onConfirm={async () => {
