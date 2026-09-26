@@ -10,7 +10,7 @@
  */
 import type { Metadata } from "next"
 
-import { TEAM_LOGO_URL } from "@/lib/brand"
+import { TEAM_LOGO_URL, contactEmailOf } from "@/lib/brand"
 import { copy } from "@/lib/copy"
 import type { TeamProfile } from "@/lib/data"
 import { siteUrl } from "@/lib/site-url"
@@ -368,7 +368,7 @@ export function geoNode(): JsonLdNode {
 }
 
 /** The club itself — drives Google's knowledge panel and the Abuja local results. */
-export function clubNode(team?: Pick<TeamProfile, "socials">): JsonLdNode {
+export function clubNode(team?: Pick<TeamProfile, "socials" | "contactEmail">): JsonLdNode {
   return {
     "@type": ["SportsTeam", "SportsOrganization"],
     "@id": clubId(),
@@ -381,7 +381,7 @@ export function clubNode(team?: Pick<TeamProfile, "socials">): JsonLdNode {
     sport: "Association football",
     logo: { "@type": "ImageObject", url: absoluteUrl(TEAM_LOGO_URL), caption: `${SITE_NAME} crest` },
     image: absoluteUrl(TEAM_LOGO_URL),
-    email: copy.brand.email,
+    email: contactEmailOf(team),
     telephone: copy.brand.phone,
     identifier: copy.brand.legal,
     address: postalAddressNode(),
@@ -393,7 +393,7 @@ export function clubNode(team?: Pick<TeamProfile, "socials">): JsonLdNode {
       {
         "@type": "ContactPoint",
         contactType: "customer service",
-        email: copy.brand.email,
+        email: contactEmailOf(team),
         telephone: copy.brand.phone,
         areaServed: SITE_GEO.countryCode,
         availableLanguage: ["en"],
@@ -416,7 +416,7 @@ export function websiteNode(): JsonLdNode {
 }
 
 /** Site-wide graph, rendered once by the public layout. */
-export function siteGraph(team?: Pick<TeamProfile, "socials">) {
+export function siteGraph(team?: Pick<TeamProfile, "socials" | "contactEmail">) {
   return jsonLdGraph(clubNode(team), websiteNode())
 }
 

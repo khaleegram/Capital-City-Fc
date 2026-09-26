@@ -58,13 +58,19 @@ function Cell({
  * Deliberately a stack of compact blocks rather than a wizard: players fill this in on a
  * phone, and most will only ever add one or two clubs. Everything past the club name is
  * optional so an entry can be as quick as "Kaduna United, 2023/24".
+ *
+ * `showCurrent` is off when the player has already told us they are on Capital City's books. The
+ * "I play here now" box would then be asking the opposite of a question they just answered, and a
+ * player who ticked both would come out as playing for two clubs at once.
  */
 export function ClubHistoryEditor({
   value,
   onChange,
+  showCurrent = true,
 }: {
   value: ClubEntryInput[]
   onChange: (entries: ClubEntryInput[]) => void
+  showCurrent?: boolean
 }) {
   const update = (index: number, patch: Partial<ClubEntryInput>) =>
     onChange(value.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)))
@@ -200,15 +206,17 @@ export function ClubHistoryEditor({
               </Cell>
             </div>
 
-            <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line/15 px-3 py-2.5">
-              <input
-                type="checkbox"
-                checked={!!entry.current}
-                onChange={(e) => markCurrent(index, e.target.checked)}
-                className="h-4 w-4 shrink-0 accent-signal"
-              />
-              <span className="text-sm">I play here now</span>
-            </label>
+            {showCurrent && (
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line/15 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={!!entry.current}
+                  onChange={(e) => markCurrent(index, e.target.checked)}
+                  className="h-4 w-4 shrink-0 accent-signal"
+                />
+                <span className="text-sm">I play here now</span>
+              </label>
+            )}
           </div>
         </div>
       ))}

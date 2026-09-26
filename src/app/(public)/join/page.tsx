@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { ClipboardCheck, Eye, UploadCloud } from "lucide-react"
 import { copy } from "@/lib/copy"
+import { contactEmailOf } from "@/lib/brand"
+import { getTeam } from "@/lib/server/queries"
 import { pageMetadata } from "@/lib/seo"
 import { PageHero } from "@/components/site/page-hero"
 import { JoinForm } from "./join-form"
@@ -30,7 +32,10 @@ const STEPS = [
   },
 ]
 
-export default function JoinPage() {
+export default async function JoinPage() {
+  // Cached, and the layout already reads it for the footer — a lookup, not another request.
+  const email = contactEmailOf(await getTeam())
+
   return (
     <>
       <PageHero
@@ -39,7 +44,7 @@ export default function JoinPage() {
         body="One form. Everything you enter here becomes your Capital City FC player profile — the same one scouts and clubs see when they open the site."
       />
       <div className="container grid gap-10 py-10 md:py-16 lg:grid-cols-[1.6fr_1fr] lg:gap-14">
-        <JoinForm />
+        <JoinForm contactEmail={email} />
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           <div className="rounded-3xl border border-line/10 p-5">
@@ -63,7 +68,7 @@ export default function JoinPage() {
               Stuck on a question, or want to change something after submitting? Talk to the club and we&apos;ll sort it.
             </p>
             <p className="mt-3 text-sm font-semibold">{copy.brand.phone}</p>
-            <p className="text-sm text-mist/75">{copy.brand.email}</p>
+            <p className="text-sm text-mist/75">{email}</p>
             <Link href="/contact" className="mt-4 inline-flex text-sm font-semibold text-ivory underline decoration-signal decoration-2 underline-offset-4">
               Send us a message
             </Link>

@@ -43,8 +43,14 @@ const { addDoc, collection, getFirestore, serverTimestamp } = await import("fire
 const { initializeApp: adminInit, applicationDefault } = await import("firebase-admin/app")
 const { getFirestore: adminGetFirestore } = await import("firebase-admin/firestore")
 
-/** Player docs that legitimately exist in production. The run fails if this changes. */
-const EXPECTED_PLAYER_COUNT = 6
+/**
+ * Player docs that legitimately exist in production. The run fails if this changes.
+ *
+ * It drifted from 6 to 4 — two profiles were removed from the club since the number was written —
+ * and the guard did its job by failing rather than passing quietly. Update it whenever the squad
+ * genuinely changes size, or the run reports a false alarm and the real signal gets ignored.
+ */
+const EXPECTED_PLAYER_COUNT = 4
 
 // ───────────────────────────── drift guard ─────────────────────────────
 
@@ -88,6 +94,29 @@ function optional(value) {
   return trimmed ? trimmed : undefined
 }
 
+/** Verbatim from src/lib/player-status.ts. */
+function situationFields(situation) {
+  if (situation === "ccfc") return { squadStatus: "current" }
+  return { squadStatus: "alumni", movedAbroad: situation === "abroad" }
+}
+
+/**
+ * The top-level keys `submitPlayerSignup()` writes.
+ *
+ * The squad fields are set with a spread — `...situationFields(...)` — which `keysAtIndent` cannot
+ * see, so they are added here from the same helper the payload uses. A *new* field in that helper
+ * therefore still registers as drift, and whether the deployed rule tolerates these two is proved
+ * by the writes below, which go through the rule for real.
+ */
+function topLevelSignupKeys(doc) {
+  const keys = keysAtIndent(SIGNUP_SRC, 6)
+  if (/\.\.\.situationFields\(/.test(SIGNUP_SRC)) {
+    if ("squadStatus" in doc) keys.add("squadStatus")
+    if ("movedAbroad" in doc) keys.add("movedAbroad")
+  }
+  return keys
+}
+
 /** Field-for-field copy of submitPlayerSignup(). Returns the doc plus the key sets it wrote. */
 function buildPayload(input) {
   const allFiles = [input.photo, ...input.gallery, ...input.videos]
@@ -113,6 +142,12 @@ function buildPayload(input) {
 
   const current = clubHistory.find((entry) => entry.current)
 
+  // Mirrors the reconciliation in submitPlayerSignup(): a player on the club's books has no other
+  // current club, so the flag is dropped and `currentClub` is left unset.
+  const onClubBooks = input.situation === "ccfc"
+  const history = onClubBooks ? clubHistory.map((entry) => ({ ...entry, current: false })) : clubHistory
+  const currentClub = onClubBooks ? undefined : current?.club ?? history[0]?.club
+
   const doc = clean({
     name: input.name.trim(),
     nickname: optional(input.nickname),
@@ -124,14 +159,14 @@ function buildPayload(input) {
     stats: { appearances: 0, goals: 0, assists: 0 },
     strongFoot: input.strongFoot,
     careerHighlights: input.careerHighlights,
-    squadStatus: "current",
+    ...situationFields(input.situation),
     dob: input.dob,
     heightCm: input.heightCm,
     nationality: input.nationality.trim(),
     strengths: input.strengths,
     readyForNextStep: false,
-    currentClub: current?.club,
-    clubHistory: clubHistory.length ? clubHistory : undefined,
+    currentClub,
+    clubHistory: history.length ? history : undefined,
     signupSessionId: input.sessionId,
     signupGallery: input.gallery.map((f) => ({ url: f.url, bytes: f.bytes })),
     signupVideos: input.videos.map((f) => ({ url: f.url, bytes: f.bytes, name: f.name })),
@@ -142,7 +177,7 @@ function buildPayload(input) {
     updatedAt: serverTimestamp(),
   })
 
-  return { doc, clubHistoryKeys: new Set(Object.keys(clubHistory[0] ?? {})) }
+  return { doc, clubHistoryKeys: new Set(Object.keys(history[0] ?? {})) }
 }
 
 // ───────────────────────────── fixtures ─────────────────────────────
@@ -190,6 +225,7 @@ const baseInput = () => ({
   bio: "A full-fidelity probe submission used to confirm the deployed create rule accepts a real player sign-up.",
   strengths: ["Pace", "Finishing"],
   careerHighlights: ["State cup winner 2024"],
+  situation: "ccfc",
   clubHistory: [denseEntry, sparseEntry],
   sessionId: SESSION,
   photo,
@@ -253,8 +289,8 @@ console.log(`sessionId      : ${SESSION}\n`)
 
 console.log("── drift guard ──")
 {
-  const { clubHistoryKeys } = buildPayload(baseInput())
-  assertSameKeys("payload top-level keys", keysAtIndent(SIGNUP_SRC, 6), new Set(Object.keys(buildPayload(baseInput()).doc)))
+  const { doc, clubHistoryKeys } = buildPayload(baseInput())
+  assertSameKeys("payload top-level keys", topLevelSignupKeys(doc), new Set(Object.keys(doc)))
   assertSameKeys("clubHistory entry keys", keysAtIndent(SIGNUP_SRC, 8), clubHistoryKeys)
 }
 
@@ -306,6 +342,22 @@ await check("P8  optional fields omitted entirely (no nickname/highlights/curren
 await check("P9  three club entries", true, (p) => {
   while (p.clubHistory.length < 3) p.clubHistory.push({ club: `Club ${p.clubHistory.length}`, current: false, verified: false })
 })
+/*
+ * The three answers the /join form now collects. P10 and P11 are the ones that matter: before this
+ * change the rule pinned `squadStatus` to 'current', so an alumnus could not submit at all.
+ */
+await check("P10 answer: left the club, still in Nigeria", true, (p) => {
+  Object.assign(p, situationFields("nigeria"))
+  p.currentClub = p.clubHistory[0].club
+})
+await check("P11 answer: left the club, signed abroad", true, (p) => {
+  Object.assign(p, situationFields("abroad"))
+  p.currentClub = p.clubHistory[0].club
+})
+await check("P12 answer: still at Capital City (current club not set)", true, (p) => {
+  Object.assign(p, situationFields("ccfc"))
+  delete p.currentClub
+})
 
 console.log("\n── negative: MUST be rejected ──")
 await check("N1  published: true", false, (p) => { p.published = true })
@@ -332,6 +384,10 @@ await check("N14 role: 'Coach'", false, (p) => { p.role = "Coach" })
 await check("N15 clubHistory[0].club over 80 characters", false, (p) => { p.clubHistory[0].club = "x".repeat(81) })
 await check("N16 clubHistory[0].level not a valid level", false, (p) => { p.clubHistory[0].level = "Professional" })
 await check("N17 clubHistory[0].appearances = -1", false, (p) => { p.clubHistory[0].appearances = -1 })
+// A current player claiming to have moved abroad is the contradiction `movedAbroad` exists to stop.
+await check("N18 movedAbroad on a current player", false, (p) => { p.squadStatus = "current"; p.movedAbroad = true })
+await check("N19 movedAbroad as a string", false, (p) => { p.squadStatus = "alumni"; p.movedAbroad = "yes" })
+await check("N20 squadStatus outside the enum", false, (p) => { p.squadStatus = "retired" })
 
 // ── Known looseness — recorded, not asserted ─────────────────────────────────────────────
 // Indices 1..4 get only `verified == false`; the rules evaluation budget does not allow full

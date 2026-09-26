@@ -7,6 +7,7 @@ import { copy } from "@/lib/copy"
 import { ageFrom, cn } from "@/lib/utils"
 import { SIGNUP_STORAGE_LIMIT } from "@/lib/signup-limits"
 import { submitPlayerSignup, type ClubEntryInput, type SignupFoot, type SignupPosition } from "@/lib/player-signup"
+import type { PlayerSituation } from "@/lib/player-status"
 import { fetchStorageUsage, newSignupSessionId, type UploadedFile } from "@/lib/signup-upload"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -59,6 +60,53 @@ function Field({
       {children}
       {hint && <p className="text-xs text-mist/70">{hint}</p>}
     </div>
+  )
+}
+
+/** A single-select question rendered as stacked radio rows — easier to hit on a phone than a `<select>`. */
+function ChoiceGroup<T extends string>({
+  name,
+  legend,
+  hint,
+  value,
+  options,
+  onChange,
+}: {
+  name: string
+  legend: string
+  hint?: string
+  value: T | null
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}) {
+  return (
+    <fieldset className="space-y-1.5">
+      <legend className="text-sm font-medium">{legend}</legend>
+      {hint && <p className="text-xs text-mist/70">{hint}</p>}
+      <div className="grid gap-2">
+        {options.map((option) => {
+          const active = value === option.value
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+                active ? "border-signal/60 bg-signal/10" : "border-line/15 hover:border-line/30"
+              )}
+            >
+              <input
+                type="radio"
+                name={name}
+                checked={active}
+                onChange={() => onChange(option.value)}
+                className="h-4 w-4 shrink-0 accent-signal"
+              />
+              <span className="text-sm">{option.label}</span>
+            </label>
+          )
+        })}
+      </div>
+    </fieldset>
   )
 }
 
@@ -152,7 +200,8 @@ function ChipList({
   )
 }
 
-export function JoinForm() {
+/** `contactEmail` comes from the page so the failure message names the address the page shows. */
+export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: string }) {
   const [form, setForm] = useState({
     name: "",
     nickname: "",
@@ -166,6 +215,14 @@ export function JoinForm() {
   })
   // Starts with one blank block so the club fields are visible without a tap.
   const [clubHistory, setClubHistory] = useState<ClubEntryInput[]>([blankClub()])
+  /*
+   * The player's own answer to "do you play for us now?". Held as two steps rather than one
+   * three-way choice so the second question only appears when it applies, which is what a player
+   * filling this in on a phone actually benefits from. `null` means unanswered, so the submit
+   * handler can refuse rather than guess a player into the alumni list.
+   */
+  const [playsForCcfc, setPlaysForCcfc] = useState<"yes" | "no" | null>(null)
+  const [signedAbroad, setSignedAbroad] = useState<"nigeria" | "abroad" | null>(null)
   const [strengths, setStrengths] = useState<string[]>([])
   const [highlights, setHighlights] = useState<string[]>([])
   const [photo, setPhoto] = useState<UploadedFile[]>([])
@@ -181,6 +238,14 @@ export function JoinForm() {
   // One id per form load. Every file this player uploads lands under it, which is what
   // lets staff approve or discard the whole submission in one move.
   const [sessionId] = useState(() => newSignupSessionId())
+
+  /**
+   * The two answers collapsed into the one value that gets written. `null` while the player still
+   * owes us an answer, and while they do the club-history editor keeps its "I play here now" box
+   * hidden — see `showCurrent` below.
+   */
+  const situation: PlayerSituation | null =
+    playsForCcfc === "yes" ? "ccfc" : playsForCcfc === "no" ? signedAbroad : null
 
   useEffect(() => {
     let cancelled = false
@@ -224,6 +289,12 @@ export function JoinForm() {
     if (bio.length < 20) return fail("Add a short bio of at least 20 characters.")
     if (strengths.length === 0) return fail("Add at least one strength.")
     if (photo.length === 0) return fail("Upload a profile photo — it's what appears on your player page.")
+    if (situation === null)
+      return fail(
+        playsForCcfc === "no"
+          ? "Tell us where you're playing now — still in Nigeria, or abroad."
+          : "Tell us whether you play for Capital City FC right now."
+      )
 
     setState("sending")
     try {
@@ -236,6 +307,7 @@ export function JoinForm() {
         strongFoot: form.strongFoot,
         heightCm,
         jerseyNumber,
+        situation,
         clubHistory,
         bio,
         strengths,
@@ -248,7 +320,7 @@ export function JoinForm() {
       setState("sent")
     } catch (err) {
       console.error("[ccfc] player signup failed:", err)
-      fail(`Something went wrong. Email us at ${copy.brand.email} instead.`)
+      fail(`Something went wrong. Email us at ${contactEmail} instead.`)
     }
   }
 
@@ -338,7 +410,42 @@ export function JoinForm() {
               add what you know. The club verifies these before they appear on your profile.
             </p>
           </div>
-          <ClubHistoryEditor value={clubHistory} onChange={setClubHistory} />
+
+          {/*
+            Asked before the list, because the answer decides whether the list even has a current
+            club to point at. A player still with Capital City has no other club now, so the
+            editor's own "I play here now" box would contradict them.
+          */}
+          <div className="space-y-4 rounded-2xl border border-line/15 bg-ink/20 p-4">
+            <ChoiceGroup
+              name="playsForCcfc"
+              legend="Do you play for Capital City FC right now?"
+              value={playsForCcfc}
+              onChange={(value) => {
+                setPlaysForCcfc(value)
+                if (value === "yes") setSignedAbroad(null)
+              }}
+              options={[
+                { value: "yes", label: "Yes — I'm in the squad" },
+                { value: "no", label: "No — I play elsewhere" },
+              ]}
+            />
+            {playsForCcfc === "no" && (
+              <ChoiceGroup
+                name="signedAbroad"
+                legend="Where are you playing now?"
+                hint="This is how the club tells a move inside Nigeria from one abroad."
+                value={signedAbroad}
+                onChange={setSignedAbroad}
+                options={[
+                  { value: "nigeria", label: "Still in Nigeria" },
+                  { value: "abroad", label: "I've signed abroad" },
+                ]}
+              />
+            )}
+          </div>
+
+          <ClubHistoryEditor value={clubHistory} onChange={setClubHistory} showCurrent={playsForCcfc === "no"} />
         </div>
       </Section>
 

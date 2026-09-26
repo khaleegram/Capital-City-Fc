@@ -1,6 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
-import { TEAM_LOGO_URL } from "@/lib/brand"
+import { TEAM_LOGO_URL, contactEmailOf } from "@/lib/brand"
 import { copy } from "@/lib/copy"
 import { CoordStamp } from "@/components/brand/coord-stamp"
 import { moreNav, primaryNav } from "./nav-items"
@@ -8,6 +8,8 @@ import type { TeamProfile } from "@/lib/data"
 
 export function SiteFooter({ team }: { team: TeamProfile }) {
   const socials = Object.entries(team.socials ?? {}).filter(([, url]) => !!url) as [string, string][]
+  // Resolved once: the footer renders the address in a link and in the text, and they must match.
+  const email = contactEmailOf(team)
   return (
     <footer className="on-dark relative mt-24 overflow-hidden border-t border-line/10 bg-ink pb-28 pt-14 md:pb-14">
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-grid opacity-40 mask-fade-b" />
@@ -29,8 +31,8 @@ export function SiteFooter({ team }: { team: TeamProfile }) {
             <address className="space-y-1 text-sm not-italic text-mist/70">
               <p>{copy.brand.address}</p>
               <p>
-                <a className="hover:text-ivory" href={`mailto:${copy.brand.email}`}>
-                  {copy.brand.email}
+                <a className="hover:text-ivory" href={`mailto:${email}`}>
+                  {email}
                 </a>
                 {" · "}
                 <a className="hover:text-ivory" href={`tel:${copy.brand.phone.replace(/\s/g, "")}`}>

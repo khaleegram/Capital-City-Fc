@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Loader2, Save } from "lucide-react"
+import { copy } from "@/lib/copy"
 import type { TeamProfile } from "@/lib/data"
 import { updateTeamProfile } from "@/lib/team"
 import { useToast } from "@/hooks/use-toast"
@@ -16,6 +17,7 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
   const [form, setForm] = useState({
     name: profile.name,
     homeVenue: profile.homeVenue,
+    contactEmail: profile.contactEmail ?? "",
     heroImageUrl: profile.heroImageUrl ?? "",
     heroImageMobileUrl: profile.heroImageMobileUrl ?? "",
     heroVideoUrl: profile.heroVideoUrl ?? "",
@@ -29,6 +31,7 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
     setForm({
       name: profile.name,
       homeVenue: profile.homeVenue,
+      contactEmail: profile.contactEmail ?? "",
       heroImageUrl: profile.heroImageUrl ?? "",
       heroImageMobileUrl: profile.heroImageMobileUrl ?? "",
       heroVideoUrl: profile.heroVideoUrl ?? "",
@@ -48,6 +51,7 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
       await updateTeamProfile({
         name: form.name.trim() || "Capital City FC",
         homeVenue: form.homeVenue.trim(),
+        contactEmail: form.contactEmail.trim(),
         /*
          * Empty strings, not `undefined`. `clean()` drops undefined keys and the write is a
          * merge, so an omitted key leaves the previous URL in place — removing an image would
@@ -74,12 +78,25 @@ export function TeamProfileForm({ profile }: { profile: TeamProfile }) {
       </CardHeader>
       <CardContent>
         <form onSubmit={save} className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <Field label="Club name">
               <Input value={form.name} onChange={set("name")} required />
             </Field>
             <Field label="Home base">
               <Input value={form.homeVenue} onChange={set("homeVenue")} />
+            </Field>
+            {/*
+              Blank means "use the brand default", not "no email" — see `contactEmailOf`. The
+              hint says so, because an empty box that silently reverts is the kind of thing that
+              gets reported as a bug.
+            */}
+            <Field label="Contact email" hint={`Leave empty to use ${copy.brand.email}.`}>
+              <Input
+                type="email"
+                value={form.contactEmail}
+                onChange={set("contactEmail")}
+                placeholder={copy.brand.email}
+              />
             </Field>
           </div>
           <div className="grid gap-4 md:grid-cols-2">

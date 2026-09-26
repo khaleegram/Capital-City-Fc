@@ -6,6 +6,7 @@ import { ArrowUpRight, BadgeCheck, FileText, Plane } from "lucide-react"
 import { copy } from "@/lib/copy"
 import type { MediaType } from "@/lib/data"
 import { TEAM_LOGO_URL } from "@/lib/brand"
+import { situationOf } from "@/lib/player-status"
 import { ageFrom, cn, formatDate } from "@/lib/utils"
 import { getGalleries, getJourneys, getMedia, getPlacements, getPlayer } from "@/lib/server/queries"
 import { HOME_CRUMB, athleteNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
@@ -49,6 +50,7 @@ export default async function PlayerPage({ params }: Props) {
   const age = ageFrom(player.dob)
   const latest = placements[0]
   const currentClub = player.currentClub || (latest && latest.type !== "trial" ? latest.club : undefined)
+  const situation = situationOf(player)
 
   const facts: [string, string | number | undefined | null][] = [
     ["Age", age],
@@ -57,7 +59,12 @@ export default async function PlayerPage({ params }: Props) {
     ["Height", player.heightCm ? `${player.heightCm} cm` : null],
     ["Nationality", player.nationality],
     ["Cohort", player.cohort],
-    ["Current club", currentClub],
+    /*
+     * A player still with the club shows the club, not a blank. Reading `currentClub` alone left
+     * the row empty for exactly the players the club is proudest of, and it is `currentClub` that
+     * is now cleared for them — the sign-up write stops setting it once they say they are ours.
+     */
+    [situation === "ccfc" ? "Club" : "Current club", situation === "ccfc" ? "Capital City FC" : currentClub],
     ["Squad no.", player.jerseyNumber],
   ]
 
@@ -135,7 +142,8 @@ export default async function PlayerPage({ params }: Props) {
             <div className="flex flex-wrap gap-2">
               {latest && <PassportBadge label={latest.club} country={latest.country} />}
               {player.readyForNextStep && <Badge variant="win">{copy.players.readyBadge}</Badge>}
-              {player.squadStatus === "alumni" && <Badge variant="outline">Alumni</Badge>}
+              {situation === "abroad" && <Badge variant="win">Alumni · abroad</Badge>}
+              {situation === "nigeria" && <Badge variant="outline">Alumni · Nigeria</Badge>}
             </div>
             <p className="mt-4 font-mono text-xs uppercase tracking-stamp text-signal">{player.position}</p>
             <h1 className="mt-2 font-display text-[15vw] font-black uppercase leading-[0.84] tracking-tight font-condensed sm:text-7xl md:text-8xl">

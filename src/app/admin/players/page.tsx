@@ -3,7 +3,9 @@
 import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
 import { Loader2, Plus, RefreshCw, Search, UserPlus, Users, CircleCheck } from "lucide-react"
-import type { Player, PlayerClubEntry, SquadStatus } from "@/lib/data"
+import type { Player, PlayerClubEntry } from "@/lib/data"
+import { deleteField } from "firebase/firestore"
+import { SITUATION_LABEL, situationFields, situationOf, type PlayerSituation } from "@/lib/player-status"
 import { removeDoc, saveDoc, useCollection } from "@/lib/collections"
 import { approveSignupFiles, deleteFile, discardSignupFiles, refreshPublic } from "@/lib/admin-client"
 import { publishSignupMedia } from "@/lib/publish-signup"
@@ -69,7 +71,7 @@ type Draft = {
   status: NonNullable<Player["status"]>
   strongFoot: NonNullable<Player["strongFoot"]> | ""
   careerHighlights: string[]
-  squadStatus: SquadStatus
+  situation: PlayerSituation
   cohort: string
   dob: string
   heightCm?: number
@@ -100,7 +102,7 @@ const blank = (): Draft => ({
   status: "Active",
   strongFoot: "",
   careerHighlights: [],
-  squadStatus: "current",
+  situation: "ccfc",
   cohort: "",
   dob: "",
   heightCm: undefined,
@@ -140,7 +142,7 @@ function fromPlayer(p: Player): Draft {
     status: p.status ?? "Active",
     strongFoot: p.strongFoot ?? "",
     careerHighlights: p.careerHighlights ?? [],
-    squadStatus: p.squadStatus ?? (p.status === "Former Player" ? "alumni" : "current"),
+    situation: situationOf(p),
     cohort: p.cohort ?? "",
     dob: p.dob ?? "",
     heightCm: p.heightCm,
@@ -268,17 +270,24 @@ export default function PlayersAdmin() {
   const [promoting, setPromoting] = useState(false)
   const [q, setQ] = useState("")
   const [draftsOnly, setDraftsOnly] = useState(false)
+  const [situationFilter, setSituationFilter] = useState<PlayerSituation | "all">("all")
 
   const awaitingReview = items.filter((p) => p.published === false)
 
+  /*
+   * Filtering on the derived situation, not on `squadStatus` directly: "left, playing abroad" is
+   * a combination of two fields, and asking every caller to remember that `squadStatus: "alumni"`
+   * also covers the ones who merely moved inside Nigeria is how the buckets drift apart.
+   */
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const rows = draftsOnly ? items.filter((p) => p.published === false) : items
-    if (!needle) return rows
-    return rows.filter(
+    const bySituation = situationFilter === "all" ? rows : rows.filter((p) => situationOf(p) === situationFilter)
+    if (!needle) return bySituation
+    return bySituation.filter(
       (p) => p.name.toLowerCase().includes(needle) || String(p.jerseyNumber) === needle || (p.nickname ?? "").toLowerCase().includes(needle)
     )
-  }, [items, q, draftsOnly])
+  }, [items, q, draftsOnly, situationFilter])
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d))
 
@@ -354,9 +363,16 @@ export default function PlayersAdmin() {
     }
     setSaving(true)
     try {
-      const { id, strongFoot, signupSessionId, signupGallery, signupVideos, storageBytes, source, ...rest } = draft
+      const { id, strongFoot, signupSessionId, signupGallery, signupVideos, storageBytes, source, situation, ...rest } = draft
       const playerId = await saveDoc("players", id ?? null, {
         ...rest,
+        ...situationFields(situation),
+        /*
+         * A player put back on the club's books has to lose the flag, not merely stop writing it —
+         * `saveDoc` merges, so omitting the key would leave `movedAbroad: true` sitting on a
+         * current player and the next reader would have to know to ignore it.
+         */
+        ...(situation === "ccfc" ? { movedAbroad: deleteField() } : {}),
         name: rest.name.trim(),
         nickname: rest.nickname.trim() || undefined,
         imageUrl: rest.imageUrl || "",
@@ -416,6 +432,24 @@ export default function PlayersAdmin() {
         >
           Awaiting review{awaitingReview.length ? ` (${awaitingReview.length})` : ""}
         </button>
+        <div className="flex flex-wrap gap-1.5">
+          {([["all", "Everyone"], ["ccfc", "Current squad"], ["nigeria", "Left · Nigeria"], ["abroad", "Left · abroad"]] as const).map(
+            ([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setSituationFilter(value)}
+                aria-pressed={situationFilter === value}
+                className={cn(
+                  "h-11 rounded-xl border px-3 text-xs font-semibold",
+                  situationFilter === value ? "border-signal bg-signal text-signal-foreground" : "border-line/15 text-mist/80 hover:border-line/40"
+                )}
+              >
+                {label}
+              </button>
+            )
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -458,6 +492,16 @@ export default function PlayersAdmin() {
                   {p.readyForNextStep && " · Ready"}
                 </p>
               </button>
+              {situationOf(p) !== "ccfc" && (
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-stamp",
+                    situationOf(p) === "abroad" ? "border-info/40 text-info" : "border-line/25 text-mist/70"
+                  )}
+                >
+                  {SITUATION_LABEL[situationOf(p)]}
+                </span>
+              )}
               <PublishBadge published={p.published !== false} />
               <ConfirmDelete
                 what={p.name}
@@ -658,13 +702,14 @@ export default function PlayersAdmin() {
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Squad">
-                <NativeSelect<SquadStatus>
-                  value={draft.squadStatus}
-                  onChange={(v) => set("squadStatus", v)}
+              <Field label="Where are they now?" hint="Drives the badge on their public profile.">
+                <NativeSelect<PlayerSituation>
+                  value={draft.situation}
+                  onChange={(v) => set("situation", v)}
                   options={[
-                    ["current", "Current squad"],
-                    ["alumni", "Alumni"],
+                    ["ccfc", "Current squad"],
+                    ["nigeria", "Left — plays in Nigeria"],
+                    ["abroad", "Left — plays abroad"],
                   ]}
                 />
               </Field>
@@ -686,8 +731,8 @@ export default function PlayersAdmin() {
               <Field label="Nationality">
                 <Input value={draft.nationality} onChange={(e) => set("nationality", e.target.value)} />
               </Field>
-              <Field label="Current club">
-                <Input value={draft.currentClub} onChange={(e) => set("currentClub", e.target.value)} placeholder="If signed or on trial abroad" />
+              <Field label="Club they moved to" hint="Only if they've left.">
+                <Input value={draft.currentClub} onChange={(e) => set("currentClub", e.target.value)} placeholder="e.g. Hobro IK" />
               </Field>
             </div>
 

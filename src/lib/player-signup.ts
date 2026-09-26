@@ -4,6 +4,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { clean } from "./collections"
 import { db } from "./firebase"
 import type { FieldPosition, PlayerClubLevel } from "./data"
+import { situationFields, type PlayerSituation } from "./player-status"
 import type { UploadedFile } from "./signup-upload"
 
 export const SIGNUP_POSITIONS = ["Goalkeeper", "Defender", "Midfielder", "Forward"] as const
@@ -41,6 +42,12 @@ export type PlayerSignup = {
   bio: string
   strengths: string[]
   careerHighlights: string[]
+  /**
+   * The player's own answer to "do you play for Capital City now?" — `ccfc` if they are on the
+   * books, otherwise whether the club they moved to took them out of Nigeria. Drives both
+   * `squadStatus` and `movedAbroad`; see `src/lib/player-status.ts`.
+   */
+  situation: PlayerSituation
   /** Full club history, newest first. The entry marked current also sets `currentClub`. */
   clubHistory: ClubEntryInput[]
   /** Scopes the uploaded files to this submission, and proves to the rules that they are ours. */
@@ -93,6 +100,15 @@ export async function submitPlayerSignup(input: PlayerSignup): Promise<string> {
 
   const current = clubHistory.find((entry) => entry.current)
 
+  /*
+   * A player on the club's books has no other current club, so the "I play here now" flag is
+   * dropped from every entry and `currentClub` is left unset. Without this a player who answered
+   * "yes, I play for Capital City" and also ticked an old club would publish as playing for both.
+   */
+  const onClubBooks = input.situation === "ccfc"
+  const history = onClubBooks ? clubHistory.map((entry) => ({ ...entry, current: false })) : clubHistory
+  const currentClub = onClubBooks ? undefined : current?.club ?? history[0]?.club
+
   const ref = await addDoc(
     collection(db, "players"),
     clean({
@@ -106,16 +122,16 @@ export async function submitPlayerSignup(input: PlayerSignup): Promise<string> {
       stats: { appearances: 0, goals: 0, assists: 0 },
       strongFoot: input.strongFoot,
       careerHighlights: input.careerHighlights,
-      squadStatus: "current",
+      ...situationFields(input.situation),
       dob: input.dob,
       heightCm: input.heightCm,
       nationality: input.nationality.trim(),
       strengths: input.strengths,
       readyForNextStep: false,
-      // Mirrored from whichever entry is marked current, so the existing public player page
-      // and admin screen keep working without knowing about clubHistory.
-      currentClub: current?.club,
-      clubHistory: clubHistory.length ? clubHistory : undefined,
+      // Mirrored from the entry marked current, so the existing public player page and admin
+      // screen keep working without knowing about clubHistory.
+      currentClub,
+      clubHistory: history.length ? history : undefined,
       signupSessionId: input.sessionId,
       signupGallery: input.gallery.map((f) => ({ url: f.url, bytes: f.bytes })),
       signupVideos: input.videos.map((f) => ({ url: f.url, bytes: f.bytes, name: f.name })),

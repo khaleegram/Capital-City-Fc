@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { situationFields, situationOf } from "@/lib/player-status"
 import { Loader2, UploadCloud, Wand2, PlusCircle, Trash2, Save } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { ListInput, SwitchRow } from "@/components/admin/form-kit"
@@ -57,7 +58,12 @@ const playerSchema = z.object({
   }),
   careerHighlights: z.array(z.object({ value: z.string().min(1, "Highlight cannot be empty.") })).optional(),
   image: z.any().optional(),
-  squadStatus: z.enum(["current", "alumni"]),
+  /*
+   * One three-way choice rather than a squad flag plus a free-text "current club (if abroad)".
+   * Staff used to have to infer abroad-ness from the club name, which is exactly the judgement
+   * this replaces — and the same three buckets now drive the public badge and the signup review.
+   */
+  situation: z.enum(["ccfc", "nigeria", "abroad"]),
   cohort: z.string().optional(),
   dob: z.string().optional(),
   heightCm: z.preprocess((v) => (v === "" || v == null ? undefined : Number(v)), z.number().int().min(100).max(230).optional()),
@@ -102,7 +108,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
       bio: "",
       stats: { appearances: 0, goals: 0, assists: 0 },
       careerHighlights: [],
-      squadStatus: "current",
+      situation: "ccfc",
       cohort: "",
       dob: "",
       heightCm: undefined,
@@ -126,7 +132,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         status: player.status || "Active",
         strongFoot: player.strongFoot || undefined,
         careerHighlights: player.careerHighlights?.map(h => ({ value: h })) || [],
-        squadStatus: player.squadStatus ?? (player.status === "Former Player" ? "alumni" : "current"),
+        situation: situationOf(player),
         cohort: player.cohort ?? "",
         dob: player.dob ?? "",
         heightCm: player.heightCm,
@@ -149,7 +155,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         strongFoot: undefined,
         stats: { appearances: 0, goals: 0, assists: 0 },
         careerHighlights: [],
-        squadStatus: "current",
+        situation: "ccfc",
         cohort: "",
         dob: "",
         heightCm: undefined,
@@ -240,7 +246,7 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
         careerHighlights: restOfData.careerHighlights?.map(h => h.value) || [],
         status: restOfData.status,
         strongFoot: restOfData.strongFoot,
-        squadStatus: restOfData.squadStatus,
+        ...situationFields(restOfData.situation),
         cohort: restOfData.cohort,
         dob: restOfData.dob,
         heightCm: restOfData.heightCm,
@@ -444,10 +450,11 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                   <h3 className="font-display text-lg font-bold">Pathway profile</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
-                      <Label htmlFor="squadStatus">Squad</Label>
-                      <select id="squadStatus" {...register("squadStatus")} className="flex h-11 w-full rounded-xl border border-input bg-paper px-3 text-sm text-ivory">
-                        <option value="current">Current squad</option>
-                        <option value="alumni">Alumni</option>
+                      <Label htmlFor="situation">Where are they now?</Label>
+                      <select id="situation" {...register("situation")} className="flex h-11 w-full rounded-xl border border-input bg-paper px-3 text-sm text-ivory">
+                        <option value="ccfc">Current squad</option>
+                        <option value="nigeria">Left — plays in Nigeria</option>
+                        <option value="abroad">Left — plays abroad</option>
                       </select>
                     </div>
                     <div>
@@ -468,8 +475,8 @@ export function PlayerForm({ isOpen, setIsOpen, player }: PlayerFormProps) {
                       <Input id="nationality" {...register("nationality")} />
                     </div>
                     <div>
-                      <Label htmlFor="currentClub">Current club (if abroad)</Label>
-                      <Input id="currentClub" {...register("currentClub")} />
+                      <Label htmlFor="currentClub">Club they moved to</Label>
+                      <Input id="currentClub" {...register("currentClub")} placeholder="Only if they've left" />
                     </div>
                   </div>
                   <div className="space-y-1.5">

@@ -68,7 +68,7 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly([
             'name', 'nickname', 'position', 'role', 'jerseyNumber', 'imageUrl', 'bio', 'stats',
             'strongFoot', 'careerHighlights', 'squadStatus', 'dob', 'heightCm', 'nationality',
-            'strengths', 'readyForNextStep', 'currentClub', 'published', 'clubHistory',
+            'strengths', 'readyForNextStep', 'currentClub', 'movedAbroad', 'published', 'clubHistory',
             'signupSessionId', 'signupGallery', 'signupVideos', 'storageBytes', 'source',
             'createdAt', 'updatedAt'])
         && request.resource.data.keys().hasAll([
@@ -78,7 +78,15 @@ service cloud.firestore {
         && request.resource.data.source == 'signup'
         && request.resource.data.published == false
         && request.resource.data.role == 'Player'
-        && request.resource.data.squadStatus == 'current'
+        // A player may now declare that they have left the club, so this is no longer pinned to
+        // 'current'. The public site's own sign-up form decides between the two from the answer
+        // to "do you play for Capital City now?".
+        && request.resource.data.squadStatus in ['current', 'alumni']
+        // Only meaningful once they are an alumnus: a current player claiming to have moved
+        // abroad is the contradiction this field exists to prevent. Written by
+        // `situationFields()` in src/lib/player-status.ts, which omits the key for a current player.
+        && (!('movedAbroad' in request.resource.data)
+            || (request.resource.data.movedAbroad is bool && request.resource.data.squadStatus == 'alumni'))
         && request.resource.data.readyForNextStep == false
         && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 80
         && request.resource.data.position in ['Goalkeeper', 'Defender', 'Midfielder', 'Forward']

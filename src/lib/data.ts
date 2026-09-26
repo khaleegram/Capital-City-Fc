@@ -44,6 +44,15 @@ export type Player = {
   strengths?: string[];
   readyForNextStep?: boolean;
   currentClub?: string;
+  /**
+   * Whether an alumnus's move took them out of Nigeria.
+   *
+   * `squadStatus` alone said only "ours or not", which could not separate a graduate playing in
+   * Lagos from one playing in Denmark — the distinction the club actually tracks. Only meaningful
+   * when `squadStatus` is `"alumni"`; set from the player's own answer on /join and by staff in
+   * the admin player form, which must agree.
+   */
+  movedAbroad?: boolean;
   published?: boolean;
   /**
    * Set when the player submitted this profile themselves from /join.
@@ -251,6 +260,14 @@ export type TeamProfile = {
     /** Optional phone hero photo. Empty means phones use `heroImageUrl`. */
     heroImageMobileUrl?: string;
     socials?: { instagram?: string; tiktok?: string; youtube?: string; x?: string };
+    /**
+     * Public contact address, editable in /admin/settings.
+     *
+     * Unset means "use the brand default" rather than "no email" — the constant in `copy.ts` stays
+     * the single fallback so a site with no override still shows one, and every reader resolves it
+     * through `contactEmailOf()` rather than reaching for the constant directly.
+     */
+    contactEmail?: string;
     /** Manual override; any field left empty falls back to the computed value. */
     proofStats?: Partial<ProofStats> | null;
 };

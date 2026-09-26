@@ -22,6 +22,7 @@ export const getTeamProfile = async (): Promise<TeamProfile> => {
     heroImageUrl: data.heroImageUrl,
     heroImageMobileUrl: data.heroImageMobileUrl,
     socials: data.socials,
+    contactEmail: data.contactEmail,
     proofStats: data.proofStats ?? null,
   }
 }

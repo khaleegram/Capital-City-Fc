@@ -34,7 +34,7 @@
  * the same way but logged, since it means a bug rather than a bad instruction.
  */
 
-import { collection, doc, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore"
+import { collection, doc, getDocs, query, where, addDoc, serverTimestamp, deleteField } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { addFixtureAndArticle, deleteFixture, postLiveUpdate, updateFixture } from "@/lib/fixtures"
 import { addNewsArticle, deleteNewsArticle, setArticlePublished } from "@/lib/news"
@@ -50,6 +50,7 @@ import { generateJourneyEntry } from "@/ai/flows/generate-journey-entry"
 import { generateSocialPost } from "@/ai/flows/generate-social-post"
 import { getTeamProfile } from "@/lib/team"
 import { saveDoc } from "@/lib/collections"
+import { situationFields } from "@/lib/player-status"
 import { toDate } from "@/lib/utils"
 import type { Achievement, Fixture, FixtureKind, Journey, JourneySquadMember, NewsArticle, Placement, Player, StaffMember } from "@/lib/data"
 import type { ToolOutcome } from "./tools"
@@ -1314,7 +1315,18 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     put("nationality", optString(a, "nationality"))
     put("bio", optString(a, "bio"))
     put("currentClub", optString(a, "current_club"))
-    put("squadStatus", optString(a, "squad_status"))
+    /*
+     * One argument in, two fields out. The model used to set `squad_status` on its own, which now
+     * means "left, and playing in Nigeria" for anyone it marked as an alumnus — a graduate at a
+     * European club would have been filed as though they had stayed home. `situationFields` is the
+     * same mapping the profile form uses, so the assistant cannot invent a fourth combination.
+     */
+    const situation = optString(a, "situation")
+    if (situation === "ccfc" || situation === "nigeria" || situation === "abroad") {
+      Object.assign(patch, situationFields(situation))
+      // Merging would otherwise leave a stale `movedAbroad: true` on someone back on the books.
+      if (situation === "ccfc") patch.movedAbroad = deleteField()
+    }
     if (typeof a.publish === "boolean") put("published", a.publish)
 
     const image = resolveAttachmentSource(a, ctx)

@@ -582,8 +582,11 @@ export const TOOLS: ToolSpec[] = [
         height_cm: num("Optional."),
         nationality: str("Optional."),
         bio: str("Optional."),
-        current_club: str("Set when the player has moved on. Optional."),
-        squad_status: str("Their standing in the pathway, if they have one. Optional."),
+        current_club: str("The club they moved to, if they have left Capital City. Optional."),
+        situation: enums(
+          ["ccfc", "nigeria", "abroad"],
+          "Where they are now: still with the club, left for a Nigerian club, or left for a club abroad. Optional."
+        ),
         image_attachment: str("Exact file name of a photo attached to the message, to replace their picture."),
         publish: bool("Set true to put the profile on the public site, false to pull it back to a draft."),
       },

@@ -53,6 +53,7 @@ export const getTeam = cached(
       heroImageUrl: doc?.heroImageUrl,
       heroImageMobileUrl: doc?.heroImageMobileUrl,
       socials: doc?.socials,
+      contactEmail: doc?.contactEmail,
       proofStats: doc?.proofStats ?? null,
     }
   },

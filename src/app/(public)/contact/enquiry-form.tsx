@@ -23,7 +23,11 @@ const PROMPTS: Record<EnquiryRole, string> = {
   media: "Your outlet, deadline and what you're working on.",
 }
 
-export function EnquiryForm() {
+/**
+ * `contactEmail` is passed in rather than read from the constant so the fallback address matches
+ * whatever /admin/settings currently shows on the page around it.
+ */
+export function EnquiryForm({ contactEmail = copy.brand.email }: { contactEmail?: string }) {
   const params = useSearchParams()
   const initialRole = (params.get("role") as EnquiryRole) || "scout"
   const playerId = params.get("player")
@@ -67,7 +71,7 @@ export function EnquiryForm() {
       setState("sent")
     } catch (err) {
       console.error(err)
-      setError(`Something went wrong. Email us at ${copy.brand.email} instead.`)
+      setError(`Something went wrong. Email us at ${contactEmail} instead.`)
       setState("error")
     }
   }

@@ -9,7 +9,7 @@ export const copy = {
     masterLine: "From Abuja. Built for the World.",
     descriptor: "An international player-development pathway from Abuja, Nigeria.",
     origin: { code: "ABJ", city: "Abuja", country: "Nigeria", lat: 9.0765, lng: 7.3986 },
-    email: "info@capitalcityfc.ng",
+    email: "kaiya1900@gmail.com",
     phone: "0807 600 2414",
     address: "Suite 33.2, Moshood Abiola Way, National Stadium, Abuja",
     legal: "Capital City FC Ltd · RC 1838954",

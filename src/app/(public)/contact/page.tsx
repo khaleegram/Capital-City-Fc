@@ -2,6 +2,8 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import { Mail, MapPin, Phone } from "lucide-react"
 import { copy } from "@/lib/copy"
+import { contactEmailOf } from "@/lib/brand"
+import { getTeam } from "@/lib/server/queries"
 import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
@@ -9,18 +11,23 @@ import { EnquiryForm } from "./enquiry-form"
 
 export const metadata: Metadata = pageMetadata("contact", "/contact")
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  // Cached, and the layout already reads it for the footer — so this costs a lookup, not a request.
+  const team = await getTeam()
+  const email = contactEmailOf(team)
+
   return (
     <>
       <JsonLd data={pageGraph({ path: "/contact", name: PAGE_SEO.contact.title, description: PAGE_SEO.contact.description, type: "ContactPage" })} />
       <PageHero eyebrow={copy.contact.eyebrow} title={copy.contact.title} body={copy.contact.body} />
       <div className="container grid gap-12 py-10 md:py-16 lg:grid-cols-[1.4fr_1fr]">
         <Suspense>
-          <EnquiryForm />
+          {/* So the "something went wrong" fallback names the same address the page shows. */}
+          <EnquiryForm contactEmail={email} />
         </Suspense>
         <aside className="space-y-3">
           {[
-            { icon: Mail, label: "Email", value: copy.brand.email, href: `mailto:${copy.brand.email}` },
+            { icon: Mail, label: "Email", value: email, href: `mailto:${email}` },
             { icon: Phone, label: "Phone / WhatsApp", value: copy.brand.phone, href: `tel:${copy.brand.phone.replace(/\s/g, "")}` },
             { icon: MapPin, label: "Office", value: copy.brand.address },
           ].map(({ icon: Icon, label, value, href }) => {
