@@ -30,7 +30,7 @@
 import { auth } from "@/lib/firebase"
 import { EXECUTORS, ToolFailure, type Attachment, type ToolContext } from "./tool-executors"
 import { beginJournal, isUndoable, recordAction, undoNote } from "./journal"
-import { TOOL_BY_NAME, type AgentMessage, type ToolCall, type ToolOutcome } from "./tools"
+import { TOOL_BY_NAME, trimHistory, type AgentMessage, type ToolCall, type ToolOutcome } from "./tools"
 
 /** How many model↔tool rounds one request may take before the loop gives up and says so. */
 const MAX_STEPS = 12
@@ -141,7 +141,7 @@ export async function runAgent({
   for (let step = 0; step < MAX_STEPS; step++) {
     let response
     try {
-      response = await callModel([...history, ...assistant], operator, signal)
+      response = await callModel([...trimHistory(history), ...assistant], operator, signal)
     } catch (err) {
       // A stop is a deliberate act, not a failure — reporting it as an error would be noise.
       if (signal?.aborted) return assistant

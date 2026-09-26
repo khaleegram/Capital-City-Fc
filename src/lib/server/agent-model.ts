@@ -31,8 +31,24 @@ import "server-only"
 
 const ENDPOINT = "https://api.deepseek.com/chat/completions"
 
-/** V3. Tool calling is supported by `deepseek-chat`; `deepseek-reasoner` does not support it. */
+/**
+ * Tool calling is supported by `deepseek-chat`; `deepseek-reasoner` does not support it.
+ *
+ * `deepseek-chat` is a retired alias that still resolves to `deepseek-flash` in its *non-thinking*
+ * mode. Naming that model directly would flip it into thinking mode by default, which bills
+ * reasoning tokens at the output rate — roughly ten times the cost of a long answer. Leave the
+ * alias in place unless you have verified the replacement model's behaviour end to end.
+ */
 const MODEL = "deepseek-chat"
+
+/**
+ * Ceiling on one reply, in tokens.
+ *
+ * Output is the most expensive line on the bill and was previously unbounded, so a single runaway
+ * generation could outspend a whole day of ordinary use. 4096 is comfortably above the longest
+ * report the writers produce and well below the model's own limit.
+ */
+const DEFAULT_MAX_TOKENS = 4096
 
 export type ChatMessage =
   | { role: "system" | "user" | "assistant"; content: string; tool_calls?: unknown[] }
@@ -59,7 +75,7 @@ export function hasModelKey() {
 export async function completeChat(
   messages: ChatMessage[],
   tools: unknown[],
-  opts: { timeoutMs?: number } = {}
+  opts: { timeoutMs?: number; maxTokens?: number } = {}
 ): Promise<CompletionResult> {
   const key = process.env.DEEPSEEK_API_KEY
   if (!key) throw new ModelUnavailable("DEEPSEEK_API_KEY is not configured for this deployment.")
@@ -81,6 +97,9 @@ export async function completeChat(
         // Low but not zero: the writer should be dry and factual, and the agent must not get
         // creative with arguments. Determinism is not achievable through this API anyway.
         temperature: 0.2,
+        // Verified against the live API: DeepSeek accepts `max_tokens` here and reports
+        // `finish_reason: "length"` when the reply is cut short.
+        max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
       }),
     })
   } catch (err) {
@@ -105,7 +124,10 @@ export async function completeChat(
   }
 
   const json = (await res.json()) as {
-    choices?: { message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] } }[]
+    choices?: {
+      message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] }
+      finish_reason?: string
+    }[]
   }
   const message = json.choices?.[0]?.message
   if (!message) throw new ModelUnavailable("DeepSeek returned an empty response.")
@@ -119,5 +141,13 @@ export async function completeChat(
     arguments: typeof c.function?.arguments === "string" ? c.function.arguments : JSON.stringify(c.function?.arguments ?? {}),
   }))
 
-  return calls.length ? { kind: "tools", calls, text } : { kind: "text", text }
+  /*
+   * A reply that hit the cap is incomplete, and an incomplete report read as a finished one is
+   * worse than no report. The note travels with the text rather than being logged, so it reaches
+   * both the person and the transcript, and the model knows on the next turn that it was cut off.
+   */
+  const truncated = json.choices?.[0]?.finish_reason === "length"
+  const finalText = truncated ? `${text}\n\n_[Cut off at the ${opts.maxTokens ?? DEFAULT_MAX_TOKENS}-token reply limit. Ask me to continue.]_` : text
+
+  return calls.length ? { kind: "tools", calls, text: finalText } : { kind: "text", text: finalText }
 }

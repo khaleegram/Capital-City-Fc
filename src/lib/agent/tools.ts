@@ -64,6 +64,52 @@ export type AgentMessage =
   | { role: "assistant"; content: string; tool_calls?: ToolCall[] }
   | { role: "tool"; content: string; tool_call_id: string }
 
+/* ───────────────────────── replay trimming ───────────────────────── */
+
+/**
+ * Ceiling on the conversation replayed to the model, in tokens.
+ *
+ * History is resent in full on every step of the agent loop, so an unbounded session makes each
+ * request cost more than the last — and a long session that misses the prompt cache can bill a
+ * large multiple of the fixed per-call overhead in a single request. The loop's step ceiling
+ * bounds the multiplier; this bounds the multiplicand.
+ *
+ * Only the *replay* is capped. The stored session keeps every message, so nothing is lost from the
+ * transcript the operator reads or from the Changes history. What the assistant forgets is
+ * context for one request, and it can re-read anything with a tool.
+ */
+export const HISTORY_TOKEN_BUDGET = 20_000
+
+/** Rough token count for one message, deliberately erring high so the budget is not overshot. */
+export function estimateTokens(message: AgentMessage): number {
+  let chars = message.content?.length ?? 0
+  if ("tool_calls" in message && message.tool_calls) chars += JSON.stringify(message.tool_calls).length
+  return Math.ceil(chars / 3.8) + 4
+}
+
+/**
+ * Keep the most recent turns that fit the budget.
+ *
+ * Trimming by message count alone would break the wire protocol. A `tool` message is only valid
+ * directly after the `assistant` message that requested it, so a transcript that opens on a tool
+ * result is rejected by the model, and a `tool_call_id` with no matching call is worse than a
+ * short conversation. So after taking the tail we walk forward to the first `user` message, which
+ * is the only position a transcript may legally start at.
+ */
+export function trimHistory(history: AgentMessage[], budget = HISTORY_TOKEN_BUDGET): AgentMessage[] {
+  let total = 0
+  let start = history.length
+  for (let i = history.length - 1; i >= 0; i--) {
+    const next = total + estimateTokens(history[i])
+    if (next > budget) break
+    total = next
+    start = i
+  }
+  // A budget can land mid-turn; rewind to the boundary rather than sending a broken transcript.
+  while (start < history.length && history[start].role !== "user") start++
+  return history.slice(start)
+}
+
 /** What one tool did, for the activity feed the person reads. */
 export type ToolOutcome = {
   ok: boolean
