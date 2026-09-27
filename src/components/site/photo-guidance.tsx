@@ -3,13 +3,14 @@
 import Image from "next/image"
 import { Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 type Example = { src: string; alt: string; label: string; points: string[]; good: boolean }
 
 const EXAMPLES: Example[] = [
   {
     src: "/join/good-example.jpg",
-    alt: "A Capital City FC player photographed in club kit, head and shoulders, against a plain background",
+    alt: "Baba Saidu Audu, a Capital City FC forward, photographed looking at the camera — the standard for a profile photo",
     label: "Like this",
     points: ["Club kit on", "Head and shoulders, clearly visible", "Plain background, good light"],
     good: true,
@@ -44,25 +45,51 @@ export function PhotoGuidance({ onContinue, onCancel }: { onContinue: () => void
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {EXAMPLES.map((example) => (
-          <figure key={example.src} className="overflow-hidden rounded-xl border border-line/15">
+          <figure
+            key={example.src}
+            className={cn(
+              "overflow-hidden rounded-xl border",
+              // A red ring on the bad example, so the verdict reads from the frame itself and not
+              // only from the corner badge — the badge is small on a phone.
+              example.good ? "border-line/15" : "border-loss/60 ring-1 ring-loss/40"
+            )}
+          >
             <div className="relative aspect-[4/5] bg-ink/40">
               <Image
                 src={example.src}
                 alt={example.alt}
                 fill
                 sizes="(min-width: 640px) 22rem, 100vw"
-                className="object-cover object-top"
+                className={cn(
+                  "object-cover object-top",
+                  // Slightly drained colour on the bad example. It is the one visual cue that
+                  // survives a glance, and it leaves the photo readable rather than covering it.
+                  !example.good && "grayscale-[45%]"
+                )}
               />
               <span
-                className={
-                  example.good
-                    ? "absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-signal px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
-                    : "on-dark absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-ink/85 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ivory"
-                }
+                className={cn(
+                  "absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white",
+                  example.good ? "bg-signal" : "bg-loss"
+                )}
               >
                 {example.good ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                 {example.label}
               </span>
+              {/*
+                The bad sign itself. Deliberately large and centred: the corner badge alone was
+                easy to miss next to a photo whose whole point is that it looks fine at a glance.
+              */}
+              {!example.good && (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                >
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-loss/90 shadow-lg ring-4 ring-white/70">
+                    <X className="h-9 w-9 text-white" strokeWidth={3.5} />
+                  </span>
+                </span>
+              )}
             </div>
             <figcaption className="p-3">
               <ul className="space-y-1 text-xs text-mist/80">
