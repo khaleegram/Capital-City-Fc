@@ -3,31 +3,26 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { clean } from "./collections"
 import { db } from "./firebase"
-import type { FieldPosition, PlayerClubLevel } from "./data"
 import { situationFields, type PlayerSituation } from "./player-status"
 import type { UploadedFile } from "./signup-upload"
 
 export const SIGNUP_POSITIONS = ["Goalkeeper", "Defender", "Midfielder", "Forward"] as const
 export const SIGNUP_FEET = ["Right", "Left", "Both"] as const
-export const SIGNUP_CLUB_LEVELS = ["Youth", "Academy", "Senior"] as const
 
 export type SignupPosition = (typeof SIGNUP_POSITIONS)[number]
 export type SignupFoot = (typeof SIGNUP_FEET)[number]
-export type SignupClubLevel = PlayerClubLevel
 
-/** A single club as typed into the form. Everything is optional except the club name. */
-export type ClubEntryInput = {
+/**
+ * The club a departed player is with now.
+ *
+ * This replaced a list of up to five clubs with ten fields each. The club never wanted the
+ * history — only who a player is with once they have left — and the history was never rendered
+ * on a public profile anyway, so most of it was effort nobody read. See the note on
+ * `PlayerSignup.currentClub`.
+ */
+export type CurrentClubInput = {
   club: string
-  league?: string
-  division?: string
   country?: string
-  seasons?: string
-  current?: boolean
-  level?: SignupClubLevel
-  appearances?: number
-  goals?: number
-  assists?: number
-  position?: FieldPosition
 }
 
 export type PlayerSignup = {
@@ -48,8 +43,12 @@ export type PlayerSignup = {
    * `squadStatus` and `movedAbroad`; see `src/lib/player-status.ts`.
    */
   situation: PlayerSituation
-  /** Full club history, newest first. The entry marked current also sets `currentClub`. */
-  clubHistory: ClubEntryInput[]
+  /**
+   * The club they are with now. Only asked, and only present, when `situation` is not `ccfc` —
+   * a player on the club's books has no other current club to name. Mirrors into `currentClub`,
+   * which is the field the public profile reads.
+   */
+  currentClub?: CurrentClubInput
   /** Scopes the uploaded files to this submission, and proves to the rules that they are ours. */
   sessionId: string
   photo: UploadedFile
@@ -77,37 +76,33 @@ function optional(value: string | undefined) {
 export async function submitPlayerSignup(input: PlayerSignup): Promise<string> {
   const allFiles = [input.photo, ...input.gallery, ...input.videos]
 
-  // `verified: false` is written on every entry and cannot be set by a player — the rule
-  // rejects the write otherwise, so nobody can present an unconfirmed claim as confirmed.
-  const clubHistory = input.clubHistory
-    .filter((entry) => entry.club.trim().length > 0)
-    .map((entry) =>
-      clean({
-        club: entry.club.trim(),
-        league: optional(entry.league),
-        division: optional(entry.division),
-        country: optional(entry.country),
-        seasons: optional(entry.seasons),
-        current: !!entry.current,
-        level: entry.level,
-        appearances: entry.appearances,
-        goals: entry.goals,
-        assists: entry.assists,
-        position: entry.position,
-        verified: false,
-      })
-    )
-
-  const current = clubHistory.find((entry) => entry.current)
-
   /*
-   * A player on the club's books has no other current club, so the "I play here now" flag is
-   * dropped from every entry and `currentClub` is left unset. Without this a player who answered
-   * "yes, I play for Capital City" and also ticked an old club would publish as playing for both.
+   * `clubHistory` stays a list of one, even though the form now only ever collects a single
+   * club. The stored shape is what the staff review panel reads and what the public `create`
+   * rule validates in firestore.rules, and neither is worth churning for a list that is never
+   * longer than one entry.
+   *
+   * `verified: false` is written on every entry and cannot be set by a player — the rule
+   * rejects the write otherwise, so nobody can present an unconfirmed claim as confirmed.
    */
   const onClubBooks = input.situation === "ccfc"
-  const history = onClubBooks ? clubHistory.map((entry) => ({ ...entry, current: false })) : clubHistory
-  const currentClub = onClubBooks ? undefined : current?.club ?? history[0]?.club
+  const club = optional(input.currentClub?.club)
+  /*
+   * Named `clubEntries`, not `clubHistory` and never `history`: `history` is the browser's global
+   * `History` object, so a typo there typechecks and writes window.history under the clubHistory
+   * key, which the rules then reject.
+   */
+  const clubEntries =
+    !onClubBooks && club
+      ? [clean({ club, country: optional(input.currentClub?.country), current: true, verified: false })]
+      : []
+
+  /*
+   * A player on the club's books has no other current club, so `currentClub` is left unset —
+   * this is what stops someone who answered "yes, I play for Capital City" publishing as
+   * playing for two clubs at once.
+   */
+  const currentClub = onClubBooks ? undefined : club
 
   const ref = await addDoc(
     collection(db, "players"),
@@ -128,10 +123,10 @@ export async function submitPlayerSignup(input: PlayerSignup): Promise<string> {
       nationality: input.nationality.trim(),
       strengths: input.strengths,
       readyForNextStep: false,
-      // Mirrored from the entry marked current, so the existing public player page and admin
-      // screen keep working without knowing about clubHistory.
+      // Mirrored from the club they told us they are with now, so the public player page —
+      // which reads `currentClub` — shows it without knowing about clubHistory.
       currentClub,
-      clubHistory: history.length ? history : undefined,
+      clubHistory: clubEntries.length ? clubEntries : undefined,
       signupSessionId: input.sessionId,
       signupGallery: input.gallery.map((f) => ({ url: f.url, bytes: f.bytes })),
       signupVideos: input.videos.map((f) => ({ url: f.url, bytes: f.bytes, name: f.name })),

@@ -637,8 +637,9 @@ export default function PlayersAdmin() {
                       Club history · {draft.clubHistory.length} {draft.clubHistory.length === 1 ? "club" : "clubs"}
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                      Stated by the player, so nothing here is confirmed yet. Tick each club you can
-                      verify, then Save — the public profile only ever shows verified clubs.
+                      Stated by the player. The club they are with now shows on their public profile as
+                      their current club. Ticking Verified records that you have checked it — it does
+                      not change what is published.
                     </p>
                     <ul className="mt-2 space-y-2">
                       {draft.clubHistory.map((club, i) => (

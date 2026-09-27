@@ -6,7 +6,7 @@ import { CheckCircle2, Loader2, Plus, Send, X } from "lucide-react"
 import { copy } from "@/lib/copy"
 import { ageFrom, cn } from "@/lib/utils"
 import { SIGNUP_STORAGE_LIMIT } from "@/lib/signup-limits"
-import { submitPlayerSignup, type ClubEntryInput, type SignupFoot, type SignupPosition } from "@/lib/player-signup"
+import { submitPlayerSignup, type CurrentClubInput, type SignupFoot, type SignupPosition } from "@/lib/player-signup"
 import type { PlayerSituation } from "@/lib/player-status"
 import { fetchStorageUsage, newSignupSessionId, type UploadedFile } from "@/lib/signup-upload"
 import { Button } from "@/components/ui/button"
@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { PhotoGuidance } from "@/components/site/photo-guidance"
-import { ClubHistoryEditor, blankClub } from "./club-history-editor"
 import { FilePicker, StorageMeter, type Usage } from "./upload-controls"
 
 const POSITIONS: [SignupPosition, string][] = [
@@ -213,8 +212,6 @@ export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: s
     jerseyNumber: "",
     bio: "",
   })
-  // Starts with one blank block so the club fields are visible without a tap.
-  const [clubHistory, setClubHistory] = useState<ClubEntryInput[]>([blankClub()])
   /*
    * The player's own answer to "do you play for us now?". Held as two steps rather than one
    * three-way choice so the second question only appears when it applies, which is what a player
@@ -223,6 +220,12 @@ export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: s
    */
   const [playsForCcfc, setPlaysForCcfc] = useState<"yes" | "no" | null>(null)
   const [signedAbroad, setSignedAbroad] = useState<"nigeria" | "abroad" | null>(null)
+  /*
+   * The one club fact collected: where they went. Held as plain strings rather than a club
+   * entry, because there is only ever one and every other club field was effort nobody read.
+   */
+  const [clubName, setClubName] = useState("")
+  const [clubCountry, setClubCountry] = useState("")
   const [strengths, setStrengths] = useState<string[]>([])
   const [highlights, setHighlights] = useState<string[]>([])
   const [photo, setPhoto] = useState<UploadedFile[]>([])
@@ -295,6 +298,8 @@ export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: s
           ? "Tell us where you're playing now — still in Nigeria, or abroad."
           : "Tell us whether you play for Capital City FC right now."
       )
+    if (situation !== "ccfc" && clubName.trim().length === 0)
+      return fail("Tell us which club you're at now.")
 
     setState("sending")
     try {
@@ -308,7 +313,10 @@ export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: s
         heightCm,
         jerseyNumber,
         situation,
-        clubHistory,
+        currentClub:
+          situation === "ccfc"
+            ? undefined
+            : ({ club: clubName, country: clubCountry } satisfies CurrentClubInput),
         bio,
         strengths,
         careerHighlights: highlights,
@@ -404,18 +412,13 @@ export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: s
 
         <div className="mt-6 space-y-3 border-t border-line/10 pt-6">
           <div>
-            <p className="text-sm font-medium">Clubs you&apos;ve played for</p>
+            <p className="text-sm font-medium">Where you play now</p>
             <p className="mt-1 text-xs text-mist/70">
-              Start with the club you&apos;re at now and work backwards. Only the club name is needed —
-              add what you know. The club verifies these before they appear on your profile.
+              So the club knows who&apos;s still with us and who has moved on. If you&apos;re no longer with
+              Capital City, we only need the club you&apos;re at now.
             </p>
           </div>
 
-          {/*
-            Asked before the list, because the answer decides whether the list even has a current
-            club to point at. A player still with Capital City has no other club now, so the
-            editor's own "I play here now" box would contradict them.
-          */}
           <div className="space-y-4 rounded-2xl border border-line/15 bg-ink/20 p-4">
             <ChoiceGroup
               name="playsForCcfc"
@@ -423,29 +426,58 @@ export function JoinForm({ contactEmail = copy.brand.email }: { contactEmail?: s
               value={playsForCcfc}
               onChange={(value) => {
                 setPlaysForCcfc(value)
-                if (value === "yes") setSignedAbroad(null)
+                // Switching to "yes" retracts the answers that only apply to a departed player,
+                // so a half-filled club block can't be submitted behind them.
+                if (value === "yes") {
+                  setSignedAbroad(null)
+                  setClubName("")
+                  setClubCountry("")
+                }
               }}
               options={[
                 { value: "yes", label: "Yes — I'm in the squad" },
                 { value: "no", label: "No — I play elsewhere" },
               ]}
             />
+
             {playsForCcfc === "no" && (
-              <ChoiceGroup
-                name="signedAbroad"
-                legend="Where are you playing now?"
-                hint="This is how the club tells a move inside Nigeria from one abroad."
-                value={signedAbroad}
-                onChange={setSignedAbroad}
-                options={[
-                  { value: "nigeria", label: "Still in Nigeria" },
-                  { value: "abroad", label: "I've signed abroad" },
-                ]}
-              />
+              <>
+                <Field label="Which club are you at now?" htmlFor="clubName" required>
+                  <Input
+                    id="clubName"
+                    maxLength={80}
+                    value={clubName}
+                    onChange={(e) => setClubName(e.target.value)}
+                    placeholder="e.g. Kaduna United"
+                  />
+                </Field>
+
+                <ChoiceGroup
+                  name="signedAbroad"
+                  legend="Where is that club?"
+                  hint="This is how the club tells a move inside Nigeria from one abroad."
+                  value={signedAbroad}
+                  onChange={setSignedAbroad}
+                  options={[
+                    { value: "nigeria", label: "In Nigeria" },
+                    { value: "abroad", label: "Abroad" },
+                  ]}
+                />
+
+                {signedAbroad === "abroad" && (
+                  <Field label="Country" htmlFor="clubCountry" hint="Optional.">
+                    <Input
+                      id="clubCountry"
+                      maxLength={60}
+                      value={clubCountry}
+                      onChange={(e) => setClubCountry(e.target.value)}
+                      placeholder="e.g. Denmark"
+                    />
+                  </Field>
+                )}
+              </>
             )}
           </div>
-
-          <ClubHistoryEditor value={clubHistory} onChange={setClubHistory} showCurrent={playsForCcfc === "no"} />
         </div>
       </Section>
 

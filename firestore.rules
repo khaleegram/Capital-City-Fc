@@ -114,8 +114,12 @@ service cloud.firestore {
               // guards were added (verified empirically — 7 entries passed, 8 failed).
               // Fewer entries means fewer per-index guards, and that is the only headroom
               // available without dropping the per-entry `verified` check or the index-0
-              // shape validation, both of which must hold. Keep in sync with MAX_CLUBS in
-              // src/app/(public)/join/club-history-editor.tsx.
+              // shape validation, both of which must hold.
+              //
+              // The form now sends at most one entry — it collects the club a player is with
+              // now and nothing else — but this stays at 5 on purpose. A player holding a
+              // cached copy of the older /join bundle still sends a list of up to five, and
+              // tightening the bound to 1 would reject that submission silently.
               && request.resource.data.clubHistory.size() <= 5
               // Full shape validation of the first entry.
               && validClubEntry(request.resource.data.clubHistory[0])
