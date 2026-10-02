@@ -99,9 +99,16 @@ const articleImages = (article: NewsArticle) => [
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; imageUrl?: string; heroImageFile?: File | null; heroImageMobileFile?: File | null; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
   try {
-    let imageUrl = "";
+    /*
+     * The cover, from one of two places.
+     *
+     * The news editor hands over a `File` and expects the upload to happen here, on save. The
+     * assistant has already uploaded the file by the time it calls this — the browser sends
+     * attachments to R2 before the model ever sees the message — so it passes the finished URL.
+     */
+    let imageUrl = articleData.imageUrl ?? "";
     if (articleData.imageFile) {
         imageUrl = await uploadNewsImage(articleData.imageFile);
     }

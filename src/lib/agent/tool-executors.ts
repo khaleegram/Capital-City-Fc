@@ -34,7 +34,7 @@
  * the same way but logged, since it means a bug rather than a bad instruction.
  */
 
-import { collection, doc, getDocs, query, where, addDoc, serverTimestamp, deleteField } from "firebase/firestore"
+import { collection, doc, getDocs, query, where, addDoc, updateDoc, serverTimestamp, deleteField } from "firebase/firestore"
 import { auth, db } from "@/lib/firebase"
 import { addFixtureAndArticle, deleteFixture, postLiveUpdate, updateFixture } from "@/lib/fixtures"
 import { addNewsArticle, deleteNewsArticle, setArticlePublished } from "@/lib/news"
@@ -109,6 +109,35 @@ function stringList(a: Record<string, unknown>, key: string): string[] {
   if (v === undefined) return []
   if (!Array.isArray(v)) throw new ToolFailure(`\`${key}\` must be an array of strings.`)
   return v.filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean)
+}
+
+/**
+ * The photos a tool was told to use, each with its caption if it gave one.
+ *
+ * The schema asks for `{ name, caption }` objects, but a bare filename is accepted too: a model
+ * with no caption to give sometimes emits the short form, and a photo without a caption is still
+ * a photo worth putting on the page. Entries that name no file at all are skipped.
+ */
+function photoSpecs(a: Record<string, unknown>, key: string): { name: string; caption?: string }[] {
+  const v = a[key]
+  if (v === undefined || v === null) return []
+  if (!Array.isArray(v)) throw new ToolFailure(`\`${key}\` must be an array of photos.`)
+
+  const out: { name: string; caption?: string }[] = []
+  for (const entry of v) {
+    if (typeof entry === "string") {
+      const name = entry.trim()
+      if (name) out.push({ name })
+      continue
+    }
+    if (entry && typeof entry === "object") {
+      const o = entry as Record<string, unknown>
+      const name = typeof o.name === "string" ? o.name.trim() : ""
+      const caption = typeof o.caption === "string" ? o.caption.trim() : ""
+      if (name) out.push(caption ? { name, caption } : { name })
+    }
+  }
+  return out
 }
 
 /** Whitespace-, case- and accent-insensitive, so "Hjorring FK 2" finds "Hjørring FK 2". */
@@ -314,14 +343,86 @@ function pickAttachments(
   const photos: Attachment[] = []
   const missing: string[] = []
   for (const name of wanted) {
-    const needle = name.toLowerCase()
-    const hit =
-      ctx.attachments.find((a) => a.name.toLowerCase() === needle) ??
-      ctx.attachments.find((a) => a.name.toLowerCase().includes(needle) || needle.includes(a.name.toLowerCase()))
+    const hit = findImage(name, ctx)
     if (hit) photos.push(hit)
     else missing.push(name)
   }
   return { photos, missing }
+}
+
+/**
+ * The image an attachment name refers to, matched the way a person would read it.
+ *
+ * Exact name first, then a substring either way, so "with the coach" finds
+ * "shamsubdeen-an-muhammad-with-the-coach.jpg". Restricted to images: a video matched as a photo
+ * would render as a broken `<img>` on the published page.
+ */
+function findImage(name: string, ctx: ToolContext): Attachment | undefined {
+  const needle = name.toLowerCase()
+  return (
+    ctx.attachments.find((a) => a.type === "image" && a.name.toLowerCase() === needle) ??
+    ctx.attachments.find(
+      (a) => a.type === "image" && (a.name.toLowerCase().includes(needle) || needle.includes(a.name.toLowerCase()))
+    )
+  )
+}
+
+/**
+ * Works out which attached photos an article should carry, and where each one goes.
+ *
+ * The cover is resolved separately and removed from the gallery, because a photo named as both
+ * would appear twice on the page. A name that matches nothing is dropped and reported rather than
+ * written as a URL that does not exist — a broken image on a published article is far worse than
+ * a gallery that is one picture short and says so.
+ */
+function resolveArticlePhotos(
+  coverName: string | undefined,
+  specs: { name: string; caption?: string }[],
+  ctx: ToolContext,
+  /**
+   * Whether the first photo may stand in as the cover when none was named.
+   *
+   * True when writing a *new* article, where a gallery with no cover would list as a blank box.
+   * False when adding to one that already exists — an article has a cover or it doesn't, and a
+   * request to add a photo is not a request to change its lead image.
+   */
+  promoteFirst = true
+): { cover?: string; gallery: { url: string; caption?: string }[]; missing: string[] } {
+  const missing: string[] = []
+  const gallery: { url: string; caption?: string }[] = []
+  let cover: string | undefined
+
+  if (coverName) {
+    const hit = findImage(coverName, ctx)
+    if (hit) cover = hit.url
+    else missing.push(coverName)
+  }
+
+  for (const spec of specs) {
+    const hit = findImage(spec.name, ctx)
+    if (!hit) {
+      missing.push(spec.name)
+      continue
+    }
+    // Already the hero image; repeating it in the row below reads as a mistake.
+    if (hit.url === cover) continue
+    gallery.push(spec.caption ? { url: hit.url, caption: spec.caption } : { url: hit.url })
+  }
+
+  /*
+   * A named cover wins, but photos without one still need a thumbnail.
+   *
+   * `imageUrl` is what drives the listing card and the social preview, so an article with a
+   * gallery and no cover would list as a blank box. Promoting the first photo costs nothing —
+   * the hero was going to show it anyway — and it is taken out of the gallery so the same picture
+   * is not shown twice. Its caption goes with it: the hero frame has nowhere to put one.
+   */
+  if (promoteFirst && !cover && gallery.length) {
+    cover = gallery[0].url
+    gallery.shift()
+  }
+
+  return { cover, gallery, missing }
 }
 
 /** Slug for a journey, made unique so a second tour with the same name doesn't collide. */
@@ -795,16 +896,36 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     const tags = stringList(a, "tags")
     const shouldPublish = a.publish === true
 
+    /*
+     * Photos the person attached for this article, resolved before either write path.
+     *
+     * The files are already in the bucket by the time the model is asked — the browser uploads
+     * them with the message — so this only pairs a name the model used with the URL that was
+     * stored, and works out which becomes the hero and which go in the row underneath.
+     */
+    const { cover, gallery, missing } = resolveArticlePhotos(
+      optString(a, "cover"),
+      photoSpecs(a, "photos"),
+      ctx
+    )
+    const photoNote = missing.length
+      ? ` These were named but not attached, so they are not on it: ${missing.join(", ")}.`
+      : ""
+
     if (shouldPublish) {
       /*
        * Publishing goes through the same helper the news editor uses, so the article it creates is
        * not addressable for undo afterwards. Rather than log a reversal that cannot be applied,
        * the publication is recorded as genuinely irreversible and the history says so.
        */
-      await addNewsArticle({ headline, content, tags })
+      await addNewsArticle({ headline, content, tags, imageUrl: cover, photos: gallery })
       ctx.journal.irreversible("The published article now exists on the site; its id was not returned.")
       await refreshPublic("news")
-      return { ok: true, summary: `Published "${headline}" to the site.`, data: { published: true } }
+      return {
+        ok: true,
+        summary: `Published "${headline}" to the site.${gallery.length ? ` It carries ${gallery.length} photo${gallery.length === 1 ? "" : "s"}.` : ""}${photoNote}`,
+        data: { published: true, photos: gallery.length },
+      }
     }
 
     /*
@@ -818,7 +939,8 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
       headline,
       content,
       tags,
-      imageUrl: "",
+      imageUrl: cover ?? "",
+      photos: gallery,
       date: new Date().toISOString(),
       published: false,
       generatedFrom: "assistant",
@@ -828,8 +950,76 @@ export const EXECUTORS: Record<string, ToolExecutor> = {
     await refreshPublic("news")
     return {
       ok: true,
-      summary: `Saved "${headline}" as a draft. It is in Stories waiting to be published.`,
-      data: { articleId: ref.id, published: false },
+      summary:
+        `Saved "${headline}" as a draft. It is in Stories waiting to be published.` +
+        (cover ? " The cover and gallery photos are on it." : "") +
+        photoNote,
+      data: { articleId: ref.id, published: false, photos: gallery.length },
+    }
+  },
+
+  async add_article_photos(raw, ctx) {
+    const a = args(raw)
+    const article = await resolveArticle(needString(a, "article"))
+
+    /*
+     * A cover is only promoted when the article has none.
+     *
+     * Adding a photo is not a request to change the lead image, so an article that already
+     * carries one keeps it. An article with no cover at all would otherwise keep listing as a
+     * blank box, so the first new photo fills that gap.
+     */
+    const { cover, gallery, missing } = resolveArticlePhotos(
+      optString(a, "cover"),
+      photoSpecs(a, "photos"),
+      ctx,
+      !article.imageUrl
+    )
+
+    if (!cover && !gallery.length) {
+      throw new ToolFailure(
+        "None of the named photos were attached, so there is nothing to add. Ask the person to attach them, " +
+          "then call this again."
+      )
+    }
+
+    /*
+     * Appended, not replaced, and never twice.
+     *
+     * The article keeps the photos it already carried. Re-naming the picture that is already its
+     * cover is an easy slip for the model, and the result would be the same photo twice on the
+     * page, so anything the article already has is dropped from the incoming set.
+     */
+    const existing = (article.photos ?? []) as { url: string; caption?: string }[]
+    const alreadyThere = new Set([article.imageUrl, ...existing.map((p) => p.url)].filter(Boolean))
+    const incoming = gallery.filter((p) => !alreadyThere.has(p.url))
+    const photos = [...existing, ...incoming]
+    const added = incoming.length + (cover ? 1 : 0)
+
+    if (!added) {
+      return {
+        ok: true,
+        summary: `"${article.headline}" already carries those photos, so nothing was added.`,
+        data: { articleId: article.id, photos: photos.length, missing },
+      }
+    }
+
+    await ctx.journal.capture("news", article.id)
+    await updateDoc(doc(db, "news", article.id), {
+      photos,
+      ...(cover ? { imageUrl: cover } : {}),
+      updatedAt: serverTimestamp(),
+    })
+    await refreshPublic("news")
+
+    return {
+      ok: true,
+      summary:
+        `Added ${added} photo${added === 1 ? "" : "s"} to "${article.headline}".` +
+        (cover ? " One of them is now the cover image." : "") +
+        ` It now carries ${photos.length} in the gallery.` +
+        (missing.length ? ` These were named but not attached: ${missing.join(", ")}.` : ""),
+      data: { articleId: article.id, photos: photos.length, missing },
     }
   },
 

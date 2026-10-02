@@ -134,6 +134,25 @@ const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
 })
 
 /**
+ * An ordered list of attached photos, each with its own optional caption.
+ *
+ * Objects rather than bare filenames so a caption can sit beside the photo it belongs to. A
+ * parallel `captions` array would be cheaper to describe but has to be kept index-aligned by the
+ * model, and a caption landing under the wrong photo is a silent, published mistake.
+ */
+const photoList = (description: string) => ({
+  type: "array",
+  description,
+  items: obj(
+    {
+      name: str("The attached file's name, as given in the attachment list."),
+      caption: str("Optional caption shown under this photo. Omit rather than inventing one."),
+    },
+    ["name"]
+  ),
+})
+
+/**
  * How the model is told to refer to a record.
  *
  * Every tool takes a free-text reference rather than a raw id. Models are unreliable at recalling
@@ -308,13 +327,23 @@ export const TOOLS: ToolSpec[] = [
     description:
       "Write a news article. Use this for club news that is NOT a match report — a signing, an announcement, " +
       "a training camp. For a played match, use record_result instead: it writes the report from the real score " +
-      "rather than having the model invent details.",
+      "rather than having the model invent details. " +
+      "If the person attached photos for this article, pass them here: `photos` in the order they should appear, " +
+      "and name one as a `cover` if there is a natural lead image. Do not describe the photos in the body text — " +
+      "they are rendered from the attachment URLs.",
     parameters: obj(
       {
         headline: str("The headline."),
         content: str("The article body. Separate paragraphs with a blank line."),
         tags: strings("Four to six short tags."),
         publish: bool("true puts it on the public site immediately. Default false, which saves a draft for review."),
+        photos: photoList(
+          "Attached photos to show in the gallery under the article. Omit entirely if the person attached none."
+        ),
+        cover: str(
+          "Name of the attached file to use as the article's cover image — the one that becomes the listing " +
+            "thumbnail and social preview. Optional; without it the first photo in `photos` is used as the cover."
+        ),
       },
       ["headline", "content"]
     ),
@@ -324,6 +353,26 @@ export const TOOLS: ToolSpec[] = [
     risk: "destructive",
     description: "Put an existing article on the public site. This is publicly visible, so the person must confirm it.",
     parameters: obj({ article: str(`The article. ${REF}`) }, ["article"]),
+  },
+  {
+    name: "add_article_photos",
+    risk: "write",
+    description:
+      "Add attached photos to a news article that already exists — the case where the article was written first " +
+      "and the pictures arrived afterwards. They are appended to the gallery under the body in the order given, " +
+      "and the article keeps whatever draft/published state it already has. Do not use this to write a new " +
+      "article: use create_article for that, which takes the photos in one go.",
+    parameters: obj(
+      {
+        article: str(`The article. ${REF}`),
+        photos: photoList("Attached photos to add, in the order they should appear."),
+        cover: str(
+          "Name of an attached file to use as the article's cover image instead of its current one. Optional — " +
+            "leave it out unless the person asked to change the lead image."
+        ),
+      },
+      ["article", "photos"]
+    ),
   },
   {
     name: "unpublish_article",
