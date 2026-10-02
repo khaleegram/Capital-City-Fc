@@ -27,6 +27,10 @@ export const IMAGE_PROFILES: Record<string, ImageProfile> = {
   news: { kind: "max", max: 1600 },
   journeys: { kind: "max", max: 1600 },
   media: { kind: "max", max: 1600 },
+  // Files attached in the assistant chat. They end up wherever a tool puts them — most often a
+  // news article image — so this is the general-purpose cap rather than a card crop, and it
+  // stops a full-size phone photo reaching the bucket the way `team` did before it had a profile.
+  assistant: { kind: "max", max: 1600 },
   // Homepage hero. Absent until now, which meant the club's hero upload bypassed
   // preparation entirely and a full-size phone photo went to the bucket untouched.
   // Capped taller than the card profiles because it is drawn full-bleed.

@@ -20,6 +20,13 @@ export const ALLOWED_PREFIXES: readonly string[] = [
   "news",
   "team",
   "fixtures",
+  /*
+   * Files attached to an assistant conversation. The admin chat uploads through `uploadFile`
+   * with this prefix, and `createUploadUrl` rejects anything not in this list — so while it was
+   * missing, every attachment in the assistant failed with "Invalid upload location." surfaced
+   * only as a generic production error. Anything that uploads must be named here.
+   */
+  "assistant",
 ]
 
 /**
