@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Field } from "@/components/admin/ui"
+import { FocalPoint } from "@/components/admin/focal-point"
 import { NativeSelect } from "@/components/admin/form-kit"
 import { useCollection } from "@/lib/collections"
 import { toDate } from "@/lib/utils"
@@ -24,7 +25,7 @@ import type { ArticlePhotoInput } from "@/lib/news"
 import type { Fixture, NewsArticle } from "@/lib/data"
 
 interface NewsEditorProps {
-  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; heroImageFile: File | null; heroImageMobileFile: File | null; clearHeroImage: boolean; clearHeroImageMobile: boolean; photos: ArticlePhotoInput[]; fixtureId?: string | null }, articleId?: string) => Promise<void>;
+  onPublish: (article: { headline: string; content: string; tags: string[]; imageFile: File | null; imagePosition?: string; heroImageFile: File | null; heroImagePosition?: string; heroImageMobileFile: File | null; heroImageMobilePosition?: string; clearHeroImage: boolean; clearHeroImageMobile: boolean; photos: ArticlePhotoInput[]; fixtureId?: string | null }, articleId?: string) => Promise<void>;
   articleToEdit?: NewsArticle | null;
   onFinishEditing: () => void;
 }
@@ -35,11 +36,17 @@ interface NewsEditorProps {
  * `url` is set for one already saved on the article and `file`/`preview` for one picked in this
  * session; exactly one of the two is present. `key` identifies the row while it has no URL yet.
  */
-type PhotoDraft = { key: string; caption: string; url?: string; file?: File; preview?: string };
+type PhotoDraft = { key: string; caption: string; url?: string; file?: File; preview?: string; position?: string };
 
 /** Existing photos as editor rows, so opening an article shows what it already has. */
 const photosToDrafts = (article: NewsArticle | null | undefined): PhotoDraft[] =>
-  (article?.photos ?? []).map((p) => ({ key: p.url, caption: p.caption ?? "", url: p.url, preview: p.url }));
+  (article?.photos ?? []).map((p) => ({
+    key: p.url,
+    caption: p.caption ?? "",
+    url: p.url,
+    preview: p.url,
+    position: p.position,
+  }));
 
 let photoKeySeed = 0;
 const nextPhotoKey = () => `new-${++photoKeySeed}`;
@@ -59,11 +66,18 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const [socialPosts, setSocialPosts] = useState<SocialPosts | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  /*
+   * Which slice of each image the frame shows. Held beside the image it belongs to rather than in
+   * the photo rows, because the three covers are separate uploads.
+   */
+  const [imagePosition, setImagePosition] = useState<string | undefined>(undefined);
   const [heroPreview, setHeroPreview] = useState<string | null>(null);
   const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [heroPosition, setHeroPosition] = useState<string | undefined>(undefined);
   const [clearHeroImage, setClearHeroImage] = useState(false);
   const [mobileHeroPreview, setMobileHeroPreview] = useState<string | null>(null);
   const [mobileHeroImageFile, setMobileHeroImageFile] = useState<File | null>(null);
+  const [mobileHeroPosition, setMobileHeroPosition] = useState<string | undefined>(undefined);
   const [clearMobileHeroImage, setClearMobileHeroImage] = useState(false);
   /*
    * Extra photos, held as one ordered list of existing and newly-picked entries so the order the
@@ -95,12 +109,15 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       setFixtureId(articleToEdit.fixtureId ?? null);
       setImagePreview(articleToEdit.imageUrl);
       setImageFile(null);
+      setImagePosition(articleToEdit.imagePosition);
       setHeroPreview(articleToEdit.heroImageUrl || null);
       setHeroImageFile(null);
       setClearHeroImage(false);
+      setHeroPosition(articleToEdit.heroImagePosition);
       setMobileHeroPreview(articleToEdit.heroImageMobileUrl || null);
       setMobileHeroImageFile(null);
       setClearMobileHeroImage(false);
+      setMobileHeroPosition(articleToEdit.heroImageMobilePosition);
       setPhotos(photosToDrafts(articleToEdit));
       setBulletPoints("");
       setIsEditing(true);
@@ -119,12 +136,15 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setFixtureId(null);
     setImagePreview(null);
     setImageFile(null);
+    setImagePosition(undefined);
     setHeroPreview(null);
     setHeroImageFile(null);
     setClearHeroImage(false);
+    setHeroPosition(undefined);
     setMobileHeroPreview(null);
     setMobileHeroImageFile(null);
     setClearMobileHeroImage(false);
+    setMobileHeroPosition(undefined);
     setPhotos([]);
     setIsEditing(false);
     onFinishEditing();
@@ -138,6 +158,7 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
     setSocialPosts(null);
     setImagePreview(null);
     setImageFile(null);
+    setImagePosition(undefined);
     setIsEditing(false)
     
     try {
@@ -259,6 +280,9 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
   const handlePhotoCaption = (key: string, caption: string) =>
     setPhotos((current) => current.map((p) => (p.key === key ? { ...p, caption } : p)));
 
+  const handlePhotoPosition = (key: string, position: string) =>
+    setPhotos((current) => current.map((p) => (p.key === key ? { ...p, position } : p)));
+
   const handleMovePhoto = (index: number, direction: -1 | 1) => {
     setPhotos((current) => {
       const next = [...current];
@@ -294,12 +318,15 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
       content: articleContent,
       tags: suggestedTags,
       imageFile,
+      imagePosition,
       heroImageFile,
+      heroImagePosition: heroPosition,
       heroImageMobileFile: mobileHeroImageFile,
+      heroImageMobilePosition: mobileHeroPosition,
       clearHeroImage,
       clearHeroImageMobile: clearMobileHeroImage,
       // `url` for photos already saved, `file` for ones picked now — the library uploads the latter.
-      photos: photos.map(({ url, file, caption }) => ({ url, file, caption })),
+      photos: photos.map(({ url, file, caption, position }) => ({ url, file, caption, position })),
       fixtureId,
     }, articleToEdit?.id);
     setIsSubmitting(false);
@@ -510,6 +537,16 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                 <p className="mt-2 text-xs text-muted-foreground">
                     Used for listing thumbnails, social previews and the article hero.
                 </p>
+                {imagePreview && (
+                    <FocalPoint
+                        className="mt-3 max-w-md"
+                        label="Which part of the cover shows"
+                        src={imagePreview}
+                        aspect="16 / 9"
+                        value={imagePosition}
+                        onChange={setImagePosition}
+                    />
+                )}
             </div>
             <div className="mt-6">
                 <Label className="font-semibold">Portrait hero (optional)</Label>
@@ -534,6 +571,16 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                     taller frame instead, so the whole picture shows. Leave empty to use the
                     landscape cover above.
                 </p>
+                {heroPreview && (
+                    <FocalPoint
+                        className="mt-3 max-w-[220px]"
+                        label="Which part shows"
+                        src={heroPreview}
+                        aspect="4 / 5"
+                        value={heroPosition}
+                        onChange={setHeroPosition}
+                    />
+                )}
                 {heroPreview && (
                     <Button type="button" variant="outline" size="sm" className="mt-3" onClick={handleRemoveHero} disabled={isLoading}>
                         <X className="mr-2 h-3 w-3" />
@@ -563,6 +610,16 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                     Shown to phones only, in a taller frame. Leave empty and phones use the
                     portrait hero, or the landscape cover if there is none.
                 </p>
+                {mobileHeroPreview && (
+                    <FocalPoint
+                        className="mt-3 max-w-[220px]"
+                        label="Which part shows on a phone"
+                        src={mobileHeroPreview}
+                        aspect="4 / 5"
+                        value={mobileHeroPosition}
+                        onChange={setMobileHeroPosition}
+                    />
+                )}
                 {mobileHeroPreview && (
                     <Button type="button" variant="outline" size="sm" className="mt-3" onClick={handleRemoveMobileHero} disabled={isLoading}>
                         <X className="mr-2 h-3 w-3" />
@@ -596,6 +653,15 @@ export function NewsEditor({ onPublish, articleToEdit, onFinishEditing }: NewsEd
                                     onChange={(e) => handlePhotoCaption(photo.key, e.target.value)}
                                     disabled={isLoading}
                                 />
+                                {photo.preview && (
+                                    <FocalPoint
+                                        className="mt-2"
+                                        src={photo.preview}
+                                        aspect="4 / 3"
+                                        value={photo.position}
+                                        onChange={(position) => handlePhotoPosition(photo.key, position)}
+                                    />
+                                )}
                                 <div className="mt-2 flex items-center gap-1">
                                     <Button
                                         type="button"

@@ -65,7 +65,7 @@ export const uploadNewsImage = async (imageFile: File): Promise<string> => {
  * save). Both are optional rather than a union so the editor can hold one ordered list of
  * existing and new photos — reordering would otherwise have to splice two arrays apart.
  */
-export type ArticlePhotoInput = { url?: string; file?: File | null; caption?: string };
+export type ArticlePhotoInput = { url?: string; file?: File | null; caption?: string; position?: string };
 
 /**
  * Resolves the editor's photo list into what goes on the document.
@@ -81,11 +81,37 @@ const resolvePhotos = async (photos: ArticlePhotoInput[] | undefined) => {
       const url = photo.file ? await uploadNewsImage(photo.file) : photo.url;
       if (!url) return null;
       const caption = photo.caption?.trim();
-      return caption ? { url, caption } : { url };
+      /*
+       * The frame position travels with the photo. Only written when the writer set one, so a
+       * photo they never repositioned stores no field at all and keeps the browser's centre.
+       */
+      const position = photo.position?.trim();
+      return {
+        url,
+        ...(caption ? { caption } : {}),
+        ...(position ? { position } : {}),
+      };
     })
   );
-  return resolved.filter((p): p is { url: string; caption?: string } => p !== null);
+  return resolved.filter((p): p is { url: string; caption?: string; position?: string } => p !== null);
 };
+
+/**
+ * The three frame positions, ready to spread into a document.
+ *
+ * Omitted when absent so an article nobody repositioned stores no new fields at all. Positions
+ * for images the writer did not touch are simply not sent, which keeps an older article's crop
+ * exactly as it was rather than resetting it to centre.
+ */
+const positionFields = (data: {
+  imagePosition?: string
+  heroImagePosition?: string
+  heroImageMobilePosition?: string
+}) => ({
+  ...(data.imagePosition ? { imagePosition: data.imagePosition } : {}),
+  ...(data.heroImagePosition ? { heroImagePosition: data.heroImagePosition } : {}),
+  ...(data.heroImageMobilePosition ? { heroImageMobilePosition: data.heroImageMobilePosition } : {}),
+})
 
 /** Every image an article owns, so deleting it can reclaim them all. */
 const articleImages = (article: NewsArticle) => [
@@ -99,7 +125,7 @@ const articleImages = (article: NewsArticle) => [
  * Adds a new news article to Firestore.
  * @param articleData The data for the new article.
  */
-export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; imageUrl?: string; heroImageFile?: File | null; heroImageMobileFile?: File | null; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
+export const addNewsArticle = async (articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; imageUrl?: string; imagePosition?: string; heroImageFile?: File | null; heroImagePosition?: string; heroImageMobileFile?: File | null; heroImageMobilePosition?: string; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
   try {
     /*
      * The cover, from one of two places.
@@ -133,6 +159,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
       content: articleData.content,
       tags: articleData.tags,
       imageUrl: imageUrl,
+      ...positionFields(articleData),
       heroImageUrl: heroImageUrl,
       heroImageMobileUrl: heroImageMobileUrl,
       photos: photos ?? [],
@@ -175,7 +202,7 @@ export const addNewsArticle = async (articleData: { headline: string; content: s
  * @param articleId The ID of the article to update.
  * @param articleData The data to update.
  */
-export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; heroImageFile?: File | null; heroImageMobileFile?: File | null; clearHeroImage?: boolean; clearHeroImageMobile?: boolean; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
+export const updateNewsArticle = async (articleId: string, articleData: { headline: string; content: string; tags: string[], imageFile?: File | null; imagePosition?: string; heroImageFile?: File | null; heroImagePosition?: string; heroImageMobileFile?: File | null; heroImageMobilePosition?: string; clearHeroImage?: boolean; clearHeroImageMobile?: boolean; photos?: ArticlePhotoInput[]; fixtureId?: string | null }) => {
     try {
         const articleDocRef = doc(db, "news", articleId);
 
@@ -193,6 +220,8 @@ export const updateNewsArticle = async (articleId: string, articleData: { headli
             headline: articleData.headline,
             content: articleData.content,
             tags: articleData.tags,
+            // Sent only when the writer moved the crop; untouched images keep the crop they had.
+            ...positionFields(articleData),
             updatedAt: serverTimestamp(),
         };
 

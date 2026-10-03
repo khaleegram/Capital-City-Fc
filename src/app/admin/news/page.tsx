@@ -6,6 +6,7 @@ import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { addNewsArticle, deleteNewsArticle, setArticlePublished, updateNewsArticle, type ArticlePhotoInput } from "@/lib/news"
 import { refreshPublic } from "@/lib/admin-client"
+import { focusStyle } from "@/lib/image-position"
 import { useToast } from "@/hooks/use-toast"
 import type { NewsArticle } from "@/lib/data"
 import Image from "next/image"
@@ -45,7 +46,7 @@ function ArticleCard({
     <Card className="relative group/article">
       {article.imageUrl && (
         <div className="aspect-video relative">
-          <Image src={article.imageUrl} alt={article.headline} fill className="object-cover rounded-t-lg" data-ai-hint="news header" />
+          <Image src={article.imageUrl} alt={article.headline} fill className="object-cover rounded-t-lg" style={focusStyle(article.imagePosition)} data-ai-hint="news header" />
         </div>
       )}
       <CardHeader>

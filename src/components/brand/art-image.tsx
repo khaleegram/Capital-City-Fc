@@ -1,4 +1,5 @@
 import { getImageProps } from "next/image"
+import type { CSSProperties } from "react"
 import { ART_MOBILE_MAX, type ArtDirection, type ArtSlot } from "@/lib/art-direction"
 
 /**
@@ -53,6 +54,11 @@ type ArtImageProps = {
   /** Classes for the `<picture>` wrapper, which is what sits in the layout. */
   className?: string
   imgClassName?: string
+  /**
+   * Inline style for the `<img>`. Used to carry the writer's chosen crop as the two custom
+   * properties `globals.css` reads — see `.art-focus`.
+   */
+  imgStyle?: CSSProperties
 }
 
 /**
@@ -74,6 +80,7 @@ export function ArtImage({
   priority = false,
   className,
   imgClassName,
+  imgStyle,
 }: ArtImageProps) {
   const main = artSlot(desktop, { sizes, width, height, priority })
   const phone = mobile
@@ -86,7 +93,7 @@ export function ArtImage({
       {priority && <ArtImagePreload art={{ desktop: main, mobile: phone ?? undefined }} sizes={mobileSizes ?? sizes} />}
       <picture className={className}>
         {phone && <source media={`(max-width: ${ART_MOBILE_MAX}px)`} srcSet={phone.srcSet} sizes={mobileSizes ?? sizes} />}
-        <img {...main} alt={alt} className={imgClassName} />
+        <img {...main} alt={alt} className={imgClassName} style={imgStyle} />
       </picture>
     </>
   )

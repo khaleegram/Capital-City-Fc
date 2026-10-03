@@ -197,6 +197,20 @@
   .text-balance {
     text-wrap: balance;
   }
+  /*
+   * A hero's crop can differ between the wide frame and the phone frame, but `object-position`
+   * lives on the single <img> that both breakpoints share, so it cannot be set inline once per
+   * breakpoint. The two positions ride in as custom properties instead, and the phone frame only
+   * overrides when the editor actually supplied a phone position. 767px is `ART_MOBILE_MAX`.
+   */
+  .art-focus {
+    object-position: var(--focus-desktop, 50% 50%);
+  }
+  @media (max-width: 767px) {
+    .art-focus {
+      object-position: var(--focus-mobile, var(--focus-desktop, 50% 50%));
+    }
+  }
   .hairline {
     border: 1px solid rgb(var(--brand-line) / 0.12);
   }

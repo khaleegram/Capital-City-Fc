@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
+import type { CSSProperties } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { copy } from "@/lib/copy"
 import { formatDate, cn } from "@/lib/utils"
+import { focusStyle } from "@/lib/image-position"
 import { getArticle, getNews } from "@/lib/server/queries"
 import { HOME_CRUMB, SOCIAL_CARD, articleNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
@@ -76,6 +78,19 @@ export default async function StoryPage({ params }: Props) {
   const photos = article.photos ?? []
   const photoCount = photos.length
 
+  /*
+   * The writer's crop, handed to the `<img>` as custom properties.
+   *
+   * Which stored position applies depends on which file the hero actually shows: a portrait
+   * `heroImageUrl` overrides the cover, and a separate phone photo overrides both on small
+   * screens. `--focus-mobile` is left unset unless there is a phone-only photo, so phones fall
+   * back to the same crop as the wide frame in the ordinary case.
+   */
+  const heroFocus = {
+    "--focus-desktop": article.heroImageUrl ? article.heroImagePosition : article.imagePosition,
+    "--focus-mobile": article.heroImageMobileUrl ? article.heroImageMobilePosition : undefined,
+  } as CSSProperties
+
   return (
     <article className="pt-20 md:pt-28">
       <JsonLd
@@ -120,7 +135,8 @@ export default async function StoryPage({ params }: Props) {
               sizes={hero.sizes}
               mobileSizes="100vw"
               className="absolute inset-0"
-              imgClassName="h-full w-full object-cover"
+              imgClassName="art-focus h-full w-full object-cover"
+              imgStyle={heroFocus}
             />
           </div>
         </div>
@@ -149,6 +165,7 @@ export default async function StoryPage({ params }: Props) {
                       fill
                       sizes={photoCount === 1 ? "(min-width: 1024px) 64rem, 100vw" : "(min-width: 640px) 33vw, 50vw"}
                       className="object-cover"
+                      style={focusStyle(photo.position)}
                     />
                   </div>
                   {photo.caption && <figcaption className="mt-2 text-sm text-mist/70">{photo.caption}</figcaption>}
@@ -165,7 +182,7 @@ export default async function StoryPage({ params }: Props) {
             {more.map((a) => (
               <Link key={a.id} href={`/news/${a.id}`} className="group block">
                 <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-line/10 bg-navy-deep">
-                  {a.imageUrl && <Image src={a.imageUrl} alt="" fill sizes="33vw" className="object-cover" />}
+                  {a.imageUrl && <Image src={a.imageUrl} alt="" fill sizes="33vw" className="object-cover" style={focusStyle(a.imagePosition)} />}
                 </div>
                 <p className="mt-2 font-semibold leading-snug">{a.headline}</p>
               </Link>

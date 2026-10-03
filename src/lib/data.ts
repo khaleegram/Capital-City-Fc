@@ -110,7 +110,7 @@ export type PlayerClubEntry = {
 export type DateLike = Timestamp | Date | string;
 
 /** One extra photo on a news article. `caption` is optional and shown under it in the gallery. */
-export type NewsPhoto = { url: string; caption?: string };
+export type NewsPhoto = { url: string; caption?: string; position?: string };
 
 export type NewsArticle = {
   id: string;
@@ -121,6 +121,17 @@ export type NewsArticle = {
    * unless `heroImageUrl` is set.
    */
   imageUrl: string;
+  /**
+   * Which slice of `imageUrl` the frame shows, as a CSS `object-position` value, e.g. `"50% 25%"`.
+   *
+   * Photos are never cropped on upload — the file keeps its shape and the frame decides what is
+   * visible — so a tall photo placed in a wide hero shows only its middle band, which on a
+   * standing subject is roughly their chest. This is the writer's correction, and the vertical
+   * number is the one that matters: lowering it moves the frame up the photo, which is what puts
+   * faces back in view. Absent means centre, which is what every article written before this
+   * field existed still gets.
+   */
+  imagePosition?: string;
   date: string; // Should be ISO string
   tags: string[];
   audioUrl?: string;
@@ -132,6 +143,8 @@ export type NewsArticle = {
    * that matches the photo, so the whole thing shows. Listings keep using `imageUrl`.
    */
   heroImageUrl?: string;
+  /** Which slice of `heroImageUrl` the 4:5 hero frame shows. See `imagePosition`. */
+  heroImagePosition?: string;
   /**
    * Optional phone cover for the article hero.
    *
@@ -140,6 +153,8 @@ export type NewsArticle = {
    * every screen gets `heroImageUrl || imageUrl` instead.
    */
   heroImageMobileUrl?: string;
+  /** Which slice of `heroImageMobileUrl` the phone frame shows. See `imagePosition`. */
+  heroImageMobilePosition?: string;
   /**
    * Extra photos, shown as a gallery under the article body.
    *

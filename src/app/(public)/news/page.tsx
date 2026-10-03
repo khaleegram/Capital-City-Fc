@@ -4,6 +4,7 @@ import Link from "next/link"
 import { copy } from "@/lib/copy"
 import { PAGE_SEO, pageGraph, pageMetadata } from "@/lib/seo"
 import { formatDate } from "@/lib/utils"
+import { focusStyle } from "@/lib/image-position"
 import { getNews } from "@/lib/server/queries"
 import { JsonLd } from "@/components/seo/json-ld"
 import { PageHero } from "@/components/site/page-hero"
@@ -28,7 +29,7 @@ export default async function StoriesPage() {
           <Reveal>
             <Link href={`/news/${lead.id}`} className="group grid gap-5 md:grid-cols-[1.4fr_1fr] md:items-end">
               <div className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-line/10 bg-navy-deep">
-                {lead.imageUrl && <Image src={lead.imageUrl} alt="" fill priority sizes="(min-width: 768px) 60vw, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />}
+                {lead.imageUrl && <Image src={lead.imageUrl} alt="" fill priority sizes="(min-width: 768px) 60vw, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" style={focusStyle(lead.imagePosition)} />}
               </div>
               <div>
                 <p className="font-mono text-[11px] uppercase tracking-stamp text-signal">{formatDate(lead.date, { day: "numeric", month: "long", year: "numeric" })}</p>
@@ -43,7 +44,7 @@ export default async function StoriesPage() {
             {rest.map((a) => (
               <Link key={a.id} href={`/news/${a.id}`} className="group block">
                 <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-line/10 bg-navy-deep">
-                  {a.imageUrl && <Image src={a.imageUrl} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" />}
+                  {a.imageUrl && <Image src={a.imageUrl} alt="" fill sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition-transform duration-700 group-hover:scale-[1.03]" style={focusStyle(a.imagePosition)} />}
                 </div>
                 <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.18em] text-mist/75">{formatDate(a.date)}</p>
                 <h3 className="mt-1 font-display text-2xl font-extrabold uppercase leading-none font-condensed">{a.headline}</h3>
