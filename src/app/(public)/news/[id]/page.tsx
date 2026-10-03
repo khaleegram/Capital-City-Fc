@@ -8,9 +8,10 @@ import { copy } from "@/lib/copy"
 import { formatDate, cn } from "@/lib/utils"
 import { focusStyle } from "@/lib/image-position"
 import { getArticle, getNews } from "@/lib/server/queries"
-import { HOME_CRUMB, SOCIAL_CARD, articleNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
+import { HOME_CRUMB, articleNode, breadcrumbNode, detailKeywords, detailMetadata, jsonLdGraph } from "@/lib/seo"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ArtImage } from "@/components/brand/art-image"
+import { ShareArticle } from "@/components/site/share-article"
 
 export const revalidate = 60
 
@@ -59,9 +60,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: a.headline,
     description,
     keywords: [...detailKeywords("newsDetail"), ...(a.tags ?? [])],
-    image: a.imageUrl ? { url: a.imageUrl, alt: a.headline } : SOCIAL_CARD,
     type: "article",
     publishedTime: a.date,
+    /*
+     * No `image` on purpose. This route ships its own `opengraph-image.tsx`, and Next only merges
+     * that generated card when the page's `openGraph` has no `images` key at all — naming the
+     * article photo here would override the branded card with the raw upload.
+     */
   })
 }
 
@@ -123,6 +128,7 @@ export default async function StoryPage({ params }: Props) {
             ))}
           </ul>
         )}
+        <ShareArticle title={article.headline} className="mt-5" />
       </div>
       {heroSrc && (
         <div className={phoneHero ? phoneHero.box : hero.box}>

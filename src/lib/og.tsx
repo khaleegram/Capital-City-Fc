@@ -32,12 +32,21 @@ export async function ogCard({
   title,
   sub,
   image: imageUrl,
+  imagePosition,
   score,
 }: {
   eyebrow: string
   title: string
   sub?: string
   image?: string | null
+  /**
+   * Which slice of the photo the card shows, as a CSS `object-position` value.
+   *
+   * The photo sits in a 560×630 column, so a tall shot is cropped hard — and without this that
+   * crop is dead centre, which on a standing subject is their chest. Articles store the writer's
+   * own choice, so the card shows the same part of the picture the article does.
+   */
+  imagePosition?: string
   /**
    * A result to lead with, e.g. `9–10`. Rendered as a red line above the title.
    *
@@ -55,7 +64,7 @@ export async function ogCard({
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#07142E", color: "#F5F3EE", fontFamily: "Archivo" }}>
         {image && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" width={560} height={630} style={{ position: "absolute", right: 0, top: 0, width: 560, height: 630, objectFit: "cover" }} />
+          <img src={image} alt="" width={560} height={630} style={{ position: "absolute", right: 0, top: 0, width: 560, height: 630, objectFit: "cover", ...(imagePosition ? { objectPosition: imagePosition } : {}) }} />
         )}
         <div
           style={{
